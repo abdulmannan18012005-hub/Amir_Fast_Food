@@ -1,6 +1,7 @@
 import { createRootRoute, Outlet, useLocation } from '@tanstack/react-router';
-import React from 'react';
+import React, { useState } from 'react';
 import { AmirBotDrawer } from '../components/chat/AmirBotDrawer';
+import { MobileBottomNav } from '../components/navigation/MobileBottomNav';
 
 export const Route = createRootRoute({
   component: RootComponent,
@@ -48,21 +49,20 @@ function RootComponent() {
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21"></path></svg>
                   WhatsApp
                 </a>
-                <button className="relative bg-red-600 hover:bg-red-700 text-white p-2 rounded-full transition-colors flex items-center justify-center">
+                <a href="/checkout" className="relative bg-red-600 hover:bg-red-700 text-white p-2 rounded-full transition-colors flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
-                  <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full border border-slate-900">0</span>
-                </button>
+                </a>
               </div>
             </div>
           </div>
         </header>
 
-        {/* Main Content — add bottom padding on mobile for nav bar */}
+        {/* Main Content */}
         <main className="flex-grow flex flex-col pb-16 md:pb-0">
           <Outlet />
         </main>
 
-        {/* Footer — hidden on mobile since bottom nav covers it */}
+        {/* Footer */}
         <footer className="hidden md:block bg-slate-900 border-t border-slate-800 py-12 mt-auto">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="text-center md:text-left">
@@ -77,26 +77,10 @@ function RootComponent() {
           </div>
         </footer>
 
-        {/* Mobile Bottom Navigation Bar */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 flex items-center justify-around h-16 px-2">
-          <a href="/" className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors ${path === '/' ? 'text-red-500' : 'text-slate-400'}`}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-            <span className="text-[10px] font-medium">Home</span>
-          </a>
-          <a href="/menu" className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors ${path === '/menu' ? 'text-red-500' : 'text-slate-400'}`}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
-            <span className="text-[10px] font-medium">Menu</span>
-          </a>
-          <a href="/menu?cat=cat_deals" className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors text-slate-400`}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m20.59 13.41-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" x2="7.01" y1="7" y2="7"/></svg>
-            <span className="text-[10px] font-medium">Deals</span>
-          </a>
-          <a href="/checkout" className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors ${path === '/checkout' ? 'text-red-500' : 'text-slate-400'}`}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
-            <span className="text-[10px] font-medium">Cart</span>
-          </a>
-        </nav>
-
+        <MobileBottomNav onOpenCart={() => window.location.href = '/checkout'} onOpenBot={() => {
+          const btn = document.querySelector('button[aria-label="Open chat"]') as HTMLButtonElement;
+          if (btn) btn.click();
+        }} />
         <AmirBotDrawer />
       </body>
     </html>
