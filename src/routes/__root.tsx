@@ -1,6 +1,7 @@
 import { createRootRoute, Outlet, useLocation, Scripts, HeadContent, ScrollRestoration } from '@tanstack/react-router';
 import React, { useState } from 'react';
 import { AmirBotDrawer } from '../components/chat/AmirBotDrawer';
+import { CartDrawer } from '../components/cart/CartDrawer';
 import { MobileBottomNav } from '../components/navigation/MobileBottomNav';
 
 import { ThemeSwitcher } from '../components/ThemeSwitcher';
@@ -13,26 +14,57 @@ export const Route = createRootRoute({
 function RootComponent() {
   const location = useLocation();
   const path = location.pathname;
+  
   const [cartCount, setCartCount] = React.useState(0);
   const [cartTotal, setCartTotal] = React.useState(0);
+  const [isCartOpen, setIsCartOpen] = React.useState(false);
+  const [cartItems, setCartItems] = React.useState([]);
 
   React.useEffect(() => {
     const handleStorage = () => {
       const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-      setCartCount(cart.reduce((acc: number, item: any) => acc + item.quantity, 0));
-      setCartTotal(cart.reduce((acc: number, item: any) => {
-        const varsTotal = item.variants?.reduce((vSum: number, v: any) => vSum + (v.price || 0), 0) || 0;
+      setCartItems(cart);
+      setCartCount(cart.reduce((acc, item) => acc + item.quantity, 0));
+      setCartTotal(cart.reduce((acc, item) => {
+        const varsTotal = item.variants?.reduce((vSum, v) => vSum + (v.price || 0), 0) || 0;
         return acc + ((item.price || 0) + varsTotal) * item.quantity;
       }, 0));
     };
     handleStorage();
     window.addEventListener('storage', handleStorage);
     window.addEventListener('cartUpdated', handleStorage);
+    const handleOpenCart = () => setIsCartOpen(true);
+    window.addEventListener('openCart', handleOpenCart);
     return () => {
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('cartUpdated', handleStorage);
+      window.removeEventListener('openCart', handleOpenCart);
     };
   }, []);
+
+  const handleUpdateQuantity = (id, delta) => {
+    const updated = cartItems.map(item => {
+      if (item.menu_item_id === id) {
+        return { ...item, quantity: Math.max(1, item.quantity + delta) };
+      }
+      return item;
+    });
+    localStorage.setItem('cart', JSON.stringify(updated));
+    window.dispatchEvent(new Event('cartUpdated'));
+  };
+
+  const handleRemoveItem = (id) => {
+    const updated = cartItems.filter(item => item.menu_item_id !== id);
+    localStorage.setItem('cart', JSON.stringify(updated));
+    window.dispatchEvent(new Event('cartUpdated'));
+  };
+
+  const handleClearCart = () => {
+    localStorage.setItem('cart', JSON.stringify([]));
+    window.dispatchEvent(new Event('cartUpdated'));
+    setIsCartOpen(false);
+  };
+
 
   return (
     <html lang="en" className="dark" style={{ scrollBehavior: 'smooth' }}>
@@ -108,7 +140,7 @@ function RootComponent() {
       </head>
       <body className="min-h-screen flex flex-col font-sans overflow-x-hidden">
         {/* Navigation */}
-        <nav className="fixed top-0 left-0 right-0 z-50 glass">
+        <nav className="sticky top-0 z-50 backdrop-blur-md bg-background/80 border-b border-border/40">
           <div className="container flex h-16 items-center justify-between">
             <a className="flex items-center gap-2.5" href="/">
               <div className="h-10 w-10 rounded-xl gradient-primary flex items-center justify-center">
@@ -125,11 +157,23 @@ function RootComponent() {
               <a href="/locations" className="hidden sm:block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Locations</a>
               <HeaderSearch />
               <ThemeSwitcher />
+              
+              <button 
+                onClick={() => window.dispatchEvent(new Event('toggleAmirBot'))}
+                className="relative inline-flex items-center justify-center h-9 w-9 rounded-xl text-muted-foreground hover:bg-accent hover:text-foreground transition-colors border border-transparent hover:border-border"
+                aria-label="Toggle AmirBot"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full animate-pulse border border-background"></span>
+              </button>
+
               <a href="/checkout" onClick={(e) => {
+                e.preventDefault();
                 if (cartCount === 0) {
-                  e.preventDefault();
                   alert('Your cart is empty. Add your favorite meal first!');
                   window.location.href = '/menu';
+                } else {
+                  setIsCartOpen(true);
                 }
               }}>
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none border border-primary bg-primary hover:bg-primary/90 text-primary-foreground h-9 rounded-full px-4 shadow-sm">
@@ -141,7 +185,7 @@ function RootComponent() {
         </nav>
 
         {/* Main Content */}
-        <main className="flex-grow flex flex-col pt-24 pb-16 md:pb-0">
+        <main className="flex-grow flex flex-col pb-16 md:pb-0">
           <Outlet />
         </main>
 
@@ -166,6 +210,9 @@ function RootComponent() {
                 <div className="flex flex-col gap-3 text-sm">
                   <a href="/menu" className="text-muted-foreground hover:text-foreground transition-colors">Menu</a>
                   <a href="/locations" className="text-muted-foreground hover:text-foreground transition-colors">Locations</a>
+                  <button onClick={() => window.dispatchEvent(new Event('toggleAmirBot'))} className="text-left text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5">
+                    🤖 Ask AmirBot (AI Assistant)
+                  </button>
                 </div>
               </div>
               <div className="space-y-3">
@@ -206,11 +253,12 @@ function RootComponent() {
           </div>
         </footer>
 
-        <MobileBottomNav onOpenCart={() => window.location.href = '/checkout'} onOpenBot={() => {
+        <MobileBottomNav onOpenCart={() => { if(cartCount === 0) { alert('Your cart is empty!'); } else { setIsCartOpen(true); } }} onOpenBot={() => {
           const btn = document.querySelector('button[aria-label="Open chat"]') as HTMLButtonElement;
           if (btn) btn.click();
         }} />
         <AmirBotDrawer />
+        <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} items={cartItems} onUpdateQuantity={handleUpdateQuantity} onRemoveItem={handleRemoveItem} onClearCart={handleClearCart} />
         <ScrollRestoration />
         <Scripts />
       </body>

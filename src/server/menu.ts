@@ -20,7 +20,7 @@ export const getMenuItems = createServerFn({ method: "GET" }).validator((d: stri
   const supabase = getSupabaseServer();
   let query = supabase
     .from('menu_items')
-    .select('id, category_id, sub_category, name, description, price, image_url, variants, is_available, created_at')
+    .select('id, category_id, sub_category, name, description, price, original_price, image_url, variants, is_available, created_at')
     .eq('is_available', true);
     
   if (categoryId && categoryId !== 'all') {

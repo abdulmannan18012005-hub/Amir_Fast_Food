@@ -5,11 +5,17 @@ import { MessageCircle, X, Send, Bot } from 'lucide-react';
 export function AmirBotDrawer() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<{ role: 'user' | 'bot', text: string }[]>([
-    { role: 'bot', text: 'Hi! I am AmirBot. How can I help you today? 🍔' }
+    { role: 'bot', text: 'Hi! I am AmirBot. How can I help you today?' }
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleToggle = () => setIsOpen(prev => !prev);
+    window.addEventListener('toggleAmirBot', handleToggle);
+    return () => window.removeEventListener('toggleAmirBot', handleToggle);
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -39,29 +45,30 @@ export function AmirBotDrawer() {
       <button 
         aria-label="Open chat"
         onClick={() => setIsOpen(true)}
-        className={`fixed bottom-6 right-6 p-4 bg-red-600 hover:bg-red-500 text-white rounded-full shadow-2xl transition-transform transform ${isOpen ? 'scale-0' : 'scale-100'} z-50`}
+        className={`fixed bottom-6 right-6 p-4 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full shadow-2xl transition-transform transform ${isOpen ? 'scale-0' : 'scale-100'} z-50 shadow-primary/30`}
       >
         <Bot size={28} />
       </button>
 
       {/* Slide-up Drawer */}
-      <div className={`fixed bottom-0 right-0 sm:right-6 sm:bottom-6 w-full sm:w-96 h-[500px] bg-slate-900 border border-slate-700 sm:rounded-2xl shadow-2xl flex flex-col transition-transform transform ${isOpen ? 'translate-y-0' : 'translate-y-[150%]'} z-50`}>
+      <div className={`fixed bottom-0 right-0 sm:right-6 sm:bottom-6 w-full sm:w-96 h-[550px] bg-card border border-border sm:rounded-2xl shadow-2xl flex flex-col transition-transform duration-300 transform ${isOpen ? 'translate-y-0' : 'translate-y-[150%]'} z-[60]`}>
         
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-slate-700 bg-slate-800 sm:rounded-t-2xl">
-          <div className="flex items-center gap-2">
-            <div className="bg-red-500/20 p-2 rounded-lg">
-              <Bot className="text-red-500" size={24} />
+        <div className="flex items-center justify-between p-4 border-b border-border bg-accent/50 sm:rounded-t-2xl">
+          <div className="flex items-center gap-3">
+            <div className="bg-primary/20 p-2 rounded-xl relative">
+              <Bot className="text-primary" size={24} />
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 border-2 border-card rounded-full animate-pulse"></span>
             </div>
             <div>
-              <h3 className="font-bold text-white">AmirBot</h3>
-              <p className="text-xs text-green-400 flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-green-400"></span> Online
+              <h3 className="font-bold text-foreground">AmirBot</h3>
+              <p className="text-xs text-emerald-500 font-medium flex items-center gap-1">
+                Online
               </p>
             </div>
           </div>
-          <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-white">
-            <X size={24} />
+          <button onClick={() => setIsOpen(false)} className="text-muted-foreground hover:text-foreground p-1 bg-background rounded-full transition-colors border border-border">
+            <X size={20} />
           </button>
         </div>
 
@@ -69,17 +76,22 @@ export function AmirBotDrawer() {
         <div ref={scrollRef} className="flex-1 p-4 overflow-y-auto space-y-4">
           {messages.map((msg, i) => (
             <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[80%] p-3 rounded-2xl ${msg.role === 'user' ? 'bg-red-600 text-white rounded-br-none' : 'bg-slate-800 border border-slate-700 text-slate-200 rounded-bl-none'}`}>
-                {msg.text}
+              <div className={`max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-none shadow-md' : 'bg-accent border border-border text-foreground rounded-bl-none shadow-sm'}`}>
+                {msg.text.split('\n').map((line, idx) => (
+                  <React.Fragment key={idx}>
+                    {line}
+                    {idx < msg.text.split('\n').length - 1 && <br />}
+                  </React.Fragment>
+                ))}
               </div>
             </div>
           ))}
           {isTyping && (
             <div className="flex justify-start">
-              <div className="bg-slate-800 border border-slate-700 p-3 rounded-2xl rounded-bl-none flex gap-1">
-                <span className="w-2 h-2 bg-slate-500 rounded-full animate-bounce"></span>
-                <span className="w-2 h-2 bg-slate-500 rounded-full animate-bounce delay-75"></span>
-                <span className="w-2 h-2 bg-slate-500 rounded-full animate-bounce delay-150"></span>
+              <div className="bg-accent border border-border p-3.5 rounded-2xl rounded-bl-none flex gap-1 shadow-sm">
+                <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce"></span>
+                <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce delay-75"></span>
+                <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce delay-150"></span>
               </div>
             </div>
           )}
@@ -87,30 +99,33 @@ export function AmirBotDrawer() {
 
         {/* Suggestion Chips */}
         {messages.length === 1 && (
-          <div className="px-4 pb-2 flex flex-wrap gap-2">
-            <button onClick={() => handleSend("What are your best-selling burgers?")} className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-full border border-slate-700 transition-colors">
-              🍔 Best-selling burgers?
+          <div className="px-4 pb-3 flex flex-wrap gap-2">
+            <button onClick={() => handleSend("Show Top Burgers")} className="text-xs bg-background hover:bg-accent text-foreground px-3 py-2 rounded-full border border-border transition-colors font-medium">
+              🍔 Show Top Burgers
             </button>
-            <button onClick={() => handleSend("How does the PKR 10,000 wallet bonus work?")} className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-full border border-slate-700 transition-colors">
-              💰 PKR 10,000 Bonus?
+            <button onClick={() => handleSend("Best Broast Deals")} className="text-xs bg-background hover:bg-accent text-foreground px-3 py-2 rounded-full border border-border transition-colors font-medium">
+              🍗 Best Broast Deals
             </button>
-            <button onClick={() => handleSend("What are your delivery fees?")} className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-full border border-slate-700 transition-colors">
-              🛵 Delivery fees?
+            <button onClick={() => handleSend("Delivery Fee Rules")} className="text-xs bg-background hover:bg-accent text-foreground px-3 py-2 rounded-full border border-border transition-colors font-medium">
+              🛵 Delivery Fee Rules
+            </button>
+            <button onClick={() => handleSend("Where is the shop located?")} className="text-xs bg-background hover:bg-accent text-foreground px-3 py-2 rounded-full border border-border transition-colors font-medium">
+              📍 Where is the shop located?
             </button>
           </div>
         )}
 
         {/* Input */}
-        <form onSubmit={(e) => { e.preventDefault(); handleSend(input); }} className="p-4 border-t border-slate-700 bg-slate-800 sm:rounded-b-2xl flex gap-2">
+        <form onSubmit={(e) => { e.preventDefault(); handleSend(input); }} className="p-4 border-t border-border bg-background sm:rounded-b-2xl flex gap-2">
           <input 
             type="text" 
             value={input}
             onChange={e => setInput(e.target.value)}
-            placeholder="Ask AmirBot..." 
-            className="flex-1 bg-slate-900 border border-slate-700 text-white rounded-lg px-4 py-2 focus:outline-none focus:border-red-500"
+            placeholder="Type your message..." 
+            className="flex-1 bg-accent/50 border border-border text-foreground rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
           />
-          <button type="submit" disabled={!input.trim()} className="bg-red-600 text-white p-2 rounded-lg hover:bg-red-500 disabled:opacity-50 transition-colors">
-            <Send size={20} />
+          <button type="submit" disabled={!input.trim()} className="bg-primary text-primary-foreground w-12 flex items-center justify-center rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-colors shadow-md shadow-primary/20">
+            <Send size={18} />
           </button>
         </form>
 

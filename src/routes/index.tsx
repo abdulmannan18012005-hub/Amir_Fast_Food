@@ -9,13 +9,13 @@ function Index() {
   return (
     <>
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-background pt-16 sm:pt-20 md:pt-24 lg:pt-32 pb-16 sm:pb-20">
+      <section className="relative overflow-hidden bg-background pt-8 sm:pt-12 md:pt-16 lg:pt-24 pb-16 sm:pb-20">
         {/* Background text styling */}
-        <div className="absolute top-1/4 left-0 w-full overflow-hidden whitespace-nowrap opacity-10 flex flex-col gap-4 pointer-events-none z-0 select-none">
-          <div className="text-[15vw] font-black text-transparent stroke-text leading-none -ml-[5vw] transform -rotate-2">
+        <div className="absolute top-1/4 left-0 w-full overflow-hidden whitespace-nowrap flex flex-col gap-4 pointer-events-none z-0 select-none">
+          <div className="text-[15vw] font-black leading-none -ml-[5vw] transform -rotate-2 overflow-hidden select-none pointer-events-none opacity-5 text-stroke">
             AMIR FAST FOOD
           </div>
-          <div className="text-[12vw] font-black text-primary leading-none ml-[10vw] transform rotate-1">
+          <div className="text-[12vw] font-black leading-none ml-[10vw] transform rotate-1 overflow-hidden select-none pointer-events-none opacity-5 text-stroke text-primary">
             AMIR FAST FOOD
           </div>
         </div>
@@ -31,10 +31,10 @@ function Index() {
                 <span className="text-xs sm:text-sm font-medium uppercase tracking-wider">Amir Fast Food</span>
               </div>
               <h1 className="font-display text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-tight mb-6">
-                The flavor that finds <span className="text-primary">you</span>.
+                The Flavor That Hits <span className="text-primary">The Spot</span>.
               </h1>
               <p className="text-lg sm:text-xl text-muted-foreground mb-8 sm:mb-10 max-w-lg mx-auto lg:mx-0">
-                Crispy Broast, Gourmet Smash Burgers & Loaded Deals. Restaurants, food trailers & delivery — always near you.
+                Fresh Crispy Broast, Smashed Beef Burgers, Loaded Shawarmas & Unbeatable Family Combos.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                 <a href="/menu">
@@ -114,7 +114,7 @@ function Index() {
             {[
               { id: 'cat_burgers', name: 'Burgers', sub: 'Smash & Zinger', img: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=300&q=80' },
               { id: 'cat_broast', name: 'Broast', sub: 'Crispy Fried', img: 'https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?auto=format&fit=crop&w=300&q=80' },
-              { id: 'cat_shawarma', name: 'Shawarma', sub: 'Authentic Arab', img: 'https://images.unsplash.com/photo-1647414966601-3141f17e0892?auto=format&fit=crop&w=300&q=80' },
+              { id: 'cat_shawarma', name: 'Shawarma', sub: 'Authentic Arab', img: 'https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=300&q=80' },
               { id: 'cat_loaded_fries', name: 'Loaded Fries', sub: 'Cheese & Jalapeno', img: 'https://images.unsplash.com/photo-1534080564583-6be75777b70a?auto=format&fit=crop&w=300&q=80' },
               { id: 'cat_pizza_burgers', name: 'Pizza Burgers', sub: 'Best of both', img: 'https://images.unsplash.com/photo-1586816001966-79b736744398?auto=format&fit=crop&w=300&q=80' },
               { id: 'cat_wings', name: 'Wings', sub: 'Spicy & BBQ', img: 'https://images.unsplash.com/photo-1608039829572-78524f79c4c7?auto=format&fit=crop&w=300&q=80' },

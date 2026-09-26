@@ -6,12 +6,14 @@ interface Props {
   onClose: () => void;
   items: (CartItem & { name: string; image_url: string })[];
   onUpdateQuantity: (menu_item_id: string, delta: number) => void;
+  onRemoveItem: (menu_item_id: string) => void;
+  onClearCart: () => void;
 }
 
-export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity }: Props) {
+export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveItem, onClearCart }: Props) {
   const subtotal = items.reduce((sum, item) => {
-    const varsTotal = item.variants.reduce((vSum, v) => vSum + v.price, 0);
-    return sum + (item.price + varsTotal) * item.quantity;
+    const varsTotal = item.variants?.reduce((vSum, v) => vSum + (v.price || 0), 0) || 0;
+    return sum + ((item.price || 0) + varsTotal) * item.quantity;
   }, 0);
   
   const deliveryFee = subtotal < 1000 && subtotal > 0 ? 100 : 0;
@@ -33,9 +35,14 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity }: Props) 
           <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
             Your Order <span className="bg-primary text-xs px-2 py-1 rounded-full">{items.length}</span>
           </h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
-            <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
-          </button>
+          <div className="flex items-center gap-4">
+            {items.length > 0 && (
+              <button onClick={onClearCart} className="text-sm text-destructive hover:text-destructive/80 font-bold">Clear Cart</button>
+            )}
+            <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+              <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+          </div>
         </div>
 
         <div className="flex-grow overflow-y-auto p-6 space-y-6">
@@ -46,23 +53,26 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity }: Props) 
             </div>
           ) : (
             items.map((item, idx) => {
-              const varsTotal = item.variants.reduce((s, v) => s + v.price, 0);
-              const lineTotal = (item.price + varsTotal) * item.quantity;
+              const varsTotal = item.variants?.reduce((s, v) => s + (v.price || 0), 0) || 0;
+              const lineTotal = ((item.price || 0) + varsTotal) * item.quantity;
               return (
                 <div key={idx} className="flex gap-4 border-b border-border pb-4">
                   <img src={item.image_url} alt={item.name} className="w-20 h-20 object-cover rounded-lg" />
                   <div className="flex-1">
                     <h4 className="text-foreground font-bold">{item.name}</h4>
-                    {item.variants.length > 0 && (
+                    {item.variants && item.variants.length > 0 && (
                       <p className="text-xs text-muted-foreground mt-1">
                         + {item.variants.map(v => v.name).join(', ')}
                       </p>
                     )}
                     <div className="flex justify-between items-end mt-2">
-                      <div className="flex items-center bg-accent rounded">
-                        <button onClick={() => onUpdateQuantity(item.menu_item_id, -1)} className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground">-</button>
-                        <span className="w-8 text-center text-foreground text-sm">{item.quantity}</span>
-                        <button onClick={() => onUpdateQuantity(item.menu_item_id, 1)} className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground">+</button>
+                      <div className="flex gap-4 items-center">
+                        <div className="flex items-center bg-accent rounded">
+                          <button onClick={() => onUpdateQuantity(item.menu_item_id, -1)} className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground">-</button>
+                          <span className="w-8 text-center text-foreground text-sm">{item.quantity}</span>
+                          <button onClick={() => onUpdateQuantity(item.menu_item_id, 1)} className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground">+</button>
+                        </div>
+                        <button onClick={() => onRemoveItem(item.menu_item_id)} className="text-xs text-destructive font-bold hover:underline">Remove</button>
                       </div>
                       <span className="font-bold text-emerald-400">PKR {lineTotal}</span>
                     </div>
@@ -86,7 +96,7 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity }: Props) 
               <div className="h-2 w-full bg-accent rounded-full overflow-hidden">
                 <div 
                   className={`h-full transition-all duration-500 rounded-full ${subtotal >= 1000 ? 'bg-emerald-500' : 'bg-primary'}`} 
-                  style={{ width: \`\${Math.min((subtotal / 1000) * 100, 100)}%\` }} 
+                  style={{ width: `${Math.min((subtotal / 1000) * 100, 100)}%` }} 
                 />
               </div>
             </div>
