@@ -1,4 +1,4 @@
-import { createRootRoute, Outlet, useLocation } from '@tanstack/react-router';
+import { createRootRoute, Outlet, useLocation, Scripts, Meta, ScrollRestoration } from '@tanstack/react-router';
 import React, { useState } from 'react';
 import { AmirBotDrawer } from '../components/chat/AmirBotDrawer';
 import { MobileBottomNav } from '../components/navigation/MobileBottomNav';
@@ -16,6 +16,7 @@ function RootComponent() {
   return (
     <html lang="en" className="dark" style={{ scrollBehavior: 'smooth' }}>
       <head>
+        <Meta />
         <meta charSet="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
         <title>Amir Fast Food - Shawarma, Burgers & Combos</title>
@@ -181,6 +182,8 @@ function RootComponent() {
           if (btn) btn.click();
         }} />
         <AmirBotDrawer />
+        <ScrollRestoration />
+        <Scripts />
       </body>
     </html>
   );
