@@ -6,7 +6,11 @@ import tsconfigPaths from 'vite-tsconfig-paths';
 export default defineConfig({
   plugins: [
     tsconfigPaths(),
-    tanstackStart({ config: { appDirectory: 'app' } }),
+    tanstackStart({
+      server: {
+        preset: 'vercel'
+      }
+    }),
     viteReact(),
   ],
 });

@@ -27,6 +27,7 @@
     "ws": "^8.22.0"
   },
   "devDependencies": {
+    "@tanstack/start-vite-plugin": "^1.91.1",
     "@types/node": "^20.11.0",
     "@types/nodemailer": "^6.4.14",
     "@types/react": "^19.0.0",
