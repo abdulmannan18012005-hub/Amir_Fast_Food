@@ -89,3 +89,11 @@ export const createOrder = createServerFn("POST", async (payload: CreateOrderPay
     return { success: false, error: err.message || 'Unknown error occurred.' };
   }
 });
+
+export const updateOrderStatus = createServerFn({ method: 'POST' }).handler(async ({ data }: { data: { orderId: string, status: string } }) => {
+  const supabase = getSupabaseServer();
+  const { error } = await supabase.from('orders').update({ status: data.status }).eq('id', data.orderId);
+  if (error) throw new Error(error.message);
+  return { success: true };
+});
+

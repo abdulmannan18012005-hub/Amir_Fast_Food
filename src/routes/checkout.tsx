@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import React, { useState } from 'react';
 import { createOrder } from '../server/order';
+import { playSuccessChime } from '../lib/sound';
 
 export const Route = createFileRoute('/checkout')({
   component: CheckoutPage,
@@ -45,6 +46,7 @@ function CheckoutPage() {
         throw new Error(res.error);
       }
       
+      playSuccessChime();
       // Navigate to tracking
       window.location.href = `/orders/${res.orderId}`;
     } catch (err: any) {

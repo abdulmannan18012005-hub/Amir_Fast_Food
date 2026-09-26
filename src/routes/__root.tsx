@@ -160,6 +160,7 @@ function RootComponent() {
         </footer>
 
         <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
+        <AmirBotDrawer />
       </body>
     </html>
   );
