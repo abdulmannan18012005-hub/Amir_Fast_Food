@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { searchMenuItems } from '../server/menu';
+import { searchMenuItems } from '../../server/menu';
 import type { MenuItem } from '../types';
 
 export function HeaderSearch() {
