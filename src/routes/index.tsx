@@ -2,46 +2,92 @@ import { createFileRoute } from '@tanstack/react-router';
 import React from 'react';
 
 export const Route = createFileRoute('/')({
-  component: IndexPage,
+  component: Index,
 });
 
-function IndexPage() {
+function Index() {
   return (
     <>
       {/* Hero Section */}
-      <section className="relative min-h-[100svh] flex items-end">
-        <div className="absolute inset-0">
-          <img src="https://amirfastfood.vercel.app/assets/hero-food-DECPAvMU.jpg" alt="Amir Fast Food — Shawarma & Burgers" className="h-full w-full object-cover" loading="eager" />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-background/10"></div>
+      <section className="relative overflow-hidden bg-background pt-16 sm:pt-20 md:pt-24 lg:pt-32 pb-16 sm:pb-20">
+        {/* Background text styling */}
+        <div className="absolute top-1/4 left-0 w-full overflow-hidden whitespace-nowrap opacity-10 flex flex-col gap-4 pointer-events-none z-0 select-none">
+          <div className="text-[15vw] font-black text-transparent stroke-text leading-none -ml-[5vw] transform -rotate-2">
+            AMIR FAST FOOD
+          </div>
+          <div className="text-[12vw] font-black text-primary leading-none ml-[10vw] transform rotate-1">
+            AMIR FAST FOOD
+          </div>
         </div>
-        <div className="relative container mx-auto px-4 pb-12 pt-32 sm:pb-20 md:pb-28">
-          <div className="max-w-2xl">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="h-1 w-10 rounded-full gradient-primary"></div>
-              <span className="text-sm font-medium text-primary uppercase tracking-wider">Amir Fast Food</span>
+
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="grid gap-12 lg:grid-cols-2 lg:gap-8 items-center">
+            <div className="max-w-2xl text-center lg:text-left mx-auto lg:mx-0">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary mb-6">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                </span>
+                <span className="text-xs sm:text-sm font-medium uppercase tracking-wider">Amir Fast Food</span>
+              </div>
+              <h1 className="font-display text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-tight mb-6">
+                The flavor that finds <span className="text-primary">you</span>.
+              </h1>
+              <p className="text-lg sm:text-xl text-muted-foreground mb-8 sm:mb-10 max-w-lg mx-auto lg:mx-0">
+                Crispy Broast, Gourmet Smash Burgers & Loaded Deals. Restaurants, food trailers & delivery — always near you.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+                <a href="/menu">
+                  <button className="w-full sm:w-auto inline-flex items-center justify-center whitespace-nowrap bg-primary text-primary-foreground hover:bg-primary/90 h-12 sm:h-14 px-8 sm:px-10 text-base sm:text-lg font-bold rounded-2xl transition-all shadow-lg shadow-primary/30">
+                    Order Now
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="ml-2 h-5 w-5"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+                  </button>
+                </a>
+                <a href="/menu">
+                  <button className="w-full sm:w-auto inline-flex items-center justify-center whitespace-nowrap bg-secondary text-secondary-foreground hover:bg-secondary/80 h-12 sm:h-14 px-8 sm:px-10 text-base sm:text-lg font-bold rounded-2xl transition-all">
+                    View Menu
+                  </button>
+                </a>
+              </div>
             </div>
-            <h1 className="font-display text-4xl font-bold tracking-tight sm:text-5xl md:text-7xl leading-[0.95]">
-              The flavor that finds you <span className="text-gradient">.</span>
-            </h1>
-            <p className="mt-5 text-base text-muted-foreground sm:text-lg md:text-xl max-w-lg">
-              Authentic shawarma, smash burgers and irresistible combos. Restaurants, food trailers & delivery — always near you.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <a href="/menu">
-                <button className="inline-flex items-center justify-center whitespace-nowrap font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary hover:bg-primary/90 h-11 gradient-primary text-primary-foreground gap-2 px-6 sm:px-8 py-6 text-base rounded-2xl">
-                  Order Now
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
-                </button>
-              </a>
-              <a href="/menu">
-                <button className="inline-flex items-center justify-center whitespace-nowrap font-medium ring-offset-background transition-colors focus-visible:outline-none border bg-background hover:bg-accent hover:text-accent-foreground h-11 gap-2 px-6 sm:px-8 py-6 text-base rounded-2xl border-border/50">
-                  View Menu
-                </button>
-              </a>
+            
+            <div className="relative mx-auto w-full max-w-md lg:max-w-none">
+              <div className="relative rounded-3xl overflow-hidden aspect-square sm:aspect-[4/3] lg:aspect-square border border-border/50 shadow-2xl">
+                <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 to-transparent mix-blend-overlay z-10"></div>
+                <img src="https://amirfastfood.vercel.app/assets/hero-food-DECPAvMU.jpg" alt="Amir Fast Food - Shawarma & Burgers" className="h-full w-full object-cover" loading="eager" />
+              </div>
+              
+              {/* Floating badges */}
+              <div className="absolute -bottom-4 sm:-bottom-6 -left-4 sm:-left-6 bg-card border border-border p-3 sm:p-4 rounded-2xl shadow-xl z-20 animate-bounce" style={{ animationDuration: '3s' }}>
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 sm:h-6 sm:w-6"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path></svg>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium">100% Secure</p>
+                    <p className="text-sm sm:text-base font-bold text-foreground">Online Payment</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="absolute -top-4 sm:-top-6 -right-4 sm:-right-6 bg-card border border-border p-3 sm:p-4 rounded-2xl shadow-xl z-20 animate-bounce" style={{ animationDuration: '4s', animationDelay: '1s' }}>
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 sm:h-6 sm:w-6"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium">Delivery</p>
+                    <p className="text-sm sm:text-base font-bold text-foreground">Under 45 Mins</p>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="mt-8 flex flex-wrap gap-4 sm:gap-6 text-sm text-muted-foreground">
+          </div>
+          
+          <div className="mt-16 sm:mt-20 border-t border-border/40 pt-8 sm:pt-10">
+            <div className="flex flex-wrap justify-center lg:justify-start gap-6 sm:gap-10 text-xs sm:text-sm font-medium text-muted-foreground">
               <div className="flex items-center gap-1.5">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-primary"><polygon points="3 11 22 2 13 21 11 13 3 11"></polygon></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-primary"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
                 <span>Near you</span>
               </div>
               <div className="flex items-center gap-1.5">
@@ -57,11 +103,49 @@ function IndexPage() {
         </div>
       </section>
 
+      {/* Category Showcase Slider */}
+      <section className="py-16 bg-card/50 border-y border-border/30">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-10 sm:mb-14">
+            <span className="text-sm font-medium text-primary uppercase tracking-wider">Explore</span>
+            <h2 className="font-display text-2xl sm:text-3xl font-bold mt-2 md:text-5xl">Our <span className="text-gradient">Categories</span></h2>
+          </div>
+          <div className="flex overflow-x-auto gap-4 pb-8 scrollbar-hide snap-x">
+            {[
+              { id: 'cat_burgers', name: 'Burgers', sub: 'Smash & Zinger', img: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=300&q=80' },
+              { id: 'cat_broast', name: 'Broast', sub: 'Crispy Fried', img: 'https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?auto=format&fit=crop&w=300&q=80' },
+              { id: 'cat_shawarma', name: 'Shawarma', sub: 'Authentic Arab', img: 'https://images.unsplash.com/photo-1647414966601-3141f17e0892?auto=format&fit=crop&w=300&q=80' },
+              { id: 'cat_loaded_fries', name: 'Loaded Fries', sub: 'Cheese & Jalapeno', img: 'https://images.unsplash.com/photo-1534080564583-6be75777b70a?auto=format&fit=crop&w=300&q=80' },
+              { id: 'cat_pizza_burgers', name: 'Pizza Burgers', sub: 'Best of both', img: 'https://images.unsplash.com/photo-1586816001966-79b736744398?auto=format&fit=crop&w=300&q=80' },
+              { id: 'cat_wings', name: 'Wings', sub: 'Spicy & BBQ', img: 'https://images.unsplash.com/photo-1608039829572-78524f79c4c7?auto=format&fit=crop&w=300&q=80' },
+              { id: 'cat_paratha_rolls', name: 'Paratha Rolls', sub: 'Desi Style', img: 'https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&w=300&q=80' },
+              { id: 'cat_fish', name: 'Fish', sub: 'Fried & Grilled', img: 'https://images.unsplash.com/photo-1599084993091-1cb5c0721cc6?auto=format&fit=crop&w=300&q=80' },
+              { id: 'cat_deals', name: 'Platters & Deals', sub: 'Value Combos', img: 'https://images.unsplash.com/photo-1594968973184-9040a5a79963?auto=format&fit=crop&w=300&q=80' },
+              { id: 'cat_drinks', name: 'Drinks', sub: 'Cold Beverages', img: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=300&q=80' },
+            ].map(cat => (
+              <a 
+                key={cat.id} 
+                href={`/menu?cat=${cat.id}`}
+                className="min-w-[160px] sm:min-w-[200px] flex-shrink-0 snap-start group relative overflow-hidden rounded-2xl bg-card border border-border hover:border-primary transition-colors shadow-lg"
+              >
+                <div className="h-32 sm:h-40 overflow-hidden">
+                  <img src={cat.img} alt={cat.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                </div>
+                <div className="p-4 bg-gradient-to-t from-background to-background/80 absolute bottom-0 left-0 right-0">
+                  <h3 className="font-bold text-foreground">{cat.name}</h3>
+                  <p className="text-xs text-primary">{cat.sub}</p>
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Menu Highlights Section */}
       <section className="container mx-auto px-4 py-16 sm:py-20 md:py-28">
         <div className="text-center mb-10 sm:mb-14">
-          <span className="text-sm font-medium text-primary uppercase tracking-wider">Menu</span>
-          <h2 className="font-display text-2xl sm:text-3xl font-bold mt-2 md:text-5xl">Our <span className="text-gradient">highlights</span></h2>
+          <span className="text-sm font-medium text-primary uppercase tracking-wider">Favorites</span>
+          <h2 className="font-display text-2xl sm:text-3xl font-bold mt-2 md:text-5xl">Our <span className="text-gradient">Highlights</span></h2>
         </div>
         <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-3">
           <div className="group relative overflow-hidden rounded-2xl sm:rounded-3xl bg-card border border-border/30">
@@ -70,7 +154,7 @@ function IndexPage() {
             </div>
             <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent"></div>
             <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
-              <h3 className="font-display text-lg sm:text-xl font-bold">Classic Shawarma</h3>
+              <h3 className="font-display text-lg sm:text-xl font-bold text-foreground">Classic Shawarma</h3>
               <p className="mt-1 text-xs sm:text-sm text-muted-foreground">Spit-roasted meat, garlic sauce & artisan pita bread</p>
             </div>
           </div>
@@ -80,7 +164,7 @@ function IndexPage() {
             </div>
             <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent"></div>
             <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
-              <h3 className="font-display text-lg sm:text-xl font-bold">Smash Burger</h3>
+              <h3 className="font-display text-lg sm:text-xl font-bold text-foreground">Smash Burger</h3>
               <p className="mt-1 text-xs sm:text-sm text-muted-foreground">Exclusive blend, 200g of pure smashed beef</p>
             </div>
           </div>
@@ -90,7 +174,7 @@ function IndexPage() {
             </div>
             <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent"></div>
             <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
-              <h3 className="font-display text-lg sm:text-xl font-bold">Combos</h3>
+              <h3 className="font-display text-lg sm:text-xl font-bold text-foreground">Combos</h3>
               <p className="mt-1 text-xs sm:text-sm text-muted-foreground">Burger + fries + drink at a special price</p>
             </div>
           </div>
@@ -102,28 +186,28 @@ function IndexPage() {
         <div className="container mx-auto px-4 py-16 sm:py-20 md:py-28">
           <div className="text-center mb-10 sm:mb-14">
             <span className="text-sm font-medium text-primary uppercase tracking-wider">Simple</span>
-            <h2 className="font-display text-2xl sm:text-3xl font-bold mt-2 md:text-4xl">How it works</h2>
+            <h2 className="font-display text-2xl sm:text-3xl font-bold mt-2 md:text-4xl text-foreground">How it works</h2>
           </div>
           <div className="grid gap-8 grid-cols-1 sm:grid-cols-3 max-w-3xl mx-auto">
             <div className="text-center">
-              <div className="mx-auto mb-4 h-14 w-14 sm:h-16 sm:w-16 rounded-2xl gradient-primary flex items-center justify-center">
+              <div className="mx-auto mb-4 h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/20">
                 <span className="font-display text-xl sm:text-2xl font-bold text-primary-foreground">01</span>
               </div>
-              <h3 className="font-display text-base sm:text-lg font-semibold">Scan the QR</h3>
+              <h3 className="font-display text-base sm:text-lg font-semibold text-foreground">Scan the QR</h3>
               <p className="mt-2 text-xs sm:text-sm text-muted-foreground">Point your camera at the table or trailer QR code</p>
             </div>
             <div className="text-center">
-              <div className="mx-auto mb-4 h-14 w-14 sm:h-16 sm:w-16 rounded-2xl gradient-primary flex items-center justify-center">
+              <div className="mx-auto mb-4 h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/20">
                 <span className="font-display text-xl sm:text-2xl font-bold text-primary-foreground">02</span>
               </div>
-              <h3 className="font-display text-base sm:text-lg font-semibold">Build your order</h3>
+              <h3 className="font-display text-base sm:text-lg font-semibold text-foreground">Build your order</h3>
               <p className="mt-2 text-xs sm:text-sm text-muted-foreground">Choose items, customize extras and add to cart</p>
             </div>
             <div className="text-center">
-              <div className="mx-auto mb-4 h-14 w-14 sm:h-16 sm:w-16 rounded-2xl gradient-primary flex items-center justify-center">
+              <div className="mx-auto mb-4 h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/20">
                 <span className="font-display text-xl sm:text-2xl font-bold text-primary-foreground">03</span>
               </div>
-              <h3 className="font-display text-base sm:text-lg font-semibold">Get it fresh</h3>
+              <h3 className="font-display text-base sm:text-lg font-semibold text-foreground">Get it fresh</h3>
               <p className="mt-2 text-xs sm:text-sm text-muted-foreground">Track in real time and pick up when ready</p>
             </div>
           </div>
@@ -132,14 +216,14 @@ function IndexPage() {
 
       {/* Hungry Section CTA */}
       <section className="container mx-auto px-4 pb-16 sm:pb-20 mt-16">
-        <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl gradient-primary p-8 sm:p-10 md:p-16 text-center">
+        <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-br from-primary to-primary/80 p-8 sm:p-10 md:p-16 text-center shadow-xl shadow-primary/20">
           <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 20%, white 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
-          <div className="relative">
+          <div className="relative z-10">
             <h2 className="font-display text-2xl sm:text-3xl font-bold text-primary-foreground md:text-4xl">Hungry?</h2>
-            <p className="mt-3 text-primary-foreground/80 text-base sm:text-lg max-w-md mx-auto">Order in seconds from your phone. No lines, no waiting.</p>
+            <p className="mt-3 text-primary-foreground/90 text-base sm:text-lg max-w-md mx-auto">Order in seconds from your phone. No lines, no waiting.</p>
             <div className="mt-6 sm:mt-8">
               <a href="/menu">
-                <button className="inline-flex items-center justify-center whitespace-nowrap bg-secondary text-secondary-foreground hover:bg-secondary/80 h-11 gap-2 px-8 sm:px-10 py-6 text-base rounded-2xl font-bold">
+                <button className="inline-flex items-center justify-center whitespace-nowrap bg-background text-foreground hover:bg-background/90 h-11 gap-2 px-8 sm:px-10 py-6 text-base rounded-2xl font-bold shadow-lg">
                   Order Now
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
                 </button>

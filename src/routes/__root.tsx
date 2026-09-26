@@ -13,6 +13,26 @@ export const Route = createRootRoute({
 function RootComponent() {
   const location = useLocation();
   const path = location.pathname;
+  const [cartCount, setCartCount] = React.useState(0);
+  const [cartTotal, setCartTotal] = React.useState(0);
+
+  React.useEffect(() => {
+    const handleStorage = () => {
+      const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+      setCartCount(cart.reduce((acc: number, item: any) => acc + item.quantity, 0));
+      setCartTotal(cart.reduce((acc: number, item: any) => {
+        const varsTotal = item.variants?.reduce((vSum: number, v: any) => vSum + (v.price || 0), 0) || 0;
+        return acc + ((item.price || 0) + varsTotal) * item.quantity;
+      }, 0));
+    };
+    handleStorage();
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('cartUpdated', handleStorage);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('cartUpdated', handleStorage);
+    };
+  }, []);
 
   return (
     <html lang="en" className="dark" style={{ scrollBehavior: 'smooth' }}>
@@ -100,13 +120,20 @@ function RootComponent() {
               </div>
             </a>
             <div className="flex items-center gap-2 sm:gap-4">
+              <a href="/" className="hidden sm:block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Home</a>
               <a href="/menu" className="hidden sm:block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Menu</a>
-              <a href="/menu" className="hidden sm:block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Locations</a>
+              <a href="/locations" className="hidden sm:block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Locations</a>
               <HeaderSearch />
               <ThemeSwitcher />
-              <a href="/checkout">
-                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3">
-                  Checkout
+              <a href="/checkout" onClick={(e) => {
+                if (cartCount === 0) {
+                  e.preventDefault();
+                  alert('Your cart is empty. Add your favorite meal first!');
+                  window.location.href = '/menu';
+                }
+              }}>
+                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none border border-primary bg-primary hover:bg-primary/90 text-primary-foreground h-9 rounded-full px-4 shadow-sm">
+                  🛒 Cart ({cartCount}) • PKR {cartTotal}
                 </button>
               </a>
             </div>
@@ -114,7 +141,7 @@ function RootComponent() {
         </nav>
 
         {/* Main Content */}
-        <main className="flex-grow flex flex-col pb-16 md:pb-0">
+        <main className="flex-grow flex flex-col pt-24 pb-16 md:pb-0">
           <Outlet />
         </main>
 
@@ -138,7 +165,7 @@ function RootComponent() {
                 <h4 className="font-display font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-4">Links</h4>
                 <div className="flex flex-col gap-3 text-sm">
                   <a href="/menu" className="text-muted-foreground hover:text-foreground transition-colors">Menu</a>
-                  <a href="/menu" className="text-muted-foreground hover:text-foreground transition-colors">Locations</a>
+                  <a href="/locations" className="text-muted-foreground hover:text-foreground transition-colors">Locations</a>
                 </div>
               </div>
               <div className="space-y-3">
@@ -172,8 +199,8 @@ function RootComponent() {
             <div className="mt-8 pt-8 border-t border-border/20 flex flex-col sm:flex-row items-center justify-between gap-4">
               <p className="text-xs text-muted-foreground">© 2026 Amir Fast Food. All rights reserved.</p>
               <div className="flex gap-6 text-xs text-muted-foreground">
-                <a href="#" className="hover:text-primary transition-colors">Terms of Use</a>
-                <a href="#" className="hover:text-primary transition-colors">Privacy Policy</a>
+                <a href="/terms" className="hover:text-primary transition-colors">Terms of Use</a>
+                <a href="/privacy" className="hover:text-primary transition-colors">Privacy Policy</a>
               </div>
             </div>
           </div>

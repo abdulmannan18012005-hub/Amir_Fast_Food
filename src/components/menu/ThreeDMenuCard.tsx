@@ -95,10 +95,10 @@ export function ThreeDMenuCard({ item, onAddToCart }: Props) {
 
           <button
             onClick={() => onAddToCart(item)}
-            className="w-full bg-primary hover:bg-primary/90 text-foreground font-semibold py-3 px-4 rounded-lg transition-colors shadow-lg shadow-primary/20"
+            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 px-4 rounded-xl transition-colors shadow-lg shadow-primary/20"
             style={{ transform: 'translateZ(40px)' }}
           >
-            Add to Order
+            Add to Cart
           </button>
         </div>
       </div>
