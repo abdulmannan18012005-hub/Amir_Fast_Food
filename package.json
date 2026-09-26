@@ -16,6 +16,7 @@
     "@tanstack/router-plugin": "^1.168.40",
     "@tanstack/start": "1.120.20",
     "@vitejs/plugin-react": "^6.1.1",
+    "@whatwg-node/server": "^0.11.0",
     "dotenv": "^18.0.4",
     "lucide-react": "^0.312.0",
     "nodemailer": "^6.9.8",
