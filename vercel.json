@@ -1,4 +1,14 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "cleanUrls": true
+  "version": 2,
+  "outputDirectory": "dist/client",
+  "rewrites": [
+    {
+      "source": "/assets/(.*)",
+      "destination": "/assets/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/api/index.js"
+    }
+  ]
 }
