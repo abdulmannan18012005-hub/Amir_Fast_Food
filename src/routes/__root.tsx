@@ -1,9 +1,10 @@
-import { createRootRoute, Outlet, useLocation, Scripts, Meta, ScrollRestoration } from '@tanstack/react-router';
+import { createRootRoute, Outlet, useLocation, Scripts, HeadContent, ScrollRestoration } from '@tanstack/react-router';
 import React, { useState } from 'react';
 import { AmirBotDrawer } from '../components/chat/AmirBotDrawer';
 import { MobileBottomNav } from '../components/navigation/MobileBottomNav';
 
 import { ThemeSwitcher } from '../components/ThemeSwitcher';
+import { HeaderSearch } from '../components/navigation/HeaderSearch';
 
 export const Route = createRootRoute({
   component: RootComponent,
@@ -16,7 +17,7 @@ function RootComponent() {
   return (
     <html lang="en" className="dark" style={{ scrollBehavior: 'smooth' }}>
       <head>
-        <Meta />
+        <HeadContent />
         <meta charSet="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
         <title>Amir Fast Food - Shawarma, Burgers & Combos</title>
@@ -101,6 +102,7 @@ function RootComponent() {
             <div className="flex items-center gap-2 sm:gap-4">
               <a href="/menu" className="hidden sm:block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Menu</a>
               <a href="/menu" className="hidden sm:block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Locations</a>
+              <HeaderSearch />
               <ThemeSwitcher />
               <a href="/checkout">
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3">

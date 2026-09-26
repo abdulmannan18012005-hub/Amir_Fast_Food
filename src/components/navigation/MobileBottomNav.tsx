@@ -26,32 +26,32 @@ export function MobileBottomNav({
   }, []);
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/90 backdrop-blur border-t border-zinc-800 pb-safe">
+    <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/90 backdrop-blur border-t border-border pb-safe">
       <div className="flex justify-around items-center h-16">
-        <Link to="/" className="flex flex-col items-center justify-center w-full h-full text-zinc-400 [&.active]:text-yellow-400">
+        <Link to="/" className="flex flex-col items-center justify-center w-full h-full text-muted-foreground [&.active]:text-primary">
           <Home size={20} />
           <span className="text-[10px] mt-1 font-medium">Home</span>
         </Link>
-        <Link to="/menu" search={{}} className="flex flex-col items-center justify-center w-full h-full text-zinc-400 [&.active]:text-yellow-400">
+        <Link to="/menu" search={{}} className="flex flex-col items-center justify-center w-full h-full text-muted-foreground [&.active]:text-primary">
           <Menu size={20} />
           <span className="text-[10px] mt-1 font-medium">Menu</span>
         </Link>
-        <Link to="/menu" search={{ cat: 'cat_deals' }} className="flex flex-col items-center justify-center w-full h-full text-zinc-400 [&.active]:text-yellow-400">
+        <Link to="/menu" search={{ cat: 'cat_deals' }} className="flex flex-col items-center justify-center w-full h-full text-muted-foreground [&.active]:text-primary">
           <Tag size={20} />
           <span className="text-[10px] mt-1 font-medium">Deals</span>
         </Link>
-        <button onClick={onOpenCart} className="relative flex flex-col items-center justify-center w-full h-full text-zinc-400 hover:text-white">
+        <button onClick={onOpenCart} className="relative flex flex-col items-center justify-center w-full h-full text-muted-foreground hover:text-foreground">
           <div className="relative">
             <ShoppingCart size={20} />
             {cartCount > 0 && (
-              <span className="absolute -top-2 -right-2 bg-yellow-400 text-black text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+              <span className="absolute -top-2 -right-2 bg-primary text-black text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
                 {cartCount}
               </span>
             )}
           </div>
           <span className="text-[10px] mt-1 font-medium">Cart</span>
         </button>
-        <button onClick={onOpenBot} className="flex flex-col items-center justify-center w-full h-full text-zinc-400 hover:text-white">
+        <button onClick={onOpenBot} className="flex flex-col items-center justify-center w-full h-full text-muted-foreground hover:text-foreground">
           <div className="relative">
             <MessageSquare size={20} />
             <span className="absolute -top-1 -right-1 bg-red-500 w-2 h-2 rounded-full animate-ping"></span>

@@ -42,7 +42,7 @@ export function ThreeDMenuCard({ item, onAddToCart }: Props) {
         onMouseMove={handleMouseMove}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={handleMouseLeave}
-        className="relative bg-slate-900 rounded-2xl shadow-xl transition-all duration-200 ease-out preserve-3d cursor-pointer border border-slate-800"
+        className="relative bg-card rounded-2xl shadow-xl transition-all duration-200 ease-out preserve-3d cursor-pointer border border-border"
         style={{
           transform: `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`,
           transformStyle: 'preserve-3d',
@@ -60,7 +60,7 @@ export function ThreeDMenuCard({ item, onAddToCart }: Props) {
 
         {/* Save Badge */}
         {item.original_price && savingsPercent > 0 && (
-          <div className="absolute top-3 right-3 z-10 bg-emerald-500 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-lg" style={{ transform: 'translateZ(50px)' }}>
+          <div className="absolute top-3 right-3 z-10 bg-emerald-500 text-foreground text-xs font-bold px-2.5 py-1 rounded-full shadow-lg" style={{ transform: 'translateZ(50px)' }}>
             Save {savingsPercent}%
           </div>
         )}
@@ -75,10 +75,10 @@ export function ThreeDMenuCard({ item, onAddToCart }: Props) {
           
           <div style={{ transform: 'translateZ(20px)' }}>
             <div className="flex justify-between items-start mb-2">
-              <h3 className="text-lg font-bold text-white tracking-tight leading-tight flex-1 mr-2">{item.name}</h3>
+              <h3 className="text-lg font-bold text-foreground tracking-tight leading-tight flex-1 mr-2">{item.name}</h3>
               <div className="text-right flex-shrink-0">
                 {item.original_price && (
-                  <span className="text-slate-500 line-through text-xs block">
+                  <span className="text-muted-foreground line-through text-xs block">
                     PKR {item.original_price.toLocaleString()}
                   </span>
                 )}
@@ -88,14 +88,14 @@ export function ThreeDMenuCard({ item, onAddToCart }: Props) {
               </div>
             </div>
             
-            <p className="text-slate-400 text-sm mb-4 line-clamp-2">
+            <p className="text-muted-foreground text-sm mb-4 line-clamp-2">
               {item.description}
             </p>
           </div>
 
           <button
             onClick={() => onAddToCart(item)}
-            className="w-full bg-red-600 hover:bg-red-500 text-white font-semibold py-3 px-4 rounded-lg transition-colors shadow-lg shadow-red-600/20"
+            className="w-full bg-primary hover:bg-primary/90 text-foreground font-semibold py-3 px-4 rounded-lg transition-colors shadow-lg shadow-primary/20"
             style={{ transform: 'translateZ(40px)' }}
           >
             Add to Order

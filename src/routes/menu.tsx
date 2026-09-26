@@ -25,8 +25,8 @@ function MenuPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 w-full">
       <header className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
-          <h1 className="text-4xl font-extrabold text-white tracking-tight">Our Menu</h1>
-          <p className="text-slate-400 mt-2">Discover 3D interactive flavors.</p>
+          <h1 className="text-4xl font-extrabold text-foreground tracking-tight">Our Menu</h1>
+          <p className="text-muted-foreground mt-2">Discover 3D interactive flavors.</p>
         </div>
         
         <div className="w-full md:w-auto relative">
@@ -35,15 +35,15 @@ function MenuPage() {
             placeholder="Search burgers, pizzas..." 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full md:w-80 bg-slate-800 border border-slate-700 text-white rounded-full py-3 px-6 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all shadow-inner"
+            className="w-full md:w-80 bg-card border border-border text-foreground rounded-full py-3 px-6 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all shadow-inner"
           />
         </div>
       </header>
 
       <div className="flex gap-4 overflow-x-auto pb-4 mb-8 scrollbar-hide">
-        <button className="whitespace-nowrap px-6 py-2 rounded-full bg-red-600 text-white font-bold">All Items</button>
-        <button className="whitespace-nowrap px-6 py-2 rounded-full bg-slate-800 text-slate-300 font-medium hover:bg-slate-700">Burgers</button>
-        <button className="whitespace-nowrap px-6 py-2 rounded-full bg-slate-800 text-slate-300 font-medium hover:bg-slate-700">Broast</button>
+        <button className="whitespace-nowrap px-6 py-2 rounded-full bg-primary text-foreground font-bold">All Items</button>
+        <button className="whitespace-nowrap px-6 py-2 rounded-full bg-card text-muted-foreground font-medium hover:bg-muted">Burgers</button>
+        <button className="whitespace-nowrap px-6 py-2 rounded-full bg-card text-muted-foreground font-medium hover:bg-muted">Broast</button>
       </div>
 
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
