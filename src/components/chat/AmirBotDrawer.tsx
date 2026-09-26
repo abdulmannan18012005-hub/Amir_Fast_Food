@@ -37,6 +37,7 @@ export function AmirBotDrawer() {
     <>
       {/* Floating Button */}
       <button 
+        aria-label="Open chat"
         onClick={() => setIsOpen(true)}
         className={`fixed bottom-6 right-6 p-4 bg-red-600 hover:bg-red-500 text-white rounded-full shadow-2xl transition-transform transform ${isOpen ? 'scale-0' : 'scale-100'} z-50`}
       >
