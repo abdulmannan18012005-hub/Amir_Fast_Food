@@ -33,15 +33,14 @@ function CheckoutPage() {
     setError('');
     
     try {
-      const res = await createOrder({
-        customerName: name,
+      const res = await createOrder({ data: { customerName: name,
         customerPhone: phone,
         customerEmail: email,
         deliveryAddress: address,
         paymentMethod,
         items: cartItems,
         subtotal
-      });
+      } });
 
       if (!res.success) {
         throw new Error(res.error);

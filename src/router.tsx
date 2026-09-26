@@ -16,5 +16,5 @@ declare module '@tanstack/react-router' {
   }
 }
 
-let routerInstance; 
+let routerInstance: ReturnType<typeof createRouter>; 
 export function getRouter() { if (!routerInstance) routerInstance = createRouter(); return routerInstance; }

@@ -19,7 +19,7 @@ export interface CreateOrderPayload {
   subtotal: number;
 }
 
-export const createOrder = createServerFn("POST", async (payload: CreateOrderPayload): Promise<{ success: boolean; orderId?: string; error?: string }> => {
+export const createOrder = createServerFn({ method: "POST" }).validator((d: CreateOrderPayload) => d).handler(async ({ data: payload }): Promise<{ success: boolean; orderId?: string; error?: string }> => {
   try {
     const supabase = getSupabaseServer();
     
@@ -90,7 +90,7 @@ export const createOrder = createServerFn("POST", async (payload: CreateOrderPay
   }
 });
 
-export const updateOrderStatus = createServerFn({ method: 'POST' }).handler(async ({ data }: { data: { orderId: string, status: string } }) => {
+export const updateOrderStatus = createServerFn({ method: "POST" }).validator((d: { orderId: string, status: string }) => d).handler(async ({ data }) => {
   const supabase = getSupabaseServer();
   const { error } = await supabase.from('orders').update({ status: data.status }).eq('id', data.orderId);
   if (error) throw new Error(error.message);

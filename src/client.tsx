@@ -1,4 +1,4 @@
-/// <reference types="vinxi/types/client" />
+/// <reference types="@tanstack/start/client" />
 import { hydrateRoot } from 'react-dom/client';
 import { StartClient } from '@tanstack/start';
 import { createRouter } from './router';
