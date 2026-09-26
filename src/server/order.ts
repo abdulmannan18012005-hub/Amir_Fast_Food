@@ -8,7 +8,7 @@ export interface CreateOrderPayload {
   customerPhone: string;
   customerEmail: string;
   deliveryAddress: string;
-  paymentMethod: 'wallet' | 'cod' | 'online_transfer';
+  paymentMethod: 'cod' | 'online_transfer';
   items: {
     menu_item_id: string;
     quantity: number;
@@ -24,7 +24,7 @@ export const createOrder = createServerFn("POST", async (payload: CreateOrderPay
     const supabase = getSupabaseServer();
     
     // Delivery fee rule:
-    const deliveryFee = payload.subtotal < 1000 ? 100 : 0;
+    const deliveryFee = payload.paymentMethod === 'cod' && payload.subtotal < 100 ? 100 : 0;
     
     // Default system user if no userId provided (for guests)
     const userId = payload.userId || null;

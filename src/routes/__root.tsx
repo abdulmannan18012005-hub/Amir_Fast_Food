@@ -1,78 +1,12 @@
 import { createRootRoute, Outlet } from '@tanstack/react-router';
-import React, { useEffect, useState } from 'react';
-import { supabaseBrowser } from '../lib/supabase';
-import { AuthModal } from '../components/auth/AuthModal';
+import React from 'react';
+import { AmirBotDrawer } from '../components/chat/AmirBotDrawer';
 
 export const Route = createRootRoute({
   component: RootComponent,
 });
 
 function RootComponent() {
-  const [balance, setBalance] = useState<number>(0);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [balanceBounce, setBalanceBounce] = useState(false);
-
-  useEffect(() => {
-    // Initial fetch
-    supabaseBrowser.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUserId(session.user.id);
-        fetchBalance(session.user.id);
-      }
-    });
-
-    // Listen to auth changes
-    const { data: authListener } = supabaseBrowser.auth.onAuthStateChange((_event, session) => {
-      setUserId(session?.user?.id || null);
-      if (session?.user) {
-        fetchBalance(session.user.id);
-      } else {
-        setBalance(0);
-      }
-    });
-
-    return () => authListener.subscription.unsubscribe();
-  }, []);
-
-  const fetchBalance = async (uid: string) => {
-    const { data } = await supabaseBrowser
-      .from('wallets')
-      .select('balance')
-      .eq('user_id', uid)
-      .single();
-    if (data) {
-      setBalance(data.balance);
-    }
-  };
-
-  useEffect(() => {
-    if (!userId) return;
-
-    // Supabase Realtime Subscription for Wallets
-    const channel = supabaseBrowser
-      .channel('wallet_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'wallets',
-          filter: `user_id=eq.${userId}`
-        },
-        (payload) => {
-          setBalance(payload.new.balance);
-          setBalanceBounce(true);
-          setTimeout(() => setBalanceBounce(false), 500);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabaseBrowser.removeChannel(channel);
-    };
-  }, [userId]);
-
   return (
     <html lang="en" className="dark">
       <head>
@@ -87,12 +21,6 @@ function RootComponent() {
           body { background-color: #0F172A; color: #F8FAFC; }
           .preserve-3d { transform-style: preserve-3d; }
           .perspective-1000 { perspective: 1000px; }
-          @keyframes pop {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.15); color: #10B981; }
-            100% { transform: scale(1); }
-          }
-          .animate-pop { animation: pop 0.5s ease-out; }
         `}</style>
       </head>
       <body className="min-h-screen flex flex-col font-sans">
@@ -108,33 +36,14 @@ function RootComponent() {
                 <a href="/checkout" className="text-slate-300 hover:text-white px-3 py-2 text-sm font-medium">Checkout</a>
               </nav>
               <div className="flex items-center gap-4">
-                {userId ? (
-                  <>
-                    <div className="bg-slate-800 px-3 py-1.5 rounded-full flex items-center gap-2 border border-slate-700">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                      <span className={`text-sm font-semibold transition-all ${balanceBounce ? 'animate-pop text-emerald-300' : 'text-emerald-400'}`}>
-                        Wallet: Rs. {balance.toLocaleString()}
-                      </span>
-                    </div>
-                    <button 
-                      onClick={() => supabaseBrowser.auth.signOut()}
-                      className="text-xs text-slate-400 hover:text-white"
-                    >
-                      Logout
-                    </button>
-                  </>
-                ) : (
-                  <button 
-                    onClick={() => setIsAuthOpen(true)}
-                    className="bg-slate-800 hover:bg-slate-700 text-sm font-semibold px-4 py-2 rounded-full border border-slate-700 text-white transition-colors"
-                  >
-                    Login / Sign Up
-                  </button>
-                )}
+                <a href="https://wa.me/923001234567" target="_blank" className="hidden sm:flex bg-emerald-600 hover:bg-emerald-500 text-sm font-semibold px-4 py-2 rounded-full text-white transition-colors items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21"></path><path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1"></path></svg>
+                  WhatsApp Order
+                </a>
                 
-                <button className="relative bg-red-600 hover:bg-red-700 text-white p-2 rounded-full transition-colors">
+                <button className="relative bg-red-600 hover:bg-red-700 text-white p-2 rounded-full transition-colors flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
-                  <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">0</span>
+                  <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full border border-slate-900">0</span>
                 </button>
               </div>
             </div>
@@ -159,7 +68,6 @@ function RootComponent() {
           </div>
         </footer>
 
-        <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
         <AmirBotDrawer />
       </body>
     </html>

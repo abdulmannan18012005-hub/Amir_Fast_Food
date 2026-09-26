@@ -17,14 +17,15 @@ function CheckoutPage() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'cod' | 'online_transfer'>('wallet');
+  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'online_transfer'>('online_transfer');
+  const [trxId, setTrxId] = useState('');
 
   // Dummy cart state for scaffold (would be from Context/Store)
   const cartItems = [
     { menu_item_id: 'dummy_id', quantity: 1, price: 550, variants: [], name: 'Ultimate Crispy Zinger' }
   ];
   const subtotal = 550;
-  const deliveryFee = subtotal < 1000 ? 100 : 0;
+  const deliveryFee = paymentMethod === 'cod' && subtotal < 100 ? 100 : 0;
   const total = subtotal + deliveryFee;
 
   const handlePlaceOrder = async () => {
@@ -112,16 +113,21 @@ function CheckoutPage() {
             </div>
 
             <div className="space-y-3">
-              <label className={`flex items-center gap-4 p-4 border rounded-lg cursor-pointer transition-colors ${paymentMethod === 'wallet' ? 'border-red-500 bg-slate-900' : 'border-slate-700 bg-slate-900/50'}`}>
-                <input type="radio" name="payment" checked={paymentMethod === 'wallet'} onChange={() => setPaymentMethod('wallet')} className="w-5 h-5 text-red-600" />
+              <label className={`flex items-center gap-4 p-4 border rounded-lg cursor-pointer transition-colors ${paymentMethod === 'online_transfer' ? 'border-red-500 bg-slate-900' : 'border-slate-700 bg-slate-900/50'}`}>
+                <input type="radio" name="payment" checked={paymentMethod === 'online_transfer'} onChange={() => setPaymentMethod('online_transfer')} className="w-5 h-5 text-red-600" />
                 <div className="flex-1">
-                  <span className="font-bold text-white block">In-App Wallet</span>
+                  <span className="font-bold text-white block">Online Pre-Payment (FREE Delivery)</span>
+                  <span className="text-xs text-emerald-400 block mt-1">Pay via Easypaisa/JazzCash to 0300-1234567 (Title: Amir Fast Food)</span>
+                  {paymentMethod === 'online_transfer' && (
+                    <input type="text" placeholder="Enter Transaction ID (TID) / Ref" value={trxId} onChange={e => setTrxId(e.target.value)} className="mt-3 bg-slate-950 border border-slate-700 rounded-lg p-2 text-white w-full text-sm" />
+                  )}
                 </div>
               </label>
               <label className={`flex items-center gap-4 p-4 border rounded-lg cursor-pointer transition-colors ${paymentMethod === 'cod' ? 'border-red-500 bg-slate-900' : 'border-slate-700 bg-slate-900/50'}`}>
                 <input type="radio" name="payment" checked={paymentMethod === 'cod'} onChange={() => setPaymentMethod('cod')} className="w-5 h-5 text-red-600" />
                 <div className="flex-1">
                   <span className="font-bold text-white block">Cash on Delivery (COD)</span>
+                  <span className="text-xs text-slate-400 block mt-1">PKR 100 fee for orders under PKR 100</span>
                 </div>
               </label>
             </div>
