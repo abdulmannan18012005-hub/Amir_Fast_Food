@@ -10,14 +10,7 @@ function Index() {
     <>
       {/* Hero Section */}
       <section className="relative bg-background min-h-[80vh] flex items-center pt-24 sm:pt-28 pb-16 lg:py-0">
-        <div className="absolute top-0 right-0 w-full lg:w-1/2 h-full overflow-hidden flex flex-col justify-center items-end pointer-events-none select-none z-10 pr-4 lg:pr-16 text-right">
-          <div className="text-[20vw] lg:text-[10vw] font-black leading-[0.8] tracking-tighter opacity-[0.04] text-stroke text-primary">
-            AMIR
-          </div>
-          <div className="text-[20vw] lg:text-[10vw] font-black leading-[0.8] tracking-tighter opacity-[0.04]">
-            FAST<br/>FOOD
-          </div>
-        </div>
+        
 
         {/* Right side image - full bleed on desktop */}
         <div className="absolute top-0 right-0 w-full lg:w-1/2 h-full z-0 hidden lg:block">
@@ -78,7 +71,7 @@ function Index() {
           <div className="flex overflow-x-auto gap-4 pb-8 scrollbar-hide snap-x">
             {[
                 { id: 'cat_deals', name: 'Deals & Combos', sub: 'Value Packs', img: 'https://images.unsplash.com/photo-1594968973184-9040a5a79963?auto=format&fit=crop&w=300&q=80' },
-                { id: 'cat_specials', name: 'Specials', sub: 'Chef Recommended', img: 'https://images.unsplash.com/photo-1544025162-811114215b80?auto=format&fit=crop&w=300&q=80' },
+                { id: 'cat_specials', name: 'Specials', sub: 'Chef Recommended', img: 'https://images.unsplash.com/photo-1594221708734-ea4b0e4d45c0?auto=format&fit=crop&w=300&q=80' },
                 { id: 'cat_burgers', name: 'Burgers', sub: 'Smash & Zinger', img: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=300&q=80' },
                 { id: 'cat_shawarma', name: 'Shawarma', sub: 'Authentic Arab', img: 'https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=300&q=80' },
                 { id: 'cat_pizza', name: 'Pizza', sub: 'Oven Baked', img: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=300&q=80' },
