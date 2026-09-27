@@ -77,17 +77,15 @@ function Index() {
           </div>
           <div className="flex overflow-x-auto gap-4 pb-8 scrollbar-hide snap-x">
             {[
-              { id: 'cat_burgers', name: 'Burgers', sub: 'Smash & Zinger', img: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=300&q=80' },
-              { id: 'cat_broast', name: 'Broast', sub: 'Crispy Fried', img: 'https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?auto=format&fit=crop&w=300&q=80' },
-              { id: 'cat_shawarma', name: 'Shawarma', sub: 'Authentic Arab', img: 'https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=300&q=80' },
-              { id: 'cat_loaded_fries', name: 'Loaded Fries', sub: 'Cheese & Jalapeno', img: 'https://images.unsplash.com/photo-1534080564583-6be75777b70a?auto=format&fit=crop&w=300&q=80' },
-              { id: 'cat_pizza_burgers', name: 'Pizza Burgers', sub: 'Best of both', img: 'https://images.unsplash.com/photo-1586816001966-79b736744398?auto=format&fit=crop&w=300&q=80' },
-              { id: 'cat_wings', name: 'Wings', sub: 'Spicy & BBQ', img: 'https://images.unsplash.com/photo-1608039829572-78524f79c4c7?auto=format&fit=crop&w=300&q=80' },
-              { id: 'cat_paratha_rolls', name: 'Paratha Rolls', sub: 'Desi Style', img: 'https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&w=300&q=80' },
-              { id: 'cat_fish', name: 'Fish', sub: 'Fried & Grilled', img: 'https://images.unsplash.com/photo-1599084993091-1cb5c0721cc6?auto=format&fit=crop&w=300&q=80' },
-              { id: 'cat_deals', name: 'Platters & Deals', sub: 'Value Combos', img: 'https://images.unsplash.com/photo-1594968973184-9040a5a79963?auto=format&fit=crop&w=300&q=80' },
-              { id: 'cat_drinks', name: 'Drinks', sub: 'Cold Beverages', img: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=300&q=80' },
-            ].map(cat => (
+                { id: 'cat_deals', name: 'Deals & Combos', sub: 'Value Packs', img: 'https://images.unsplash.com/photo-1594968973184-9040a5a79963?auto=format&fit=crop&w=300&q=80' },
+                { id: 'cat_specials', name: 'Specials', sub: 'Chef Recommended', img: 'https://images.unsplash.com/photo-1544025162-811114215b80?auto=format&fit=crop&w=300&q=80' },
+                { id: 'cat_burgers', name: 'Burgers', sub: 'Smash & Zinger', img: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=300&q=80' },
+                { id: 'cat_shawarma', name: 'Shawarma', sub: 'Authentic Arab', img: 'https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=300&q=80' },
+                { id: 'cat_pizza', name: 'Pizza', sub: 'Oven Baked', img: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=300&q=80' },
+                { id: 'cat_chicken', name: 'Chicken & Wings', sub: 'Crispy Fried', img: 'https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?auto=format&fit=crop&w=300&q=80' },
+                { id: 'cat_sandwiches_fries', name: 'Sandwiches & Fries', sub: 'Loaded Snacks', img: 'https://images.unsplash.com/photo-1534080564583-6be75777b70a?auto=format&fit=crop&w=300&q=80' },
+                { id: 'cat_drinks', name: 'Drinks', sub: 'Cold Beverages', img: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=300&q=80' }
+              ].map(cat => (
               <a 
                 key={cat.id} 
                 href={`/menu?cat=${cat.id}`}
