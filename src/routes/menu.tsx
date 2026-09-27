@@ -125,40 +125,18 @@ function ItemModal({ item, onClose, onAdd }: { item: MenuItem; onClose: () => vo
 
 function MenuPage() {
   const { categories, items } = useLoaderData({ from: '/menu' });
-  const [activeCategory, setActiveCategory] = useState(categories[0]?.id || 'all');
+  const [activeCategory, setActiveCategory] = useState('cat_burgers');
   const [modalItem, setModalItem] = useState<MenuItem | null>(null);
-  
-  // Create refs for categories
-  const categoryRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   useEffect(() => {
     // Check URL for cat parameter
     const params = new URLSearchParams(window.location.search);
-    const cat = params.get('cat');
-    if (cat && categoryRefs.current[cat]) {
+    const hash = window.location.hash.replace('#', '');
+    const cat = params.get('cat') || hash;
+    if (cat && categories.find(c => c.id === cat)) {
       setActiveCategory(cat);
-      categoryRefs.current[cat]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
-
-    // Scroll spy logic
-    const observer = new IntersectionObserver((entries) => {
-      let visibleCategories = entries.filter(entry => entry.isIntersecting);
-      if (visibleCategories.length > 0) {
-        // Find the one closest to top
-        const closest = visibleCategories.reduce((prev, curr) => {
-          return (Math.abs(curr.boundingClientRect.top) < Math.abs(prev.boundingClientRect.top)) ? curr : prev;
-        });
-        const id = closest.target.getAttribute('data-category-id');
-        if (id) setActiveCategory(id);
-      }
-    }, { rootMargin: '-100px 0px -60% 0px' });
-
-    Object.values(categoryRefs.current).forEach(ref => {
-      if (ref) observer.observe(ref);
-    });
-
-    return () => observer.disconnect();
-  }, []);
+  }, [categories]);
 
   const handleAddToCart = (item: MenuItem) => {
     if (item.category_id === 'cat_deals') {
@@ -194,32 +172,29 @@ function MenuPage() {
     playSuccessChime();
   };
 
-  const scrollToCategory = (id: string) => {
-    setActiveCategory(id);
-    categoryRefs.current[id]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
+  const activeCatObj = categories.find(c => c.id === activeCategory) || categories[0];
+  const activeItems = items.filter(i => i.category_id === activeCategory);
 
   return (
     <div className="w-full relative">
       {modalItem && <ItemModal item={modalItem} onClose={() => setModalItem(null)} onAdd={handleModalAdd} />}
       
-      {/* Sticky Header & Scroll Spy Pill Bar */}
-      <div className="sticky top-16 z-40 bg-background/90 backdrop-blur-md border-b border-border shadow-sm">
+      <div className="w-full bg-background border-b border-border/40 pb-4">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <header className="mb-4">
+          <header className="mb-6">
             <h1 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">Our Menu</h1>
             <p className="text-muted-foreground mt-1 text-sm sm:text-base">Crispy Broast, Gourmet Smash Burgers & Loaded Deals.</p>
           </header>
 
-          <div className="flex flex-wrap gap-2 pb-2">
+          <div className="flex flex-wrap gap-2">
             {categories.map(cat => (
               <button 
                 key={cat.id}
-                onClick={() => scrollToCategory(cat.id)}
-                className={`px-5 py-2 rounded-full font-bold text-sm transition-all ${
+                onClick={() => setActiveCategory(cat.id)}
+                className={`px-5 py-2.5 rounded-full font-bold text-sm transition-all shadow-sm ${
                   activeCategory === cat.id 
-                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20' 
-                    : 'bg-card text-muted-foreground border border-border hover:bg-accent'
+                    ? 'bg-primary text-primary-foreground shadow-primary/20 scale-105' 
+                    : 'bg-card text-muted-foreground border border-border hover:bg-accent hover:text-foreground'
                 }`}
               >
                 {cat.name}
@@ -229,24 +204,21 @@ function MenuPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-16">
-        {categories.map(cat => {
-          const catItems = items.filter(i => i.category_id === cat.id);
-          if (catItems.length === 0) return null;
-          
-          return (
-            <section 
-              key={cat.id} 
-              data-category-id={cat.id}
-              ref={el => categoryRefs.current[cat.id] = el}
-              style={{ scrollMarginTop: "280px" }}
-            >
-              <div className="mb-6 flex items-baseline gap-4">
-                <h2 className="text-2xl sm:text-3xl font-bold text-foreground">{cat.name}</h2>
-                <div className="h-px bg-border flex-1"></div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-[50vh]">
+        {activeCatObj && (
+          <section className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="mb-6 flex items-baseline gap-4">
+              <h2 className="text-2xl sm:text-3xl font-bold text-foreground">{activeCatObj.name}</h2>
+              <div className="h-px bg-border flex-1"></div>
+            </div>
+            
+            {activeItems.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <p>No items available in this category yet.</p>
               </div>
+            ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-8">
-                {catItems.map(item => (
+                {activeItems.map(item => (
                   <ThreeDMenuCard 
                     key={item.id} 
                     item={item} 
@@ -254,9 +226,9 @@ function MenuPage() {
                   />
                 ))}
               </div>
-            </section>
-          );
-        })}
+            )}
+          </section>
+        )}
       </div>
     </div>
   );
