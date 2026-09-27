@@ -18,6 +18,7 @@ import { Route as MenuRouteImport } from './routes/menu'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AdminKitchenRouteImport } from './routes/admin/kitchen'
+import { Route as AdminMenuRouteImport } from './routes/admin/menu'
 import { Route as OrdersOrderIdRouteImport } from './routes/orders/$orderId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -65,6 +66,11 @@ const AdminKitchenRoute = AdminKitchenRouteImport.update({
   path: '/admin/kitchen',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminMenuRoute = AdminMenuRouteImport.update({
+  id: '/admin/menu',
+  path: '/admin/menu',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OrdersOrderIdRoute = OrdersOrderIdRouteImport.update({
   id: '/orders/$orderId',
   path: '/orders/$orderId',
@@ -81,6 +87,7 @@ export interface FileRoutesByFullPath {
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/admin/kitchen': typeof AdminKitchenRoute
+  '/admin/menu': typeof AdminMenuRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
 }
 export interface FileRoutesByTo {
@@ -93,6 +100,7 @@ export interface FileRoutesByTo {
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/admin/kitchen': typeof AdminKitchenRoute
+  '/admin/menu': typeof AdminMenuRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
 }
 export interface FileRoutesById {
@@ -106,6 +114,7 @@ export interface FileRoutesById {
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/admin/kitchen': typeof AdminKitchenRoute
+  '/admin/menu': typeof AdminMenuRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
 }
 export interface FileRouteTypes {
@@ -120,6 +129,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/terms'
     | '/admin/kitchen'
+    | '/admin/menu'
     | '/orders/$orderId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -132,6 +142,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/terms'
     | '/admin/kitchen'
+    | '/admin/menu'
     | '/orders/$orderId'
   id:
     | '__root__'
@@ -144,6 +155,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/terms'
     | '/admin/kitchen'
+    | '/admin/menu'
     | '/orders/$orderId'
   fileRoutesById: FileRoutesById
 }
@@ -157,6 +169,7 @@ export interface RootRouteChildren {
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
   AdminKitchenRoute: typeof AdminKitchenRoute
+  AdminMenuRoute: typeof AdminMenuRoute
   OrdersOrderIdRoute: typeof OrdersOrderIdRoute
 }
 
@@ -225,6 +238,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminKitchenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/menu': {
+      id: '/admin/menu'
+      path: '/admin/menu'
+      fullPath: '/admin/menu'
+      preLoaderRoute: typeof AdminMenuRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/orders/$orderId': {
       id: '/orders/$orderId'
       path: '/orders/$orderId'
@@ -245,6 +265,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
   AdminKitchenRoute: AdminKitchenRoute,
+  AdminMenuRoute: AdminMenuRoute,
   OrdersOrderIdRoute: OrdersOrderIdRoute,
 }
 export const routeTree = rootRouteImport

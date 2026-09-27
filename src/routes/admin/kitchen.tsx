@@ -14,6 +14,51 @@ function KitchenKDS() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [pin, setPin] = useState('');
 
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    // Initial fetch
+    const fetchOrders = async () => {
+      const { data } = await supabaseBrowser
+        .from('orders')
+        .select('*')
+        .in('status', ['received', 'preparing'])
+        .order('created_at', { ascending: true });
+      if (data) setOrders(data);
+    };
+    fetchOrders();
+
+    // Subscribe to new/updated orders
+    const channel = supabaseBrowser.channel('kds_orders')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          playKitchenDing();
+          setOrders(prev => [...prev, payload.new]);
+        } else if (payload.eventType === 'UPDATE') {
+          setOrders(prev => {
+            const updated = payload.new;
+            if (!['received', 'preparing'].includes(updated.status)) {
+              return prev.filter(o => o.id !== updated.id);
+            }
+            return prev.map(o => o.id === updated.id ? updated : o);
+          });
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabaseBrowser.removeChannel(channel);
+    };
+  }, [isAuthenticated]);
+
+  const handleBump = async (orderId: string, newStatus: string) => {
+    try {
+      await updateOrderStatus({ data: { orderId, status: newStatus } });
+      // UI optimistic update is optional since the websocket will catch it
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
@@ -47,50 +92,6 @@ function KitchenKDS() {
       </div>
     );
   }
-
-  useEffect(() => {
-    // Initial fetch
-    const fetchOrders = async () => {
-      const { data } = await supabaseBrowser
-        .from('orders')
-        .select('*')
-        .in('status', ['received', 'preparing'])
-        .order('created_at', { ascending: true });
-      if (data) setOrders(data);
-    };
-    fetchOrders();
-
-    // Subscribe to new/updated orders
-    const channel = supabaseBrowser.channel('kds_orders')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-        if (payload.eventType === 'INSERT') {
-          playKitchenDing();
-          setOrders(prev => [...prev, payload.new]);
-        } else if (payload.eventType === 'UPDATE') {
-          setOrders(prev => {
-            const updated = payload.new;
-            if (!['received', 'preparing'].includes(updated.status)) {
-              return prev.filter(o => o.id !== updated.id);
-            }
-            return prev.map(o => o.id === updated.id ? updated : o);
-          });
-        }
-      })
-      .subscribe();
-
-    return () => {
-      supabaseBrowser.removeChannel(channel);
-    };
-  }, []);
-
-  const handleBump = async (orderId: string, newStatus: string) => {
-    try {
-      await updateOrderStatus({ data: { orderId, status: newStatus } });
-      // UI optimistic update is optional since the websocket will catch it
-    } catch (e) {
-      console.error(e);
-    }
-  };
 
   const receivedOrders = orders.filter(o => o.status === 'received');
   const preparingOrders = orders.filter(o => o.status === 'preparing');
