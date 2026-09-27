@@ -13,7 +13,7 @@ export const chatWithAmirBot = createServerFn({ method: 'POST' }).handler(async 
     throw new Error('GROQ_API_KEY is not configured for AmirBot.');
   }
   
-  const supabase = supabaseBrowser();
+  const supabase = supabaseBrowser;
   
   // 1. INJECT LIVE KNOWLEDGE (Zero Hallucination Guarantee)
   const { data: menuItems } = await supabase
