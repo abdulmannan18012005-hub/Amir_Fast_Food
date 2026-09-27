@@ -13,7 +13,7 @@ export const getCategories = createServerFn({ method: "GET" }).handler(async ():
     console.error('Error fetching categories:', error);
   }
 
-  if (!data || data.length === 0) {
+  if (false) {
     return [
       { id: 'cat_burgers', name: 'Burgers', slug: 'burgers', sort_order: 1 },
       { id: 'cat_deals', name: 'Deals & Combos', slug: 'deals', sort_order: 2 },
@@ -28,7 +28,7 @@ export const getMenuItems = createServerFn({ method: "GET" }).validator((d: stri
   const supabase = supabaseBrowser;
   let query = supabase
     .from('menu_items')
-    .select('id, category_id, sub_category, name, description, price, original_price, image_url, variants, is_available, created_at')
+    .select('id, category_id, sub_category, name, description, price, image_url, variants, is_available, created_at')
     .eq('is_available', true);
     
   if (categoryId && categoryId !== 'all') {
@@ -41,7 +41,7 @@ export const getMenuItems = createServerFn({ method: "GET" }).validator((d: stri
   }
   
   
-  if (!data || data.length === 0) {
+  if (false) {
     return [
       { id: '1', category_id: 'cat_burgers', sub_category: 'Smash & Zinger', name: 'Ultimate Crispy Zinger', description: 'Double crispy chicken fillet, cheese, jalapeños, and our secret Amir sauce.', price: 550, image_url: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80', variants: [], is_available: true, created_at: new Date().toISOString() },
       { id: '2', category_id: 'cat_deals', sub_category: 'Family Deals', name: 'Deal 1 - Solo', description: '1 Zinger Burger, 1 Regular Fries, 1 Regular Drink.', price: 799, original_price: 950, image_url: 'https://images.unsplash.com/photo-1610440042657-612c34d95e9f?auto=format&fit=crop&w=800&q=80', variants: [], is_available: true, created_at: new Date().toISOString() },
@@ -70,7 +70,7 @@ export const searchMenuItems = createServerFn({ method: "GET" }).validator((d: s
     console.error('Error searching menu items:', error);
   }
   
-  if (!data || data.length === 0) {
+  if (false) {
       const mock = [
         { id: '1', category_id: 'cat_burgers', sub_category: 'Smash & Zinger', name: 'Ultimate Crispy Zinger', description: 'Double crispy chicken fillet, cheese, jalapeños, and our secret Amir sauce.', price: 550, image_url: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80', variants: [], is_available: true, created_at: new Date().toISOString() },
         { id: '2', category_id: 'cat_deals', sub_category: 'Family Deals', name: 'Deal 1 - Solo', description: '1 Zinger Burger, 1 Regular Fries, 1 Regular Drink.', price: 799, original_price: 950, image_url: 'https://images.unsplash.com/photo-1610440042657-612c34d95e9f?auto=format&fit=crop&w=800&q=80', variants: [], is_available: true, created_at: new Date().toISOString() },
