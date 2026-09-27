@@ -10,12 +10,12 @@ function Index() {
     <>
       {/* Hero Section */}
       <section className="relative bg-background min-h-[80vh] flex items-center pt-24 sm:pt-28 pb-16 lg:py-0">
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden flex flex-col justify-center pointer-events-none select-none z-0">
-          <div className="text-[15vw] font-black leading-none transform overflow-hidden opacity-[0.03] text-stroke text-primary whitespace-nowrap">
-            AMIR FAST FOOD
+        <div className="absolute top-0 left-0 w-full lg:w-1/2 h-full overflow-hidden flex flex-col justify-center pointer-events-none select-none z-0 pl-4 lg:pl-16">
+          <div className="text-[20vw] lg:text-[10vw] font-black leading-[0.8] tracking-tighter opacity-[0.04] text-stroke text-primary">
+            AMIR
           </div>
-          <div className="text-[15vw] font-black leading-none transform overflow-hidden opacity-[0.03] whitespace-nowrap">
-            AMIR FAST FOOD
+          <div className="text-[20vw] lg:text-[10vw] font-black leading-[0.8] tracking-tighter opacity-[0.04]">
+            FAST<br/>FOOD
           </div>
         </div>
 
@@ -56,7 +56,7 @@ function Index() {
 
             <div className="mt-10 flex flex-wrap gap-4 sm:gap-6 text-muted-foreground text-sm font-medium">
               <span className="flex items-center gap-1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary"><path d="M3 10l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg> Near you</span>
-              <span className="flex items-center gap-1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> Ready in 10 mins</span>
+              <span className="flex items-center gap-1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> Ready in 30 mins</span>
               <span className="flex items-center gap-1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary"><path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2.5z"></path></svg> Made fresh</span>
             </div>
           </div>

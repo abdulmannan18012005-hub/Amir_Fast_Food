@@ -168,19 +168,7 @@ function RootComponent() {
               <a href="/" className="hidden sm:block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Home</a>
               <a href="/menu" className="hidden sm:block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Menu</a>
               <a href="/locations" className="hidden sm:block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Locations</a>
-                <button 
-                  onClick={() => {
-                    const current = localStorage.getItem('fulfillment') || 'delivery';
-                    const next = current === 'delivery' ? 'takeaway' : 'delivery';
-                    localStorage.setItem('fulfillment', next);
-                    window.dispatchEvent(new Event('fulfillmentUpdated'));
-                    window.dispatchEvent(new Event('cartUpdated')); // Force total refresh if needed
-                  }}
-                  className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-accent text-accent-foreground text-xs font-bold rounded-full hover:bg-accent/80 transition-colors border border-border"
-                  title="Toggle Delivery / Takeaway"
-                >
-                  <span id="fulfillmentLabel">Delivery 🛵</span>
-                </button>
+                
               <HeaderSearch />
               <ThemeSwitcher />
               

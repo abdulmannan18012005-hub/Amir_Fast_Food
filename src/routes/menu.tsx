@@ -239,7 +239,7 @@ function MenuPage() {
               key={cat.id} 
               data-category-id={cat.id}
               ref={el => categoryRefs.current[cat.id] = el}
-              className="scroll-mt-96"
+              style={{ scrollMarginTop: "280px" }}
             >
               <div className="mb-6 flex items-baseline gap-4">
                 <h2 className="text-2xl sm:text-3xl font-bold text-foreground">{cat.name}</h2>
