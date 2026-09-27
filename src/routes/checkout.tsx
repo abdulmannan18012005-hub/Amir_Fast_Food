@@ -116,16 +116,34 @@ function CheckoutPage() {
               </section>
             )}
 
-            {step === 2 && (
-              <section className="space-y-6 animate-in fade-in slide-in-from-right-4">
-                <h2 className="text-xl font-bold text-foreground">2. Delivery Address</h2>
-                <textarea placeholder="Complete Street Address (House/Apt, Street, Area)" value={address} onChange={e => setAddress(e.target.value)} rows={4} className="bg-accent/50 border border-border rounded-xl p-3.5 text-foreground w-full focus:ring-2 focus:ring-primary focus:outline-none"></textarea>
-                <div className="flex gap-4">
-                  <button onClick={() => setStep(1)} className="w-1/3 bg-accent text-foreground font-bold py-3.5 rounded-xl hover:bg-accent/80 transition-colors">Back</button>
-                  <button onClick={() => setStep(3)} disabled={!address} className="w-2/3 bg-primary text-primary-foreground font-bold py-3.5 rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-colors">Continue to Payment</button>
-                </div>
-              </section>
-            )}
+                          {step === 2 && (
+                <section className="space-y-6 animate-in fade-in slide-in-from-right-4">
+                  <h2 className="text-xl font-bold text-foreground">2. Fulfillment</h2>
+                  <div className="flex gap-4">
+                    <button 
+                      onClick={() => { localStorage.setItem('fulfillment', 'delivery'); setAddress(''); window.dispatchEvent(new Event('fulfillmentUpdated')); }}
+                      className={`w-1/2 py-3.5 rounded-xl font-bold transition-colors ${(localStorage.getItem('fulfillment') || 'delivery') === 'delivery' ? 'bg-primary text-primary-foreground' : 'bg-accent text-foreground border border-border'}`}
+                    >
+                      Delivery 🛵
+                    </button>
+                    <button 
+                      onClick={() => { localStorage.setItem('fulfillment', 'takeaway'); setAddress('Takeaway'); window.dispatchEvent(new Event('fulfillmentUpdated')); }}
+                      className={`w-1/2 py-3.5 rounded-xl font-bold transition-colors ${localStorage.getItem('fulfillment') === 'takeaway' ? 'bg-primary text-primary-foreground' : 'bg-accent text-foreground border border-border'}`}
+                    >
+                      Takeaway 🏪
+                    </button>
+                  </div>
+                  
+                  {(localStorage.getItem('fulfillment') || 'delivery') === 'delivery' && (
+                    <textarea placeholder="Complete Street Address (House/Apt, Street, Area)" value={address === 'Takeaway' ? '' : address} onChange={e => setAddress(e.target.value)} rows={4} className="bg-accent/50 border border-border rounded-xl p-3.5 text-foreground w-full focus:ring-2 focus:ring-primary focus:outline-none"></textarea>
+                  )}
+                  
+                  <div className="flex gap-4">
+                    <button onClick={() => setStep(1)} className="w-1/3 bg-accent text-foreground font-bold py-3.5 rounded-xl hover:bg-accent/80 transition-colors">Back</button>
+                    <button onClick={() => setStep(3)} disabled={(localStorage.getItem('fulfillment') || 'delivery') === 'delivery' && (!address || address === 'Takeaway')} className="w-2/3 bg-primary text-primary-foreground font-bold py-3.5 rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-colors">Continue to Payment</button>
+                  </div>
+                </section>
+              )}
 
             {step === 3 && (
               <section className="space-y-6 animate-in fade-in slide-in-from-right-4">

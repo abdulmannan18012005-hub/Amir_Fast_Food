@@ -204,7 +204,7 @@ function MenuPage() {
       {modalItem && <ItemModal item={modalItem} onClose={() => setModalItem(null)} onAdd={handleModalAdd} />}
       
       {/* Sticky Header & Scroll Spy Pill Bar */}
-      <div className="sticky top-16 sm:top-24 z-40 bg-background/90 backdrop-blur-md border-b border-border shadow-sm">
+      <div className="sticky top-16 z-40 bg-background/90 backdrop-blur-md border-b border-border shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <header className="mb-4">
             <h1 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">Our Menu</h1>
@@ -239,7 +239,7 @@ function MenuPage() {
               key={cat.id} 
               data-category-id={cat.id}
               ref={el => categoryRefs.current[cat.id] = el}
-              className="scroll-mt-48"
+              className="scroll-mt-64"
             >
               <div className="mb-6 flex items-baseline gap-4">
                 <h2 className="text-2xl sm:text-3xl font-bold text-foreground">{cat.name}</h2>
