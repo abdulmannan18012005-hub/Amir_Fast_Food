@@ -51,7 +51,7 @@ export function AmirBotDrawer() {
       </button>
 
       {/* Slide-up Drawer */}
-      <div className={`fixed bottom-0 right-0 sm:right-6 sm:bottom-6 w-full sm:w-96 h-[550px] bg-card border border-border sm:rounded-2xl shadow-2xl flex flex-col transition-transform duration-300 transform ${isOpen ? 'translate-y-0' : 'translate-y-[150%]'} z-[60]`}>
+      <div className={`fixed bottom-0 right-0 sm:right-6 sm:bottom-6 w-full sm:w-96 h-[600px] max-h-[calc(100vh-6rem)] bg-card border border-border sm:rounded-2xl shadow-2xl flex flex-col transition-transform duration-300 transform ${isOpen ? 'translate-y-0' : 'translate-y-[150%]'} z-[60]`}>
         
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border bg-accent/50 sm:rounded-t-2xl">

@@ -33,7 +33,7 @@ function LocationsPage() {
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-primary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               <div>
                 <p className="font-medium text-foreground">Operational Hours</p>
-                <p>Monday - Sunday: <span className="text-foreground font-medium">12:00 PM - 03:00 AM PKT</span></p>
+                <p>Monday - Sunday: <span className="text-foreground font-medium">Monday to Sunday, 4:05 PM - 2:00 AM</span></p>
               </div>
             </div>
 
@@ -41,7 +41,7 @@ function LocationsPage() {
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-primary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
               <div>
                 <p className="font-medium text-foreground">Contact Us</p>
-                <p>+92 300 1234567 / WhatsApp Direct Order</p>
+                <p>+92 301 4265785</p>
               </div>
             </div>
           </div>
@@ -58,7 +58,7 @@ function LocationsPage() {
         
         <div className="h-96 rounded-2xl overflow-hidden border border-border/50 shadow-inner bg-accent/50">
           <iframe 
-            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3402.774204899981!2d74.25961131510202!3d31.504444981373515!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3919024f923c2859%3A0xc8592c3a522cc2c1!2sAwan%20Town%2C%20Lahore%2C%20Punjab%2054000%2C%20Pakistan!5e0!3m2!1sen!2s!4v1700000000000!5m2!1sen!2s" 
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3403.491325145788!2d74.27581781119574!3d31.455648174151774!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x391901a1dbd09477%3A0xc23b0d4d7328c114!2sAmir%20Fast%20Food!5e0!3m2!1sen!2s!4v1710000000000!5m2!1sen!2s" 
             width="100%" 
             height="100%" 
             style={{ border: 0 }} 

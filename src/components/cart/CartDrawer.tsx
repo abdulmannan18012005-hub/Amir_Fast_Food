@@ -16,7 +16,17 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
     return sum + ((item.price || 0) + varsTotal) * item.quantity;
   }, 0);
   
-  const deliveryFee = subtotal < 1000 && subtotal > 0 ? 100 : 0;
+  
+  const [fulfillment, setFulfillment] = React.useState('delivery');
+  React.useEffect(() => {
+    const updateF = () => setFulfillment(localStorage.getItem('fulfillment') || 'delivery');
+    updateF();
+    window.addEventListener('fulfillmentUpdated', updateF);
+    return () => window.removeEventListener('fulfillmentUpdated', updateF);
+  }, []);
+
+  const deliveryFee = fulfillment === 'takeaway' ? 0 : (subtotal < 1000 && subtotal > 0 ? 100 : 0);
+
   const total = subtotal + deliveryFee;
 
   return (
@@ -49,7 +59,10 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
           {items.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
               <svg width="64" height="64" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1" className="mb-4 opacity-50"><path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-              <p>Your cart is empty</p>
+              <p className="mb-6">Your cart is empty</p>
+              <a href="/menu" onClick={onClose} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-2 px-6 rounded-full transition-colors shadow-md">
+                Browse Menu
+              </a>
             </div>
           ) : (
             items.map((item, idx) => {

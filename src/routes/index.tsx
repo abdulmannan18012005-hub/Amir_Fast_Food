@@ -9,13 +9,13 @@ function Index() {
   return (
     <>
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-background pt-8 sm:pt-12 md:pt-16 lg:pt-24 pb-16 sm:pb-20">
+      <section className="relative overflow-hidden bg-background pt-24 sm:pt-28 md:pt-32 lg:pt-40 pb-16 sm:pb-20">
         {/* Background text styling */}
         <div className="absolute top-1/4 left-0 w-full overflow-hidden whitespace-nowrap flex flex-col gap-4 pointer-events-none z-0 select-none">
-          <div className="text-[15vw] font-black leading-none -ml-[5vw] transform -rotate-2 overflow-hidden select-none pointer-events-none opacity-5 text-stroke">
+          <div className="text-[10vw] font-black leading-none -ml-[5vw] transform -rotate-2 overflow-hidden select-none pointer-events-none opacity-5 text-stroke">
             AMIR FAST FOOD
           </div>
-          <div className="text-[12vw] font-black leading-none ml-[10vw] transform rotate-1 overflow-hidden select-none pointer-events-none opacity-5 text-stroke text-primary">
+          <div className="text-[8vw] font-black leading-none ml-[10vw] transform rotate-1 overflow-hidden select-none pointer-events-none opacity-5 text-stroke text-primary">
             AMIR FAST FOOD
           </div>
         </div>
@@ -54,7 +54,7 @@ function Index() {
             <div className="relative mx-auto w-full max-w-md lg:max-w-none">
               <div className="relative rounded-3xl overflow-hidden aspect-square sm:aspect-[4/3] lg:aspect-square border border-border/50 shadow-2xl">
                 <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 to-transparent mix-blend-overlay z-10"></div>
-                <img src="https://amirfastfood.vercel.app/assets/hero-food-DECPAvMU.jpg" alt="Amir Fast Food - Shawarma & Burgers" className="h-full w-full object-cover" loading="eager" />
+                <img src="https://images.unsplash.com/photo-1610440042657-612c34d95e9f?auto=format&fit=crop&w=800&q=80" alt="Amir Fast Food - Shawarma & Burgers" className="h-full w-full object-cover" loading="eager" />
               </div>
               
               {/* Floating badges */}

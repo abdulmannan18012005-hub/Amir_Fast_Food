@@ -20,6 +20,19 @@ function RootComponent() {
   const [isCartOpen, setIsCartOpen] = React.useState(false);
   const [cartItems, setCartItems] = React.useState([]);
 
+  
+  React.useEffect(() => {
+    const updateLabel = () => {
+      const label = document.getElementById('fulfillmentLabel');
+      if (label) {
+        label.innerText = (localStorage.getItem('fulfillment') || 'delivery') === 'takeaway' ? 'Takeaway 🏪' : 'Delivery 🛵';
+      }
+    };
+    updateLabel();
+    window.addEventListener('fulfillmentUpdated', updateLabel);
+    return () => window.removeEventListener('fulfillmentUpdated', updateLabel);
+  }, []);
+
   React.useEffect(() => {
     const handleStorage = () => {
       const cart = JSON.parse(localStorage.getItem('cart') || '[]');
@@ -155,6 +168,19 @@ function RootComponent() {
               <a href="/" className="hidden sm:block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Home</a>
               <a href="/menu" className="hidden sm:block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Menu</a>
               <a href="/locations" className="hidden sm:block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Locations</a>
+                <button 
+                  onClick={() => {
+                    const current = localStorage.getItem('fulfillment') || 'delivery';
+                    const next = current === 'delivery' ? 'takeaway' : 'delivery';
+                    localStorage.setItem('fulfillment', next);
+                    window.dispatchEvent(new Event('fulfillmentUpdated'));
+                    window.dispatchEvent(new Event('cartUpdated')); // Force total refresh if needed
+                  }}
+                  className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-accent text-accent-foreground text-xs font-bold rounded-full hover:bg-accent/80 transition-colors border border-border"
+                  title="Toggle Delivery / Takeaway"
+                >
+                  <span id="fulfillmentLabel">Delivery 🛵</span>
+                </button>
               <HeaderSearch />
               <ThemeSwitcher />
               
@@ -169,12 +195,7 @@ function RootComponent() {
 
               <a href="/checkout" onClick={(e) => {
                 e.preventDefault();
-                if (cartCount === 0) {
-                  alert('Your cart is empty. Add your favorite meal first!');
-                  window.location.href = '/menu';
-                } else {
-                  setIsCartOpen(true);
-                }
+                setIsCartOpen(true);
               }}>
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none border border-primary bg-primary hover:bg-primary/90 text-primary-foreground h-9 rounded-full px-4 shadow-sm">
                   🛒 Cart ({cartCount}) • PKR {cartTotal}
@@ -253,7 +274,7 @@ function RootComponent() {
           </div>
         </footer>
 
-        <MobileBottomNav onOpenCart={() => { if(cartCount === 0) { alert('Your cart is empty!'); } else { setIsCartOpen(true); } }} onOpenBot={() => {
+        <MobileBottomNav onOpenCart={() => setIsCartOpen(true)} onOpenBot={() => {
           const btn = document.querySelector('button[aria-label="Open chat"]') as HTMLButtonElement;
           if (btn) btn.click();
         }} />

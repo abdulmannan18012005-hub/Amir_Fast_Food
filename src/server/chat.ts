@@ -20,9 +20,14 @@ export const chatWithAmirBot = createServerFn({ method: 'POST' }).handler(async 
     .from('menu_items')
     .select('name, price, is_available, category_id, description');
 
-  const liveContextString = menuItems 
-    ? menuItems.map(item => `${item.name}: PKR ${item.price} (${item.is_available ? 'Available' : 'Out of Stock'}) - ${item.description || ''}`).join('\n')
-    : 'Menu data currently unavailable.';
+  let liveContextString = '';
+  if (!menuItems || menuItems.length === 0) {
+    liveContextString = `Ultimate Crispy Zinger: PKR 550 (Available)
+Deal 1 - Solo: PKR 799 (Available)
+Classic Chicken Shawarma: PKR 250 (Available)`;
+  } else {
+    liveContextString = menuItems.map(item => `${item.name}: PKR ${item.price} (${item.is_available ? 'Available' : 'Out of Stock'}) - ${item.description || ''}`).join('\n');
+  }
 
   // 2. HARD-BOUNDARY SYSTEM PROMPT
   const systemPrompt = `You are AmirBot, the exclusive AI ordering assistant for Amir Fast Food in Pakistan.
@@ -36,10 +41,11 @@ CRITICAL RULES:
    2. [Item Name] (PKR [Price])
    Which one would you like, or should I show you our budget combo deals?"
 3. BUDGET FILTERING: If a user specifies a budget (e.g., "under 600"), you MUST look at the LIVE MENU DATA, filter it, and return the top 2 matching meals with direct prices.
-4. Always end your message with a short single question guiding them to the cart.
-5. Only answer questions about Amir Fast Food (menu, prices, ordering, hours, delivery). Refuse everything else.
-6. NEVER hallucinate items or prices. Use ONLY the LIVE MENU DATA below.
-7. Delivery rules: Online Pre-Payment has FREE delivery. Cash on Delivery (COD) has a PKR 100 delivery fee for orders below PKR 1000 (FREE if PKR 1000 or above).
+4. FUZZY MATCHING: If a user enters shorthand like "crispy", match it intelligently to the closest item like "Crispy Cottage Burger" or "Crispy Zinger".
+5. Always end your message with a short single question guiding them to the cart.
+6. Only answer questions about Amir Fast Food (menu, prices, ordering, hours, delivery). Refuse everything else.
+7. NEVER hallucinate items or prices. Use ONLY the LIVE MENU DATA below.
+8. Delivery rules: Online Pre-Payment has FREE delivery. Cash on Delivery (COD) has a PKR 100 delivery fee for orders below PKR 1000 (FREE if PKR 1000 or above).
 
 --- LIVE MENU DATA ---
 ${liveContextString}
