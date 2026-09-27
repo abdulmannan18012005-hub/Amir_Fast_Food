@@ -42,13 +42,7 @@ export function AmirBotDrawer() {
   return (
     <>
       {/* Floating Button */}
-      <button 
-        aria-label="Open chat"
-        onClick={() => setIsOpen(true)}
-        className={`fixed bottom-6 right-6 p-4 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full shadow-2xl transition-transform transform ${isOpen ? 'scale-0' : 'scale-100'} z-50 shadow-primary/30`}
-      >
-        <Bot size={28} />
-      </button>
+      
 
       {/* Slide-up Drawer */}
       <div className={`fixed bottom-0 right-0 sm:right-6 sm:bottom-6 w-full sm:w-96 h-[600px] max-h-[calc(100vh-6rem)] bg-card border border-border sm:rounded-2xl shadow-2xl flex flex-col transition-transform duration-300 transform ${isOpen ? 'translate-y-0' : 'translate-y-[150%]'} z-[60]`}>

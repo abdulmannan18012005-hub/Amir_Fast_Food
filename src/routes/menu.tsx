@@ -50,7 +50,7 @@ function ItemModal({ item, onClose, onAdd }: { item: MenuItem; onClose: () => vo
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
       <div className="bg-card border border-border w-full max-w-md rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
         <div className="h-48 overflow-hidden relative shrink-0">
-          <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+          <img src={item.image_url || "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80"} alt={item.name} onError={(e) => { e.currentTarget.src = "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80"; }} className="w-full h-full object-cover bg-muted" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-6">
             <h2 className="text-2xl font-bold text-white">{item.name}</h2>
           </div>
@@ -211,12 +211,12 @@ function MenuPage() {
             <p className="text-muted-foreground mt-1 text-sm sm:text-base">Crispy Broast, Gourmet Smash Burgers & Loaded Deals.</p>
           </header>
 
-          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x">
+          <div className="flex flex-wrap gap-2 pb-2">
             {categories.map(cat => (
               <button 
                 key={cat.id}
                 onClick={() => scrollToCategory(cat.id)}
-                className={`whitespace-nowrap px-5 py-2 rounded-full font-bold text-sm snap-start transition-all ${
+                className={`px-5 py-2 rounded-full font-bold text-sm transition-all ${
                   activeCategory === cat.id 
                     ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20' 
                     : 'bg-card text-muted-foreground border border-border hover:bg-accent'
@@ -239,7 +239,7 @@ function MenuPage() {
               key={cat.id} 
               data-category-id={cat.id}
               ref={el => categoryRefs.current[cat.id] = el}
-              className="scroll-mt-64"
+              className="scroll-mt-96"
             >
               <div className="mb-6 flex items-baseline gap-4">
                 <h2 className="text-2xl sm:text-3xl font-bold text-foreground">{cat.name}</h2>

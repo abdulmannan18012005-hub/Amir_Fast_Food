@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/react-start';
-import { getSupabaseServer } from '../lib/supabase';
+import { supabaseBrowser } from '../lib/supabase';
 import OpenAI from 'openai';
 
 // Initialize Groq-compatible OpenAI client
@@ -13,7 +13,7 @@ export const chatWithAmirBot = createServerFn({ method: 'POST' }).handler(async 
     throw new Error('GROQ_API_KEY is not configured for AmirBot.');
   }
   
-  const supabase = getSupabaseServer();
+  const supabase = supabaseBrowser();
   
   // 1. INJECT LIVE KNOWLEDGE (Zero Hallucination Guarantee)
   const { data: menuItems } = await supabase

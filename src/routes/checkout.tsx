@@ -188,9 +188,18 @@ function CheckoutPage() {
                     <div className="flex items-center gap-4 p-5 bg-card" onClick={() => setPaymentMethod('cod')}>
                       <input type="radio" name="payment" checked={paymentMethod === 'cod'} readOnly className="w-5 h-5 text-primary" />
                       <div>
-                        <span className="font-bold text-foreground block text-lg">Cash on Delivery (COD)</span>
-                        <span className="text-sm text-muted-foreground block mt-0.5">Pay in cash when order arrives</span>
-                        {subtotal < 1000 && <span className="text-xs text-amber-500 font-bold block mt-1">PKR 100 delivery fee added (orders under PKR 1000)</span>}
+                        { (localStorage.getItem('fulfillment') || 'delivery') === 'takeaway' ? (
+                            <>
+                              <span className="font-bold text-foreground block text-lg">Cash on Pickup (COP)</span>
+                              <span className="text-sm text-muted-foreground block mt-0.5">Pay in cash when picking up your order</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="font-bold text-foreground block text-lg">Cash on Delivery (COD)</span>
+                              <span className="text-sm text-muted-foreground block mt-0.5">Pay in cash when order arrives</span>
+                              {subtotal < 1000 && <span className="text-xs text-amber-500 font-bold block mt-1">PKR 100 delivery fee added (orders under PKR 1000)</span>}
+                            </>
+                          )}
                       </div>
                     </div>
                   </label>

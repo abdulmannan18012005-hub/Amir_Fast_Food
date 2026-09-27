@@ -1,9 +1,9 @@
 import { createServerFn } from '@tanstack/react-start';
-import { getSupabaseServer } from '../lib/supabase';
+import { supabaseBrowser } from '../lib/supabase';
 import type { Category, MenuItem } from '../types';
 
 export const getCategories = createServerFn({ method: "GET" }).handler(async (): Promise<Category[]> => {
-  const supabase = getSupabaseServer();
+  const supabase = supabaseBrowser();
   const { data, error } = await supabase
     .from('categories')
     .select('*')
@@ -25,7 +25,7 @@ export const getCategories = createServerFn({ method: "GET" }).handler(async ():
 });
 
 export const getMenuItems = createServerFn({ method: "GET" }).validator((d: string | undefined) => d).handler(async ({ data: categoryId }): Promise<MenuItem[]> => {
-  const supabase = getSupabaseServer();
+  const supabase = supabaseBrowser();
   let query = supabase
     .from('menu_items')
     .select('id, category_id, sub_category, name, description, price, original_price, image_url, variants, is_available, created_at')
@@ -58,7 +58,7 @@ export const getMenuItems = createServerFn({ method: "GET" }).validator((d: stri
 
 export const searchMenuItems = createServerFn({ method: "GET" }).validator((d: string) => d).handler(async ({ data: searchQuery }): Promise<MenuItem[]> => {
   if (!searchQuery) return [];
-  const supabase = getSupabaseServer();
+  const supabase = supabaseBrowser();
   
   const { data, error } = await supabase
     .from('menu_items')
