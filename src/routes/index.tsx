@@ -10,7 +10,7 @@ function Index() {
     <>
       {/* Hero Section */}
       <section className="relative bg-background min-h-[80vh] flex items-center pt-24 sm:pt-28 pb-16 lg:py-0">
-        <div className="absolute top-0 left-0 w-full lg:w-1/2 h-full overflow-hidden flex flex-col justify-center pointer-events-none select-none z-0 pl-4 lg:pl-16">
+        <div className="absolute top-0 right-0 w-full lg:w-1/2 h-full overflow-hidden flex flex-col justify-center items-end pointer-events-none select-none z-10 pr-4 lg:pr-16 text-right">
           <div className="text-[20vw] lg:text-[10vw] font-black leading-[0.8] tracking-tighter opacity-[0.04] text-stroke text-primary">
             AMIR
           </div>
