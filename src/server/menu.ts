@@ -99,3 +99,33 @@ export const updateMenuItemFn = createServerFn({ method: "POST" }).validator((d:
   }
   return { success: true };
 });
+
+
+export const getCategoryImagesFn = createServerFn({ method: "GET" }).handler(async () => {
+  const supabase = supabaseBrowser;
+  const { data } = await supabase.from('restaurant_knowledge').select('content').eq('title', 'category_images').maybeSingle();
+  if (data && data.content) {
+    try { return JSON.parse(data.content); } catch (e) {}
+  }
+  return {
+    cat_deals: 'https://images.unsplash.com/photo-1594968973184-9040a5a79963?auto=format&fit=crop&w=300&q=80',
+    cat_specials: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=300&q=80',
+    cat_burgers: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=300&q=80',
+    cat_shawarma: 'https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=300&q=80',
+    cat_pizza: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=300&q=80',
+    cat_chicken: 'https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?auto=format&fit=crop&w=300&q=80',
+    cat_sandwiches_fries: 'https://images.unsplash.com/photo-1534080564583-6be75777b70a?auto=format&fit=crop&w=300&q=80',
+    cat_drinks: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=300&q=80'
+  };
+});
+
+export const updateCategoryImagesFn = createServerFn({ method: "POST" }).validator((d: Record<string, string>) => d).handler(async ({ data }) => {
+  const supabase = getSupabaseServer();
+  const { data: existing } = await supabase.from('restaurant_knowledge').select('id').eq('title', 'category_images').maybeSingle();
+  if (existing) {
+    await supabase.from('restaurant_knowledge').update({ content: JSON.stringify(data) }).eq('id', existing.id);
+  } else {
+    await supabase.from('restaurant_knowledge').insert({ title: 'category_images', content: JSON.stringify(data) });
+  }
+  return { success: true };
+});

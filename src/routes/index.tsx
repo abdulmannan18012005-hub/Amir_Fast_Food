@@ -1,11 +1,17 @@
 import { createFileRoute } from '@tanstack/react-router';
-import React from 'react';
+import React
+import { getCategoryImagesFn } from '../server/menu' from 'react';
 
 export const Route = createFileRoute('/')({
   component: Index,
+  loader: async () => {
+    const categoryImages = await getCategoryImagesFn();
+    return { categoryImages };
+  }
 });
 
 function Index() {
+  const { categoryImages } = Route.useLoaderData();
   return (
     <>
       {/* Hero Section */}
@@ -70,15 +76,15 @@ function Index() {
           </div>
           <div className="flex overflow-x-auto gap-4 pb-8 scrollbar-hide snap-x">
             {[
-                { id: 'cat_deals', name: 'Deals & Combos', sub: 'Value Packs', img: 'https://images.unsplash.com/photo-1594968973184-9040a5a79963?auto=format&fit=crop&w=300&q=80' },
-                { id: 'cat_specials', name: 'Specials', sub: 'Chef Recommended', img: 'https://images.unsplash.com/photo-1594221708734-ea4b0e4d45c0?auto=format&fit=crop&w=300&q=80' },
-                { id: 'cat_burgers', name: 'Burgers', sub: 'Smash & Zinger', img: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=300&q=80' },
-                { id: 'cat_shawarma', name: 'Shawarma', sub: 'Authentic Arab', img: 'https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=300&q=80' },
-                { id: 'cat_pizza', name: 'Pizza', sub: 'Oven Baked', img: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=300&q=80' },
-                { id: 'cat_chicken', name: 'Chicken & Wings', sub: 'Crispy Fried', img: 'https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?auto=format&fit=crop&w=300&q=80' },
-                { id: 'cat_sandwiches_fries', name: 'Sandwiches & Fries', sub: 'Loaded Snacks', img: 'https://images.unsplash.com/photo-1534080564583-6be75777b70a?auto=format&fit=crop&w=300&q=80' },
-                { id: 'cat_drinks', name: 'Drinks', sub: 'Cold Beverages', img: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=300&q=80' }
-              ].map(cat => (
+      { id: 'cat_deals', name: 'Deals & Combos', sub: 'Value Packs', img: categoryImages.cat_deals },
+      { id: 'cat_specials', name: 'Specials', sub: 'Chef Recommended', img: categoryImages.cat_specials },
+      { id: 'cat_burgers', name: 'Burgers', sub: 'Smash & Zinger', img: categoryImages.cat_burgers },
+      { id: 'cat_shawarma', name: 'Shawarma', sub: 'Authentic Arab', img: categoryImages.cat_shawarma },
+      { id: 'cat_pizza', name: 'Pizza', sub: 'Oven Baked', img: categoryImages.cat_pizza },
+      { id: 'cat_chicken', name: 'Chicken & Wings', sub: 'Crispy Fried', img: categoryImages.cat_chicken },
+      { id: 'cat_sandwiches_fries', name: 'Sandwiches & Fries', sub: 'Loaded Snacks', img: categoryImages.cat_sandwiches_fries },
+      { id: 'cat_drinks', name: 'Drinks', sub: 'Cold Beverages', img: categoryImages.cat_drinks }
+    ].map(cat => (
               <a 
                 key={cat.id} 
                 href={`/menu?cat=${cat.id}`}
