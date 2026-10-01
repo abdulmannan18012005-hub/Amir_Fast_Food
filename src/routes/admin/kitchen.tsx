@@ -71,7 +71,7 @@ function KitchenKDS() {
             value={pin}
             onChange={e => setPin(e.target.value)}
             placeholder="Enter PIN"
-            className="w-full bg-background border border-border text-foreground text-center text-xl tracking-[0.5em] rounded-xl py-3 mb-4 focus:outline-none focus:border-primary"
+            className="w-full bg-white border border-border text-slate-900 text-center text-xl tracking-[0.5em] rounded-xl py-3 mb-4 focus:outline-none focus:border-primary"
             onKeyDown={e => {
               if (e.key === 'Enter') {
                 if (pin === '7860') setIsAuthenticated(true);

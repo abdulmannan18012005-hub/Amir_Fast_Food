@@ -125,8 +125,14 @@ function ItemModal({ item, onClose, onAdd }: { item: MenuItem; onClose: () => vo
 
 function MenuPage() {
   const { categories, items } = useLoaderData({ from: '/menu' });
-  const [activeCategory, setActiveCategory] = useState('cat_burgers');
-  const [modalItem, setModalItem] = useState<MenuItem | null>(null);
+  const [activeCategory, setActiveCategory] = useState('all');
+    const [modalItem, setModalItem] = useState<MenuItem | null>(null);
+    const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+    const showToast = (message: string) => {
+      setToastMessage(message);
+      setTimeout(() => setToastMessage(null), 3000);
+    };
 
   useEffect(() => {
     // Check URL for cat parameter
@@ -198,17 +204,20 @@ function MenuPage() {
           </header>
 
           <div className="flex flex-wrap gap-2">
+            <button 
+              onClick={() => setActiveCategory('all')}
+              className={`px-5 py-2.5 rounded-full font-bold text-sm transition-all shadow-sm ${
+                activeCategory === 'all' 
+                  ? 'bg-primary text-primary-foreground shadow-primary/20 scale-105' 
+                  : 'bg-card text-muted-foreground border border-border hover:bg-accent hover:text-foreground'
+              }`}
+            >
+              All
+            </button>
             {sortedCategories.map(cat => (
               <button 
                 key={cat.id}
-                onClick={() => {
-                  setActiveCategory(cat.id);
-                  const el = document.getElementById(cat.id);
-                  if (el) {
-                    const top = el.getBoundingClientRect().top + window.scrollY - 100;
-                    window.scrollTo({ top, behavior: 'smooth' });
-                  }
-                }}
+                onClick={() => setActiveCategory(cat.id)}
                 className={`px-5 py-2.5 rounded-full font-bold text-sm transition-all shadow-sm ${
                   activeCategory === cat.id 
                     ? 'bg-primary text-primary-foreground shadow-primary/20 scale-105' 
@@ -223,7 +232,7 @@ function MenuPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-[50vh] space-y-16">
-        {sortedCategories.map(cat => {
+        {(activeCategory === 'all' ? sortedCategories : sortedCategories.filter(c => c.id === activeCategory)).map(cat => {
           const catItems = sortedItems.filter(i => i.category_id === cat.id);
           if (catItems.length === 0) return null;
           return (
@@ -245,6 +254,13 @@ function MenuPage() {
           );
         })}
       </div>
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-24 right-4 z-[100] bg-emerald-500 text-black px-4 py-3 rounded-lg shadow-lg font-bold flex items-center gap-2 animate-in slide-in-from-right-8 fade-in duration-300">
+          <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+          {toastMessage}
+        </div>
+      )}
     </div>
   );
 }

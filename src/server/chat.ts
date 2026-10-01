@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/react-start';
-import { supabaseBrowser } from '../lib/supabase';
+import { getSupabaseServer } from '../lib/supabase';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
@@ -12,7 +12,7 @@ export const chatWithAmirBot = createServerFn({ method: 'POST' }).handler(async 
     throw new Error('GROQ_API_KEY is not configured for AmirBot.');
   }
   
-  const supabase = supabaseBrowser;
+  const supabase = getSupabaseServer();
   
   const { data: menuItems } = await supabase
     .from('menu_items')

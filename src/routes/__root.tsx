@@ -186,7 +186,7 @@ function RootComponent() {
                 setIsCartOpen(true);
               }}>
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none border border-primary bg-primary hover:bg-primary/90 text-primary-foreground h-9 rounded-full px-4 shadow-sm">
-                  🛒 Cart ({cartCount}) • PKR {cartTotal}
+                  🛒 Cart ({cartCount})
                 </button>
               </a>
             </div>
@@ -260,8 +260,7 @@ function RootComponent() {
         </footer>
 
         <MobileBottomNav onOpenCart={() => setIsCartOpen(true)} onOpenBot={() => {
-          const btn = document.querySelector('button[aria-label="Open chat"]') as HTMLButtonElement;
-          if (btn) btn.click();
+          window.dispatchEvent(new Event('toggleAmirBot'));
         }} />
         <AmirBotDrawer />
         <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} items={cartItems} onUpdateQuantity={handleUpdateQuantity} onRemoveItem={handleRemoveItem} onClearCart={handleClearCart} />

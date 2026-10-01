@@ -36,10 +36,7 @@ export function MobileBottomNav({
           <Menu size={20} />
           <span className="text-[10px] mt-1 font-medium">Menu</span>
         </Link>
-        <Link to="/menu" search={{ cat: 'cat_deals' }} className="flex flex-col items-center justify-center w-full h-full text-muted-foreground [&.active]:text-primary">
-          <Tag size={20} />
-          <span className="text-[10px] mt-1 font-medium">Deals</span>
-        </Link>
+        
         <button onClick={onOpenCart} className="relative flex flex-col items-center justify-center w-full h-full text-muted-foreground hover:text-foreground">
           <div className="relative">
             <ShoppingCart size={20} />

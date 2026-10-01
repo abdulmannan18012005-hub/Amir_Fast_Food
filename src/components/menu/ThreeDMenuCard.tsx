@@ -1,4 +1,4 @@
-import React, { useState, useRef, MouseEvent } from 'react';
+import React, { MouseEvent } from 'react';
 import type { MenuItem } from '../../types';
 
 interface Props {
@@ -7,73 +7,31 @@ interface Props {
 }
 
 export function ThreeDMenuCard({ item, onAddToCart }: Props) {
-  const cardRef = useRef<HTMLDivElement>(null);
-  const [rotation, setRotation] = useState({ x: 0, y: 0 });
-  const [isHovered, setIsHovered] = useState(false);
-
-  const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
-    if (!cardRef.current) return;
-    const rect = cardRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
-    const rotateX = ((y - centerY) / centerY) * -15;
-    const rotateY = ((x - centerX) / centerX) * 15;
-    setRotation({ x: rotateX, y: rotateY });
-  };
-
-  const handleMouseLeave = () => {
-    setIsHovered(false);
-    setRotation({ x: 0, y: 0 });
-  };
-
   const savingsPercent = item.original_price
     ? Math.round(((item.original_price - item.price) / item.original_price) * 100)
     : 0;
 
   return (
-    <div 
-      className="perspective-1000 w-full max-w-sm mx-auto h-full flex flex-col"
-      style={{ perspective: '1000px' }}
-    >
-      <div
-        ref={cardRef}
-        onMouseMove={handleMouseMove}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={handleMouseLeave}
-        className="relative bg-card rounded-2xl shadow-xl transition-all duration-200 ease-out preserve-3d cursor-pointer border border-border h-full flex flex-col"
-        style={{
-          transform: `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`,
-          transformStyle: 'preserve-3d',
-        }}
-      >
-        {/* Glow Effect */}
-        <div 
-          className="absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-300 pointer-events-none"
-          style={{
-            background: 'radial-gradient(circle at 50% 0%, rgba(220, 38, 38, 0.15), transparent 70%)',
-            opacity: isHovered ? 1 : 0,
-            transform: 'translateZ(1px)'
-          }}
-        />
-
+    <div className="w-full max-w-sm mx-auto h-full flex flex-col group">
+      <div className="relative bg-card rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer border border-border h-full flex flex-col hover:border-primary/50 overflow-hidden">
+        
         {/* Save Badge */}
         {item.original_price && savingsPercent > 0 && (
-          <div className="absolute top-3 right-3 z-10 bg-emerald-500 text-foreground text-xs font-bold px-2.5 py-1 rounded-full shadow-lg" style={{ transform: 'translateZ(50px)' }}>
+          <div className="absolute top-3 right-3 z-10 bg-emerald-500 text-black text-xs font-bold px-2.5 py-1 rounded-full shadow-md">
             Save {savingsPercent}%
           </div>
         )}
 
-        <div className="p-5 flex-1 flex flex-col" style={{ transform: 'translateZ(30px)' }}>
-          <img 
-            src={item.image_url} 
-            alt={item.name}
-            className="w-full aspect-square object-cover rounded-xl shadow-lg mb-4"
-            style={{ transform: 'translateZ(45px)' }}
-          />
+        <div className="p-5 flex-1 flex flex-col">
+          <div className="aspect-square w-full overflow-hidden rounded-xl mb-4 relative">
+            <img 
+              src={item.image_url} 
+              alt={item.name}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          </div>
           
-          <div className="flex-1 flex flex-col" style={{ transform: 'translateZ(20px)' }}>
+          <div className="flex-1 flex flex-col">
             <div className="flex justify-between items-start mb-2">
               <h3 className="text-lg font-bold text-foreground tracking-tight leading-tight flex-1 mr-2">{item.name}</h3>
               <div className="text-right flex-shrink-0">
@@ -94,9 +52,8 @@ export function ThreeDMenuCard({ item, onAddToCart }: Props) {
           </div>
 
           <button
-            onClick={() => onAddToCart(item)}
-            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 px-4 rounded-xl transition-colors shadow-lg shadow-primary/20 mt-auto"
-            style={{ transform: 'translateZ(40px)' }}
+            onClick={(e) => { e.stopPropagation(); onAddToCart(item); }}
+            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 px-4 rounded-xl transition-colors shadow-sm mt-auto"
           >
             Add to Cart
           </button>

@@ -19,6 +19,7 @@ function AdminMenuEditor() {
   const [activeTab, setActiveTab] = useState<'items' | 'categories' | 'highlights'>('items');
   const [highlightImages, setHighlightImages] = useState<Record<string, string>>({});
   const [categoryImages, setCategoryImages] = useState<Record<string, string>>({});
+  const [activeAdminCategory, setActiveAdminCategory] = useState<string>('all');
 
 
   useEffect(() => {
@@ -65,6 +66,13 @@ function AdminMenuEditor() {
       console.error(e);
     }
   };
+  useEffect(() => {
+    if (items.length > 0 && !activeAdminCategory) {
+      const cats = Array.from(new Set(items.map(i => i.category_id))).sort();
+      if (cats.length > 0) setActiveAdminCategory('all');
+    }
+  }, [items, activeAdminCategory]);
+
   const handleSaveCategory = async () => {
     try {
       await updateCategoryImagesFn({ data: categoryImages });
@@ -146,24 +154,24 @@ function AdminMenuEditor() {
       {activeTab === 'items' ? (
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-wrap gap-2 mb-8 border-b pb-4">
+            <button 
+                onClick={() => setActiveAdminCategory('all')}
+                className={`px-4 py-2 rounded-full font-bold text-sm transition-colors border shadow-sm capitalize ${activeAdminCategory === 'all' ? 'bg-primary text-white border-primary' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'}`}
+              >
+                All
+            </button>
             {Array.from(new Set(items.map(i => i.category_id))).sort().map(catId => (
               <button 
                 key={catId}
-                onClick={() => {
-                  const el = document.getElementById('admin-cat-' + catId);
-                  if (el) {
-                    const top = el.getBoundingClientRect().top + window.scrollY - 20;
-                    window.scrollTo({ top, behavior: 'smooth' });
-                  }
-                }}
-                className="px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition-colors border border-slate-200 shadow-sm capitalize"
+                onClick={() => setActiveAdminCategory(catId)}
+                className={`px-4 py-2 rounded-full font-bold text-sm transition-colors border shadow-sm capitalize ${activeAdminCategory === catId ? 'bg-primary text-white border-primary' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'}`}
               >
                 {catId.replace('cat_', '').replace('_', ' ')}
               </button>
             ))}
           </div>
           <div className="space-y-12">
-          {Array.from(new Set(items.map(i => i.category_id))).sort().map(catId => (
+          {(activeAdminCategory === 'all' ? Array.from(new Set(items.map(i => i.category_id))).sort() : [activeAdminCategory]).filter(Boolean).map(catId => (
             <div key={catId} id={"admin-cat-" + catId} className="space-y-4">
               <h2 className="text-2xl font-bold border-b pb-2 text-slate-800 capitalize">{catId.replace('cat_', '').replace('_', ' ')}</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -174,11 +182,11 @@ function AdminMenuEditor() {
                   <h3 className="font-bold text-lg">{item.name}</h3>
                   <div>
                     <label className="text-xs font-semibold text-slate-500">Price (PKR)</label>
-                    <input type="number" value={editPrice} onChange={e => setEditPrice(e.target.value)} className="w-full border border-slate-300 rounded p-2 text-sm" />
+                    <input type="number" value={editPrice} onChange={e => setEditPrice(e.target.value)} className="w-full border border-slate-300 rounded p-2 text-sm text-slate-900 bg-white" />
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-slate-500">Image URL</label>
-                    <input type="text" value={editImage} onChange={e => setEditImage(e.target.value)} className="w-full border border-slate-300 rounded p-2 text-sm" />
+                    <input type="text" value={editImage} onChange={e => setEditImage(e.target.value)} className="w-full border border-slate-300 rounded p-2 text-sm text-slate-900 bg-white" />
                   </div>
                   <div className="mt-auto flex gap-2 pt-4">
                     <button onClick={() => handleSave(item.id)} className="flex-1 bg-green-500 text-white rounded p-2 flex items-center justify-center gap-1 font-bold text-sm">
@@ -224,7 +232,7 @@ function AdminMenuEditor() {
                     type="text" 
                     value={url as string} 
                     onChange={e => setCategoryImages(prev => ({ ...prev, [key]: e.target.value }))}
-                    className="w-full border border-slate-300 rounded p-2 text-sm mt-auto" 
+                    className="w-full border border-slate-300 rounded p-2 text-sm mt-auto text-slate-900 bg-white" 
                   />
                 </div>
               </div>
@@ -249,7 +257,7 @@ function AdminMenuEditor() {
                     type="text" 
                     value={url as string} 
                     onChange={e => setHighlightImages(prev => ({ ...prev, [key]: e.target.value }))}
-                    className="w-full border border-slate-300 rounded p-2 text-sm mt-auto" 
+                    className="w-full border border-slate-300 rounded p-2 text-sm mt-auto text-slate-900 bg-white" 
                   />
                 </div>
               </div>
