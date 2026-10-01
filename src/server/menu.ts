@@ -102,7 +102,7 @@ export const updateMenuItemFn = createServerFn({ method: "POST" }).validator((d:
 
 
 export const getCategoryImagesFn = createServerFn({ method: "GET" }).handler(async () => {
-  const supabase = supabaseBrowser;
+  const supabase = getSupabaseServer();
   const { data } = await supabase.from('restaurant_knowledge').select('content').eq('title', 'category_images').maybeSingle();
   if (data && data.content) {
     try { return JSON.parse(data.content); } catch (e) {}
