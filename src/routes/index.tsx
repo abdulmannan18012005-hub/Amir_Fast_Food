@@ -75,7 +75,7 @@ function Index() {
             <span className="text-sm font-medium text-primary uppercase tracking-wider">Explore</span>
             <h2 className="font-display text-2xl sm:text-3xl font-bold mt-2 md:text-5xl">Our <span className="text-gradient">Categories</span></h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-8">
+          <div className="flex overflow-x-auto gap-4 pb-8 scrollbar-hide snap-x">
             {[
       { id: 'cat_deals', name: 'Deals & Combos', sub: 'Value Packs', img: categoryImages.cat_deals },
       { id: 'cat_specials', name: 'Specials', sub: 'Chef Recommended', img: categoryImages.cat_specials },
@@ -89,9 +89,9 @@ function Index() {
               <a 
                 key={cat.id} 
                 href={`/menu?cat=${cat.id}`}
-                className="group relative overflow-hidden rounded-2xl bg-card border border-border hover:border-primary transition-colors shadow-lg h-full flex flex-col"
+                className="min-w-[160px] sm:min-w-[200px] flex-shrink-0 snap-start group relative overflow-hidden rounded-2xl bg-card border border-border hover:border-primary transition-colors shadow-lg"
               >
-                <div className="aspect-square overflow-hidden">
+                <div className="h-32 sm:h-40 overflow-hidden">
                   <img src={cat.img} alt={cat.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                 </div>
                 <div className="p-4 bg-gradient-to-t from-background to-background/80 absolute bottom-0 left-0 right-0">

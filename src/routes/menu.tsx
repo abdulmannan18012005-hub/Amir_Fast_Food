@@ -198,10 +198,17 @@ function MenuPage() {
           </header>
 
           <div className="flex flex-wrap gap-2">
-            {categories.map(cat => (
+            {sortedCategories.map(cat => (
               <button 
                 key={cat.id}
-                onClick={() => setActiveCategory(cat.id)}
+                onClick={() => {
+                  setActiveCategory(cat.id);
+                  const el = document.getElementById(cat.id);
+                  if (el) {
+                    const top = el.getBoundingClientRect().top + window.scrollY - 100;
+                    window.scrollTo({ top, behavior: 'smooth' });
+                  }
+                }}
                 className={`px-5 py-2.5 rounded-full font-bold text-sm transition-all shadow-sm ${
                   activeCategory === cat.id 
                     ? 'bg-primary text-primary-foreground shadow-primary/20 scale-105' 
