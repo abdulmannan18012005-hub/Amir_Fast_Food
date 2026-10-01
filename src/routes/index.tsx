@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
-import React
-import { getCategoryImagesFn } from '../server/menu' from 'react';
+import React from 'react';
+import { getCategoryImagesFn } from '../server/menu';
 
 export const Route = createFileRoute('/')({
   component: Index,
