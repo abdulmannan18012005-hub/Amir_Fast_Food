@@ -173,7 +173,7 @@ function AdminMenuEditor() {
             </div>
           ))}
         </div>
-      ) : (
+      ) : activeTab === 'categories' ? (
         <div className="max-w-4xl mx-auto bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
           <h2 className="text-xl font-bold mb-4">Edit Home Page Category Pictures</h2>
           <div className="space-y-4">
