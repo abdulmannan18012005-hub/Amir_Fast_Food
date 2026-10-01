@@ -219,7 +219,7 @@ function AdminMenuEditor() {
         </div>
       ) : activeTab === 'categories' ? (
         <div className="max-w-6xl mx-auto bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-          <h2 className="text-xl font-bold mb-4">Edit Home Page Category Pictures</h2>
+          <h2 className="text-2xl font-black text-slate-900 mb-6">Edit Home Page Category Pictures</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {Object.entries(categoryImages).sort((a,b) => a[0].localeCompare(b[0])).map(([key, url]) => (
               <div key={key} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col">
@@ -244,7 +244,7 @@ function AdminMenuEditor() {
         </div>
       ) : (
         <div className="max-w-6xl mx-auto bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-          <h2 className="text-xl font-bold mb-4">Edit Home Page Highlights</h2>
+          <h2 className="text-2xl font-black text-slate-900 mb-6">Edit Home Page Highlights</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {Object.entries(highlightImages).sort((a,b) => a[0].localeCompare(b[0])).map(([key, url]) => (
               <div key={key} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col">

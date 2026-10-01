@@ -167,15 +167,18 @@ function MenuPage() {
     }
     localStorage.setItem('cart', JSON.stringify(cart));
     window.dispatchEvent(new Event('cartUpdated'));
-    playSuccessChime();
-  };
+      playSuccessChime();
+      showToast(`${item.name} added to cart!`);
+    };
 
   const handleModalAdd = (cartItem: CartItem) => {
     const cart = JSON.parse(localStorage.getItem('cart') || '[]');
     cart.push(cartItem);
     localStorage.setItem('cart', JSON.stringify(cart));
     window.dispatchEvent(new Event('cartUpdated'));
+    setModalItem(null);
     playSuccessChime();
+    showToast(`${cartItem.name} added to cart!`);
   };
 
   // Sort categories alphabetically
