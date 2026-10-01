@@ -215,21 +215,18 @@ function MenuPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-[50vh]">
-        {activeCatObj && (
-          <section className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="mb-6 flex items-baseline gap-4">
-              <h2 className="text-2xl sm:text-3xl font-bold text-foreground">{activeCatObj.name}</h2>
-              <div className="h-px bg-border flex-1"></div>
-            </div>
-            
-            {activeItems.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <p>No items available in this category yet.</p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-[50vh] space-y-16">
+        {sortedCategories.map(cat => {
+          const catItems = sortedItems.filter(i => i.category_id === cat.id);
+          if (catItems.length === 0) return null;
+          return (
+            <section key={cat.id} id={cat.id} className="scroll-mt-24">
+              <div className="mb-6 flex items-baseline gap-4">
+                <h2 className="text-2xl sm:text-3xl font-bold text-foreground">{cat.name}</h2>
+                <div className="h-px bg-border flex-1"></div>
               </div>
-            ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-8">
-                {activeItems.map(item => (
+                {catItems.map(item => (
                   <ThreeDMenuCard 
                     key={item.id} 
                     item={item} 
@@ -237,9 +234,9 @@ function MenuPage() {
                   />
                 ))}
               </div>
-            )}
-          </section>
-        )}
+            </section>
+          );
+        })}
       </div>
     </div>
   );
