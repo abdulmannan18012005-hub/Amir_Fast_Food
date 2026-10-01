@@ -144,9 +144,27 @@ function AdminMenuEditor() {
 
       
       {activeTab === 'items' ? (
-        <div className="max-w-6xl mx-auto space-y-12">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex flex-wrap gap-2 mb-8 border-b pb-4">
+            {Array.from(new Set(items.map(i => i.category_id))).sort().map(catId => (
+              <button 
+                key={catId}
+                onClick={() => {
+                  const el = document.getElementById('admin-cat-' + catId);
+                  if (el) {
+                    const top = el.getBoundingClientRect().top + window.scrollY - 20;
+                    window.scrollTo({ top, behavior: 'smooth' });
+                  }
+                }}
+                className="px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition-colors border border-slate-200 shadow-sm capitalize"
+              >
+                {catId.replace('cat_', '').replace('_', ' ')}
+              </button>
+            ))}
+          </div>
+          <div className="space-y-12">
           {Array.from(new Set(items.map(i => i.category_id))).sort().map(catId => (
-            <div key={catId} className="space-y-4">
+            <div key={catId} id={"admin-cat-" + catId} className="space-y-4">
               <h2 className="text-2xl font-bold border-b pb-2 text-slate-800 capitalize">{catId.replace('cat_', '').replace('_', ' ')}</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {items.filter(i => i.category_id === catId).map(item => (
@@ -190,16 +208,17 @@ function AdminMenuEditor() {
             </div>
           ))}
         </div>
+        </div>
       ) : activeTab === 'categories' ? (
         <div className="max-w-6xl mx-auto bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
           <h2 className="text-xl font-bold mb-4">Edit Home Page Category Pictures</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {Object.entries(categoryImages).sort((a,b) => a[0].localeCompare(b[0])).map(([key, url]) => (
-              <div key={key} className="bg-slate-50 border border-slate-200 rounded-xl overflow-hidden flex flex-col shadow-sm">
-                <div className="w-full aspect-square bg-slate-100 relative">
+              <div key={key} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col">
+                <div className="w-full h-32 bg-slate-100 rounded-lg mb-3 overflow-hidden relative">
                   <img src={url as string} alt={key} className="w-full h-full object-cover" />
                 </div>
-                <div className="p-4 flex-1 flex flex-col">
+                <div className="flex-1 flex flex-col">
                   <label className="text-sm font-bold text-slate-700 block mb-2">{key.replace('cat_', '').toUpperCase()}</label>
                   <input 
                     type="text" 
@@ -220,11 +239,11 @@ function AdminMenuEditor() {
           <h2 className="text-xl font-bold mb-4">Edit Home Page Highlights</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {Object.entries(highlightImages).sort((a,b) => a[0].localeCompare(b[0])).map(([key, url]) => (
-              <div key={key} className="bg-slate-50 border border-slate-200 rounded-xl overflow-hidden flex flex-col shadow-sm">
-                <div className="w-full aspect-square bg-slate-100 relative">
+              <div key={key} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col">
+                <div className="w-full h-32 bg-slate-100 rounded-lg mb-3 overflow-hidden relative">
                   <img src={url as string} alt={key} className="w-full h-full object-cover" />
                 </div>
-                <div className="p-4 flex-1 flex flex-col">
+                <div className="flex-1 flex flex-col">
                   <label className="text-sm font-bold text-slate-700 block mb-2">{key.replace('hl_', '').toUpperCase()}</label>
                   <input 
                     type="text" 
