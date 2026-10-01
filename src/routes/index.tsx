@@ -1,17 +1,18 @@
 import { createFileRoute } from '@tanstack/react-router';
 import React from 'react';
-import { getCategoryImagesFn } from '../server/menu';
+import { getCategoryImagesFn, getHighlightImagesFn } from '../server/menu';
 
 export const Route = createFileRoute('/')({
   component: Index,
   loader: async () => {
     const categoryImages = await getCategoryImagesFn();
-    return { categoryImages };
+    const highlightImages = await getHighlightImagesFn();
+    return { categoryImages, highlightImages };
   }
 });
 
 function Index() {
-  const { categoryImages } = Route.useLoaderData();
+  const { categoryImages, highlightImages } = Route.useLoaderData();
   return (
     <>
       {/* Hero Section */}
@@ -112,7 +113,7 @@ function Index() {
         <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-3">
           <div className="group relative overflow-hidden rounded-2xl sm:rounded-3xl bg-card border border-border/30">
             <div className="aspect-square overflow-hidden">
-              <img src="https://amirfastfood.vercel.app/assets/food-shawarma-0HL7THD0.jpg" alt="Classic Shawarma" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" loading="lazy" />
+              <img src={highlightImages.hl_shawarma} alt="Classic Shawarma" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" loading="lazy" />
             </div>
             <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent"></div>
             <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
@@ -122,7 +123,7 @@ function Index() {
           </div>
           <div className="group relative overflow-hidden rounded-2xl sm:rounded-3xl bg-card border border-border/30">
             <div className="aspect-square overflow-hidden">
-              <img src="https://amirfastfood.vercel.app/assets/food-burger-B13oD7Kh.jpg" alt="Smash Burger" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" loading="lazy" />
+              <img src={highlightImages.hl_burger} alt="Smash Burger" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" loading="lazy" />
             </div>
             <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent"></div>
             <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
@@ -132,7 +133,7 @@ function Index() {
           </div>
           <div className="group relative overflow-hidden rounded-2xl sm:rounded-3xl bg-card border border-border/30">
             <div className="aspect-square overflow-hidden">
-              <img src="https://amirfastfood.vercel.app/assets/food-combo-BbZhBSG3.jpg" alt="Combos" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" loading="lazy" />
+              <img src={highlightImages.hl_combos} alt="Combos" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" loading="lazy" />
             </div>
             <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent"></div>
             <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">

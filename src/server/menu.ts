@@ -129,3 +129,27 @@ export const updateCategoryImagesFn = createServerFn({ method: "POST" }).validat
   }
   return { success: true };
 });
+
+export const getHighlightImagesFn = createServerFn({ method: "GET" }).handler(async () => {
+  const supabase = getSupabaseServer();
+  const { data } = await supabase.from('restaurant_knowledge').select('content').eq('title', 'highlight_images').maybeSingle();
+  if (data && data.content) {
+    try { return JSON.parse(data.content); } catch (e) {}
+  }
+  return {
+    hl_shawarma: 'https://amirfastfood.vercel.app/assets/food-shawarma-0HL7THD0.jpg',
+    hl_burger: 'https://amirfastfood.vercel.app/assets/food-burger-B13oD7Kh.jpg',
+    hl_combos: 'https://amirfastfood.vercel.app/assets/food-combo-BbZhBSG3.jpg'
+  };
+});
+
+export const updateHighlightImagesFn = createServerFn({ method: "POST" }).validator((d: Record<string, string>) => d).handler(async ({ data }) => {
+  const supabase = getSupabaseServer();
+  const { data: existing } = await supabase.from('restaurant_knowledge').select('id').eq('title', 'highlight_images').maybeSingle();
+  if (existing) {
+    await supabase.from('restaurant_knowledge').update({ content: JSON.stringify(data) }).eq('id', existing.id);
+  } else {
+    await supabase.from('restaurant_knowledge').insert({ title: 'highlight_images', content: JSON.stringify(data) });
+  }
+  return { success: true };
+});

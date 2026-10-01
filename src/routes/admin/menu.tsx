@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import React, { useEffect, useState } from 'react';
 import { supabaseBrowser } from '../../lib/supabase';
-import { updateMenuItemFn, getCategoryImagesFn, updateCategoryImagesFn } from '../../server/menu';
+import { updateMenuItemFn, getCategoryImagesFn, updateCategoryImagesFn, getHighlightImagesFn, updateHighlightImagesFn } from '../../server/menu';
 import { ChefHat, Pencil, Check, X, Image as ImageIcon } from 'lucide-react';
 import type { MenuItem } from '../../types';
 
@@ -16,7 +16,8 @@ function AdminMenuEditor() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPrice, setEditPrice] = useState('');
   const [editImage, setEditImage] = useState('');
-  const [activeTab, setActiveTab] = useState<'items' | 'categories'>('items');
+  const [activeTab, setActiveTab] = useState<'items' | 'categories' | 'highlights'>('items');
+  const [highlightImages, setHighlightImages] = useState<Record<string, string>>({});
   const [categoryImages, setCategoryImages] = useState<Record<string, string>>({});
 
 
@@ -35,9 +36,25 @@ function AdminMenuEditor() {
       if (data) setCategoryImages(data);
     };
     fetchCategoryImages();
+    const fetchHighlightImages = async () => {
+      const data = await getHighlightImagesFn();
+      if (data) setHighlightImages(data);
+    };
+    fetchHighlightImages();
+
   }, [isAuthenticated]);
 
 
+
+  const handleSaveHighlights = async () => {
+    try {
+      await updateHighlightImagesFn({ data: highlightImages });
+      alert('Highlight images updated successfully!');
+    } catch (e) {
+      alert('Failed to update highlight images');
+      console.error(e);
+    }
+  };
   const handleSaveCategory = async () => {
     try {
       await updateCategoryImagesFn({ data: categoryImages });
@@ -111,6 +128,7 @@ function AdminMenuEditor() {
         <div className="flex bg-slate-200 p-1 rounded-lg">
           <button onClick={() => setActiveTab('items')} className={`px-4 py-2 rounded-md font-bold text-sm ${activeTab === 'items' ? 'bg-white text-slate-900 shadow' : 'text-slate-500'}`}>Menu Items</button>
           <button onClick={() => setActiveTab('categories')} className={`px-4 py-2 rounded-md font-bold text-sm ${activeTab === 'categories' ? 'bg-white text-slate-900 shadow' : 'text-slate-500'}`}>Home Categories</button>
+          <button onClick={() => setActiveTab('highlights')} className={`px-4 py-2 rounded-md font-bold text-sm ${activeTab === 'highlights' ? 'bg-white text-slate-900 shadow' : 'text-slate-500'}`}>Highlights</button>
         </div>
       </header>
 
@@ -178,6 +196,31 @@ function AdminMenuEditor() {
           </div>
           <button onClick={handleSaveCategory} className="w-full mt-6 bg-primary hover:bg-primary/90 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2">
             <Check size={20} /> Save All Category Pictures
+          </button>
+        </div>
+      ) : (
+        <div className="max-w-4xl mx-auto bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+          <h2 className="text-xl font-bold mb-4">Edit Home Page Highlights</h2>
+          <div className="space-y-4">
+            {Object.entries(highlightImages).map(([key, url]) => (
+              <div key={key} className="flex flex-col md:flex-row gap-4 items-start md:items-center border-b pb-4">
+                <div className="w-24 h-24 bg-slate-100 rounded-lg overflow-hidden shrink-0">
+                  <img src={url as string} alt={key} className="w-full h-full object-cover" />
+                </div>
+                <div className="flex-1 w-full">
+                  <label className="text-sm font-bold text-slate-700 block mb-1">{key.replace('hl_', '').toUpperCase()}</label>
+                  <input 
+                    type="text" 
+                    value={url as string} 
+                    onChange={e => setHighlightImages(prev => ({ ...prev, [key]: e.target.value }))}
+                    className="w-full border border-slate-300 rounded p-2 text-sm" 
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+          <button onClick={handleSaveHighlights} className="w-full mt-6 bg-primary hover:bg-primary/90 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2">
+            <Check size={20} /> Save All Highlight Pictures
           </button>
         </div>
       )}
