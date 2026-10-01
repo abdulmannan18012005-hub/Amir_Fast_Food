@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/react-start';
-import { supabaseBrowser } from '../lib/supabase';
+import { supabaseBrowser, getSupabaseServer } from '../lib/supabase';
 import type { Category, MenuItem } from '../types';
 
 export const getCategories = createServerFn({ method: "GET" }).handler(async (): Promise<Category[]> => {
@@ -85,4 +85,17 @@ export const searchMenuItems = createServerFn({ method: "GET" }).validator((d: s
   }
 
   return data as MenuItem[];
+});
+
+export const updateMenuItemFn = createServerFn({ method: "POST" }).validator((d: { id: string, price: number, image_url: string }) => d).handler(async ({ data }) => {
+  const supabase = getSupabaseServer();
+  const { error } = await supabase
+    .from('menu_items')
+    .update({ price: data.price, image_url: data.image_url })
+    .eq('id', data.id);
+  if (error) {
+    console.error('Error updating menu item:', error);
+    throw new Error(error.message);
+  }
+  return { success: true };
 });

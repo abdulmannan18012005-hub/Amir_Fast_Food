@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import React, { useEffect, useState } from 'react';
 import { supabaseBrowser } from '../../lib/supabase';
+import { updateMenuItemFn } from '../../server/menu';
 import { ChefHat, Pencil, Check, X, Image as ImageIcon } from 'lucide-react';
 import type { MenuItem } from '../../types';
 
@@ -35,12 +36,7 @@ function AdminMenuEditor() {
         image_url: editImage
       };
       
-      const { error } = await supabaseBrowser
-        .from('menu_items')
-        .update(updates)
-        .eq('id', id);
-
-      if (error) throw error;
+      await updateMenuItemFn({ data: { id, price: parseFloat(editPrice), image_url: editImage } });
       
       setItems(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
       setEditingId(null);

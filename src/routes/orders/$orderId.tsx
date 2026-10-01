@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import React, { useState, useEffect } from 'react';
+import { supabaseBrowser } from '../../lib/supabase';
 
 export const Route = createFileRoute('/orders/$orderId')({
   component: OrderTrackingPage,
@@ -7,37 +8,95 @@ export const Route = createFileRoute('/orders/$orderId')({
 
 function OrderTrackingPage() {
   const { orderId } = Route.useParams();
-  const [stage, setStage] = useState(0);
+  const [order, setOrder] = useState<any>(null);
+  const [now, setNow] = useState(Date.now());
+  const [notificationPermission, setNotificationPermission] = useState(Notification.permission);
 
-  // Simulator for UI purposes
+  useEffect(() => {
+    if (Notification.permission === 'default') {
+      Notification.requestPermission().then(p => setNotificationPermission(p));
+    }
+  }, []);
+
+  useEffect(() => {
+    const fetchOrder = async () => {
+      const { data } = await supabaseBrowser.from('orders').select('*').eq('id', orderId).single();
+      if (data) setOrder(data);
+    };
+    fetchOrder();
+
+    const channel = supabaseBrowser.channel(`order_${orderId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${orderId}` }, (payload) => {
+        setOrder(payload.new);
+        if (notificationPermission === 'granted') {
+          new Notification('Order Update!', {
+            body: `Your order status is now: ${payload.new.status}`,
+            icon: '/vite.svg'
+          });
+          const audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
+          audio.play().catch(e => console.error(e));
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabaseBrowser.removeChannel(channel);
+    };
+  }, [orderId, notificationPermission]);
+
   useEffect(() => {
     const interval = setInterval(() => {
-      setStage(s => (s < 3 ? s + 1 : s));
+      setNow(Date.now());
     }, 5000);
     return () => clearInterval(interval);
   }, []);
 
   const stages = [
-    { label: 'Received', desc: 'We have received your order.' },
-    { label: 'Preparing', desc: 'Your food is being cooked.' },
-    { label: 'Out for Delivery', desc: 'Rider is on the way.' },
-    { label: 'Delivered', desc: 'Enjoy your meal!' }
+    { id: 'received', label: 'Received', desc: 'We have received your order.' },
+    { id: 'preparing', label: 'Preparing', desc: 'Your food is being cooked.' },
+    { id: 'out_for_delivery', label: 'Out for Delivery', desc: 'Rider is on the way.' },
+    { id: 'delivered', label: 'Delivered', desc: 'Enjoy your meal!' }
   ];
+
+  const getStageIndex = () => {
+    if (!order) return 0;
+    
+    // Check manual override from DB status
+    const dbStatusIndex = stages.findIndex(s => s.id === order.status);
+    
+    // Calculate time-based status
+    const createdTime = new Date(order.created_at).getTime();
+    const elapsedMs = now - createdTime;
+    const phaseDuration = 7.5 * 60 * 1000; // 7.5 mins per phase
+    
+    const timeBasedIndex = Math.min(3, Math.floor(elapsedMs / phaseDuration));
+    
+    // If Admin explicitly bumped it past the time-based index, use DB index.
+    // Otherwise, auto-tick based on time.
+    return Math.max(dbStatusIndex, timeBasedIndex);
+  };
+
+  const currentStage = getStageIndex();
+  
+  const getEta = () => {
+    if (currentStage >= 3) return 'Delivered';
+    const remainingPhases = 3 - currentStage;
+    return `${remainingPhases * 7.5} mins`;
+  };
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-12 w-full">
       <div className="bg-slate-800 rounded-2xl shadow-xl overflow-hidden border border-slate-700">
         
-        {/* Top Header / Map Placeholder */}
+        {/* Top Header */}
         <div className="h-64 bg-slate-900 relative border-b border-slate-700 flex flex-col items-center justify-center">
-          {/* Animated 2D/3D moving bike canvas will go here */}
           <div className="text-slate-500 font-medium mb-4">[ 3D Moving Delivery Bike Canvas ]</div>
           <div className="absolute inset-0 opacity-10 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-red-500 via-slate-900 to-slate-900"></div>
           
           <div className="z-10 bg-slate-800/80 backdrop-blur px-6 py-3 rounded-full border border-slate-700 shadow-lg flex items-center gap-3 transition-transform">
             <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
             <span className="text-white font-bold tracking-wide">
-              {stages[stage].label}
+              {stages[currentStage]?.label || 'Loading...'}
             </span>
           </div>
         </div>
@@ -47,15 +106,14 @@ function OrderTrackingPage() {
           <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
             <div>
               <h1 className="text-2xl font-bold text-white mb-2">Order #{orderId.slice(0,8)}</h1>
-              
             </div>
-            <span className="text-slate-400 font-mono text-sm">ETA: 25 mins</span>
+            <span className="text-slate-400 font-mono text-sm">ETA: {getEta()}</span>
           </div>
 
           <div className="space-y-8 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-700 before:to-transparent">
             {stages.map((s, idx) => {
-              const isPast = idx < stage;
-              const isActive = idx === stage;
+              const isPast = idx < currentStage;
+              const isActive = idx === currentStage;
               return (
                 <div key={idx} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                   <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-slate-800 bg-slate-900 text-slate-500 group-[.is-active]:bg-red-600 group-[.is-active]:text-emerald-50 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 transition-colors z-10" style={{
