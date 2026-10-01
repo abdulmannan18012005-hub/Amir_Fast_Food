@@ -34,7 +34,7 @@ export function ThreeDMenuCard({ item, onAddToCart }: Props) {
 
   return (
     <div 
-      className="perspective-1000 w-full max-w-sm mx-auto"
+      className="perspective-1000 w-full max-w-sm mx-auto h-full flex flex-col"
       style={{ perspective: '1000px' }}
     >
       <div
@@ -42,7 +42,7 @@ export function ThreeDMenuCard({ item, onAddToCart }: Props) {
         onMouseMove={handleMouseMove}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={handleMouseLeave}
-        className="relative bg-card rounded-2xl shadow-xl transition-all duration-200 ease-out preserve-3d cursor-pointer border border-border"
+        className="relative bg-card rounded-2xl shadow-xl transition-all duration-200 ease-out preserve-3d cursor-pointer border border-border h-full flex flex-col"
         style={{
           transform: `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`,
           transformStyle: 'preserve-3d',
@@ -65,15 +65,15 @@ export function ThreeDMenuCard({ item, onAddToCart }: Props) {
           </div>
         )}
 
-        <div className="p-5" style={{ transform: 'translateZ(30px)' }}>
+        <div className="p-5 flex-1 flex flex-col" style={{ transform: 'translateZ(30px)' }}>
           <img 
             src={item.image_url} 
             alt={item.name}
-            className="w-full h-48 object-cover rounded-xl shadow-lg mb-4"
+            className="w-full aspect-square object-cover rounded-xl shadow-lg mb-4"
             style={{ transform: 'translateZ(45px)' }}
           />
           
-          <div style={{ transform: 'translateZ(20px)' }}>
+          <div className="flex-1 flex flex-col" style={{ transform: 'translateZ(20px)' }}>
             <div className="flex justify-between items-start mb-2">
               <h3 className="text-lg font-bold text-foreground tracking-tight leading-tight flex-1 mr-2">{item.name}</h3>
               <div className="text-right flex-shrink-0">
@@ -95,7 +95,7 @@ export function ThreeDMenuCard({ item, onAddToCart }: Props) {
 
           <button
             onClick={() => onAddToCart(item)}
-            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 px-4 rounded-xl transition-colors shadow-lg shadow-primary/20"
+            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 px-4 rounded-xl transition-colors shadow-lg shadow-primary/20 mt-auto"
             style={{ transform: 'translateZ(40px)' }}
           >
             Add to Cart

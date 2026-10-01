@@ -26,9 +26,19 @@ function AdminMenuEditor() {
     const fetchItems = async () => {
       const { data } = await supabaseBrowser
         .from('menu_items')
-        .select('*')
-        .order('category_id');
-      if (data) setItems(data);
+        .select('*');
+      if (data) {
+        // Sort items: Deals numerically, others alphabetically
+        data.sort((a, b) => {
+          if (a.category_id === 'cat_deals' && b.category_id === 'cat_deals') {
+            const numA = parseInt((a.name.match(/\d+/) || [0])[0]);
+            const numB = parseInt((b.name.match(/\d+/) || [0])[0]);
+            return numA - numB;
+          }
+          return a.name.localeCompare(b.name);
+        });
+        setItems(data);
+      }
     };
     fetchItems();
     const fetchCategoryImages = async () => {
@@ -134,9 +144,13 @@ function AdminMenuEditor() {
 
       
       {activeTab === 'items' ? (
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {items.map(item => (
-            <div key={item.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col">
+        <div className="max-w-6xl mx-auto space-y-12">
+          {Array.from(new Set(items.map(i => i.category_id))).sort().map(catId => (
+            <div key={catId} className="space-y-4">
+              <h2 className="text-2xl font-bold border-b pb-2 text-slate-800 capitalize">{catId.replace('cat_', '').replace('_', ' ')}</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {items.filter(i => i.category_id === catId).map(item => (
+                  <div key={item.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col">
               {editingId === item.id ? (
                 <div className="flex flex-col gap-3 h-full">
                   <h3 className="font-bold text-lg">{item.name}</h3>
@@ -172,23 +186,26 @@ function AdminMenuEditor() {
               )}
             </div>
           ))}
+              </div>
+            </div>
+          ))}
         </div>
       ) : activeTab === 'categories' ? (
-        <div className="max-w-4xl mx-auto bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+        <div className="max-w-6xl mx-auto bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
           <h2 className="text-xl font-bold mb-4">Edit Home Page Category Pictures</h2>
-          <div className="space-y-4">
-            {Object.entries(categoryImages).map(([key, url]) => (
-              <div key={key} className="flex flex-col md:flex-row gap-4 items-start md:items-center border-b pb-4">
-                <div className="w-24 h-24 bg-slate-100 rounded-lg overflow-hidden shrink-0">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Object.entries(categoryImages).sort((a,b) => a[0].localeCompare(b[0])).map(([key, url]) => (
+              <div key={key} className="bg-slate-50 border border-slate-200 rounded-xl overflow-hidden flex flex-col shadow-sm">
+                <div className="w-full aspect-square bg-slate-100 relative">
                   <img src={url as string} alt={key} className="w-full h-full object-cover" />
                 </div>
-                <div className="flex-1 w-full">
-                  <label className="text-sm font-bold text-slate-700 block mb-1">{key.replace('cat_', '').toUpperCase()}</label>
+                <div className="p-4 flex-1 flex flex-col">
+                  <label className="text-sm font-bold text-slate-700 block mb-2">{key.replace('cat_', '').toUpperCase()}</label>
                   <input 
                     type="text" 
                     value={url as string} 
                     onChange={e => setCategoryImages(prev => ({ ...prev, [key]: e.target.value }))}
-                    className="w-full border border-slate-300 rounded p-2 text-sm" 
+                    className="w-full border border-slate-300 rounded p-2 text-sm mt-auto" 
                   />
                 </div>
               </div>
@@ -199,21 +216,21 @@ function AdminMenuEditor() {
           </button>
         </div>
       ) : (
-        <div className="max-w-4xl mx-auto bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+        <div className="max-w-6xl mx-auto bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
           <h2 className="text-xl font-bold mb-4">Edit Home Page Highlights</h2>
-          <div className="space-y-4">
-            {Object.entries(highlightImages).map(([key, url]) => (
-              <div key={key} className="flex flex-col md:flex-row gap-4 items-start md:items-center border-b pb-4">
-                <div className="w-24 h-24 bg-slate-100 rounded-lg overflow-hidden shrink-0">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Object.entries(highlightImages).sort((a,b) => a[0].localeCompare(b[0])).map(([key, url]) => (
+              <div key={key} className="bg-slate-50 border border-slate-200 rounded-xl overflow-hidden flex flex-col shadow-sm">
+                <div className="w-full aspect-square bg-slate-100 relative">
                   <img src={url as string} alt={key} className="w-full h-full object-cover" />
                 </div>
-                <div className="flex-1 w-full">
-                  <label className="text-sm font-bold text-slate-700 block mb-1">{key.replace('hl_', '').toUpperCase()}</label>
+                <div className="p-4 flex-1 flex flex-col">
+                  <label className="text-sm font-bold text-slate-700 block mb-2">{key.replace('hl_', '').toUpperCase()}</label>
                   <input 
                     type="text" 
                     value={url as string} 
                     onChange={e => setHighlightImages(prev => ({ ...prev, [key]: e.target.value }))}
-                    className="w-full border border-slate-300 rounded p-2 text-sm" 
+                    className="w-full border border-slate-300 rounded p-2 text-sm mt-auto" 
                   />
                 </div>
               </div>

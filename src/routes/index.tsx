@@ -75,23 +75,23 @@ function Index() {
             <span className="text-sm font-medium text-primary uppercase tracking-wider">Explore</span>
             <h2 className="font-display text-2xl sm:text-3xl font-bold mt-2 md:text-5xl">Our <span className="text-gradient">Categories</span></h2>
           </div>
-          <div className="flex overflow-x-auto gap-4 pb-8 scrollbar-hide snap-x">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-8">
             {[
       { id: 'cat_deals', name: 'Deals & Combos', sub: 'Value Packs', img: categoryImages.cat_deals },
       { id: 'cat_specials', name: 'Specials', sub: 'Chef Recommended', img: categoryImages.cat_specials },
       { id: 'cat_burgers', name: 'Burgers', sub: 'Smash & Zinger', img: categoryImages.cat_burgers },
-      { id: 'cat_shawarma', name: 'Shawarma', sub: 'Authentic Arab', img: categoryImages.cat_shawarma },
+      { id: 'cat_shawarma', name: 'Shawarma & Paratha', sub: 'Authentic Arab', img: categoryImages.cat_shawarma },
       { id: 'cat_pizza', name: 'Pizza', sub: 'Oven Baked', img: categoryImages.cat_pizza },
       { id: 'cat_chicken', name: 'Chicken & Wings', sub: 'Crispy Fried', img: categoryImages.cat_chicken },
       { id: 'cat_sandwiches_fries', name: 'Sandwiches & Fries', sub: 'Loaded Snacks', img: categoryImages.cat_sandwiches_fries },
       { id: 'cat_drinks', name: 'Drinks', sub: 'Cold Beverages', img: categoryImages.cat_drinks }
-    ].map(cat => (
+    ].sort((a,b) => a.name.localeCompare(b.name)).map(cat => (
               <a 
                 key={cat.id} 
                 href={`/menu?cat=${cat.id}`}
-                className="min-w-[160px] sm:min-w-[200px] flex-shrink-0 snap-start group relative overflow-hidden rounded-2xl bg-card border border-border hover:border-primary transition-colors shadow-lg"
+                className="group relative overflow-hidden rounded-2xl bg-card border border-border hover:border-primary transition-colors shadow-lg h-full flex flex-col"
               >
-                <div className="h-32 sm:h-40 overflow-hidden">
+                <div className="aspect-square overflow-hidden">
                   <img src={cat.img} alt={cat.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                 </div>
                 <div className="p-4 bg-gradient-to-t from-background to-background/80 absolute bottom-0 left-0 right-0">

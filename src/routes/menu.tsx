@@ -172,8 +172,19 @@ function MenuPage() {
     playSuccessChime();
   };
 
-  const activeCatObj = categories.find(c => c.id === activeCategory) || categories[0];
-  const activeItems = items.filter(i => i.category_id === activeCategory);
+  // Sort categories alphabetically
+  const sortedCategories = [...categories].sort((a,b) => a.name.localeCompare(b.name));
+  
+  // Sort items: Deals numerically, others alphabetically
+  const sortedItems = [...items].sort((a, b) => {
+    if (a.category_id === 'cat_deals' && b.category_id === 'cat_deals') {
+      const numA = parseInt((a.name.match(/\d+/) || [0])[0]);
+      const numB = parseInt((b.name.match(/\d+/) || [0])[0]);
+      return numA - numB;
+    }
+    return a.name.localeCompare(b.name);
+  });
+
 
   return (
     <div className="w-full relative">
