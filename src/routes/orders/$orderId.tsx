@@ -13,6 +13,7 @@ function OrderTrackingPage() {
   const [notificationPermission, setNotificationPermission] = useState(Notification.permission);
 
   useEffect(() => {
+    if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js').catch(console.error); }
     if (Notification.permission === 'default') {
       Notification.requestPermission().then(p => setNotificationPermission(p));
     }
