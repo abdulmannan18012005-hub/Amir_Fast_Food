@@ -19,6 +19,7 @@ function KitchenKDS() {
     return false;
   });
   const [pin, setPin] = useState('');
+    console.log('🗝️ Owner Hint - Current Kitchen PIN:', getKitchenPass());
 
   useEffect(() => {
     if (!isAuthenticated) return;

@@ -19,6 +19,7 @@ function AdminMenuEditor() {
     return false;
   });
   const [pin, setPin] = useState('');
+    console.log('🗝️ Owner Hint - Current Menu PIN:', getMenuPass());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPrice, setEditPrice] = useState('');
   const [editImage, setEditImage] = useState('');
