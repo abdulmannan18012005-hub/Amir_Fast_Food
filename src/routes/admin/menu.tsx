@@ -11,7 +11,13 @@ export const Route = createFileRoute('/admin/menu')({
 
 function AdminMenuEditor() {
   const [items, setItems] = useState<MenuItem[]>([]);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const stored = sessionStorage.getItem('menu_auth');
+      if (stored && Date.now() - parseInt(stored) < 300000) return true; // valid for 5 min
+    }
+    return false;
+  });
   const [pin, setPin] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPrice, setEditPrice] = useState('');
@@ -114,14 +120,14 @@ function AdminMenuEditor() {
             className="w-full bg-background border border-border text-foreground text-center text-xl tracking-[0.5em] rounded-xl py-3 mb-4 focus:outline-none focus:border-primary"
             onKeyDown={e => {
               if (e.key === 'Enter') {
-                if (pin === '7860') setIsAuthenticated(true);
+                if (pin === getMenuPass()) { setIsAuthenticated(true); sessionStorage.setItem('menu_auth', Date.now().toString()); }
                 else { alert('Incorrect PIN!'); setPin(''); }
               }
             }}
           />
           <button 
             onClick={() => {
-              if (pin === '7860') setIsAuthenticated(true);
+              if (pin === getMenuPass()) { setIsAuthenticated(true); sessionStorage.setItem('menu_auth', Date.now().toString()); }
               else { alert('Incorrect PIN!'); setPin(''); }
             }}
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 rounded-xl transition-colors"

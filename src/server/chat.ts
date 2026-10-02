@@ -7,7 +7,16 @@ const openai = new OpenAI({
   apiKey: process.env.GROQ_API_KEY || '',
 });
 
-export const chatWithAmirBot = createServerFn({ method: 'POST' }).handler(async ({ data }: { data: string }) => {
+export const chatWithAmirBot = createServerFn({ method: 'POST' }).handler(async ({ data }: { data: { text: string, history?: {role: 'user'|'assistant'|'system', content: string}[] } }) => {
+    // Token Saving LRU / Interceptor
+  const inputLower = data.text.toLowerCase();
+  if (inputLower.includes('where is the shop') || inputLower.includes('location')) {
+    return { reply: "We are located at Anwar Market, Peco Road, Lahore. 📍 Drop by or order online!" };
+  }
+  if (inputLower.includes('delivery fee') || inputLower.includes('delivery charges')) {
+    return { reply: "Delivery is FREE for orders over PKR 1000! For smaller orders, it's PKR 100. Note: We only deliver within a 5 KM radius. Beyond 5 KM, it's +PKR 100 per extra KM. 🛵" };
+  }
+
   if (!process.env.GROQ_API_KEY) {
     throw new Error('GROQ_API_KEY is not configured for AmirBot.');
   }
@@ -58,6 +67,7 @@ DELIVERY POLICIES:
 - Hours: 4:05 PM - 2:00 AM daily.
 - Free Delivery: For Online Transfers, OR Cash on Delivery above PKR 1000.
 - Standard COD Fee: PKR 100 for orders under PKR 1000.
+- Delivery Radius: Strictly limited to a 5 KM radius. Any distance beyond 5 KM incurs a fee of PKR 100 per additional KM.
 
 --- LIVE MENU DATA (DO NOT HALLUCINATE) ---
 ${liveContextString}
@@ -71,7 +81,8 @@ Remember: NEVER answer unrelated questions. Stick strictly to the structure. Kee
       temperature: 0.1, // Low temp for strict compliance
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: data }
+        ...(data.history || []),
+        { role: 'user', content: data.text }
       ],
     });
     

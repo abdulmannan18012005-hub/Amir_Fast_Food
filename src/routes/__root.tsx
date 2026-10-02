@@ -1,6 +1,7 @@
 import { createRootRoute, Outlet, useLocation, Scripts, HeadContent, ScrollRestoration } from '@tanstack/react-router';
 import React, { useState } from 'react';
 import { AmirBotDrawer } from '../components/chat/AmirBotDrawer';
+import { OrderTracker } from '../components/orders/OrderTracker';
 import { CartDrawer } from '../components/cart/CartDrawer';
 import { MobileBottomNav } from '../components/navigation/MobileBottomNav';
 
@@ -263,6 +264,7 @@ function RootComponent() {
           window.dispatchEvent(new Event('toggleAmirBot'));
         }} />
         <AmirBotDrawer />
+        <OrderTracker />
         <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} items={cartItems} onUpdateQuantity={handleUpdateQuantity} onRemoveItem={handleRemoveItem} onClearCart={handleClearCart} />
         <ScrollRestoration />
         <Scripts />

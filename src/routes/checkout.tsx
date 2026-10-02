@@ -14,12 +14,13 @@ function CheckoutPage() {
   const [error, setError] = useState('');
   
   // Form State
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [address, setAddress] = useState('');
+  const [name, setName] = useState(() => JSON.parse(typeof window !== 'undefined' ? localStorage.getItem('user_profile') || '{}' : '{}').name || '');
+  const [phone, setPhone] = useState(() => JSON.parse(typeof window !== 'undefined' ? localStorage.getItem('user_profile') || '{}' : '{}').phone || '');
+  const [email, setEmail] = useState(() => JSON.parse(typeof window !== 'undefined' ? localStorage.getItem('user_profile') || '{}' : '{}').email || '');
+  const [address, setAddress] = useState(() => JSON.parse(typeof window !== 'undefined' ? localStorage.getItem('user_profile') || '{}' : '{}').address || '');
   const [paymentMethod, setPaymentMethod] = useState<'cod' | 'online_transfer'>('online_transfer');
   const [trxId, setTrxId] = useState('');
+  const [consent, setConsent] = useState(false);
 
   // Real Cart State
   const [cartItems, setCartItems] = useState<CartItem[]>([]);

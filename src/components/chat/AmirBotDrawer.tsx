@@ -4,9 +4,14 @@ import { MessageCircle, X, Send, Bot } from 'lucide-react';
 
 export function AmirBotDrawer() {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<{ role: 'user' | 'bot', text: string }[]>([
-    { role: 'bot', text: 'Hi! I am AmirBot. How can I help you today?' }
-  ]);
+  const [messages, setMessages] = useState<{ role: 'user' | 'bot', text: string }[]>(() => {
+    const saved = typeof window !== 'undefined' ? sessionStorage.getItem('amirbot_chat') : null;
+    return saved ? JSON.parse(saved) : [{ role: 'bot', text: 'Hi! I am AmirBot. How can I help you today?' }];
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem('amirbot_chat', JSON.stringify(messages));
+  }, [messages]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -30,7 +35,13 @@ export function AmirBotDrawer() {
     setIsTyping(true);
 
     try {
-      const res = await chatWithAmirBot({ data: text });
+      // Format history for the server
+      const history = messages.slice(-50).map(m => ({ 
+        role: m.role === 'bot' ? 'assistant' : 'user', 
+        content: m.text 
+      })) as {role: 'user'|'assistant'|'system', content: string}[];
+
+      const res = await chatWithAmirBot({ data: { text, history } });
       setMessages(prev => [...prev, { role: 'bot', text: res.reply }]);
     } catch (e) {
       setMessages(prev => [...prev, { role: 'bot', text: "Oops! Let me try again. In the meantime, you can browse our menu at /menu or call us at +92 301 4265785. 📞" }]);
