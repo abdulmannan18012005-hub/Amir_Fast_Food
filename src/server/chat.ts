@@ -67,7 +67,7 @@ Remember: NEVER answer unrelated questions. Stick strictly to the structure. Kee
 
   try {
     const completion = await openai.chat.completions.create({
-      model: 'llama3-8b-8192', // Make sure to use a valid open/free Groq model
+      model: 'openai/gpt-oss-120b', // Use working model
       temperature: 0.1, // Low temp for strict compliance
       messages: [
         { role: 'system', content: systemPrompt },
