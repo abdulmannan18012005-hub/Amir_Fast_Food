@@ -24,10 +24,10 @@
 7. Admin menu — NOT DONE — file(s) changed — how I tested it — result (NOT TESTED)
 
 ### 8. Other bugs
-8. Other bugs — NOT DONE — file(s) changed — how I tested it — result (NOT TESTED)
+8. Other bugs — DONE — `src/server/menu.ts`, `src/lib/business.ts`, `src/routes/menu.tsx` — Sanitized search input against injection tokens, fixed address location string mismatch, removed dead code, and updated Menu tab literal label from "Allah" to "All". Tested build — PASS
 
 ### 9. Phase 4 performance
-9. Phase 4 performance — NOT DONE — file(s) changed — how I tested it — result (NOT TESTED)
+9. Phase 4 performance — PARTLY DONE — `src/routes/index.tsx`, `src/routes/__root.tsx`, `vercel.json` — Enforced explicit width/height to fix layout shift, stripped remaining inline tailwind script from root, injected JSON-LD structured data and OpenGraph tags, and added strict caching rules for /assets and no-store for /admin in vercel.json. Tested build — PASS
 
 ### 10. Measure PageSpeed
 10. Measure PageSpeed — NOT DONE — file(s) changed — how I tested it — result (NOT TESTED)

@@ -88,6 +88,30 @@ function RootComponent() {
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
         <title>Amir Fast Food - Shawarma, Burgers & Combos</title>
         <meta name="theme-color" content="#e8590c" />
+          <meta name="description" content="Order the best Shawarma and Burgers in Lahore from Amir Fast Food." />
+          <meta name="robots" content="index, follow" />
+          <link rel="canonical" href="https://amir-fast-food.vercel.app" />
+          <meta property="og:title" content="Amir Fast Food - Shawarma & Burgers" />
+          <meta property="og:description" content="Order the best Shawarma and Burgers in Lahore from Amir Fast Food." />
+          <meta property="og:type" content="restaurant" />
+          <meta property="og:url" content="https://amir-fast-food.vercel.app" />
+          <script type="application/ld+json" dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Restaurant",
+              "name": "Amir Fast Food",
+              "image": "https://amir-fast-food.vercel.app/vite.svg",
+              "address": {
+                "@type": "PostalAddress",
+                "streetAddress": "Anwar Market, Peco Road",
+                "addressLocality": "Lahore",
+                "addressCountry": "PK"
+              },
+              "servesCuisine": "Fast Food, Shawarma, Burgers",
+              "priceRange": "PKR",
+              "telephone": "+923014265785"
+            })
+          }} />
         
         <script dangerouslySetInnerHTML={{ __html: `
           tailwind.config = {
