@@ -6,13 +6,11 @@ import { CartDrawer } from '../components/cart/CartDrawer';
 import { MobileBottomNav } from '../components/navigation/MobileBottomNav';
 import { ThemeSwitcher } from '../components/ThemeSwitcher';
 import { HeaderSearch } from '../components/navigation/HeaderSearch';
-import styles from '../index.css?url';
+import '../index.css';
 
 export const Route = createRootRoute({
   component: RootComponent,
-  links: () => [
-    { rel: 'stylesheet', href: styles },
-  ]
+  links: () => []
 });
 
 function RootComponent() {

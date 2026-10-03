@@ -1,3 +1,4 @@
+import './index.css';
 /// <reference types="@tanstack/start/client" />
 import { hydrateRoot } from 'react-dom/client';
 import { StartClient } from '@tanstack/start';
