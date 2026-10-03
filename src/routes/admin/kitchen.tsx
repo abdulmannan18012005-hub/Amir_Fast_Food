@@ -19,7 +19,7 @@ function KitchenKDS() {
     return false;
   });
   const [pin, setPin] = useState('');
-    console.log('🗝️ Owner Hint - Current Kitchen PIN:', getKitchenPass());
+    
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -81,14 +81,14 @@ function KitchenKDS() {
             className="w-full bg-white border border-border text-slate-900 text-center text-xl tracking-[0.5em] rounded-xl py-3 mb-4 focus:outline-none focus:border-primary"
             onKeyDown={e => {
               if (e.key === 'Enter') {
-                if (pin === getKitchenPass()) { setIsAuthenticated(true); sessionStorage.setItem('kitchen_auth', Date.now().toString()); }
+                if (pin === '7864') { setIsAuthenticated(true); sessionStorage.setItem('kitchen_auth', Date.now().toString()); }
                 else { alert('Incorrect PIN!'); setPin(''); }
               }
             }}
           />
           <button 
             onClick={() => {
-              if (pin === getKitchenPass()) { setIsAuthenticated(true); sessionStorage.setItem('kitchen_auth', Date.now().toString()); }
+              if (pin === '7864') { setIsAuthenticated(true); sessionStorage.setItem('kitchen_auth', Date.now().toString()); }
               else { alert('Incorrect PIN!'); setPin(''); }
             }}
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 rounded-xl transition-colors"

@@ -1,5 +1,5 @@
-import { createFileRoute } from '@tanstack/react-router';
 import React, { useState, useEffect } from 'react';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { createOrder } from '../server/order';
 import { playSuccessChime } from '../lib/sound';
 import type { CartItem } from '../types';
@@ -9,11 +9,12 @@ export const Route = createFileRoute('/checkout')({
 });
 
 function CheckoutPage() {
+  const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
-  // Form State
+  // Form State - Cached
   const [name, setName] = useState(() => JSON.parse(typeof window !== 'undefined' ? localStorage.getItem('user_profile') || '{}' : '{}').name || '');
   const [phone, setPhone] = useState(() => JSON.parse(typeof window !== 'undefined' ? localStorage.getItem('user_profile') || '{}' : '{}').phone || '');
   const [email, setEmail] = useState(() => JSON.parse(typeof window !== 'undefined' ? localStorage.getItem('user_profile') || '{}' : '{}').email || '');
@@ -32,12 +33,7 @@ function CheckoutPage() {
     }
   }, []);
 
-  const subtotal = cartItems.reduce((acc, item) => {
-    const varsTotal = item.variants?.reduce((vSum, v) => vSum + (v.price || 0), 0) || 0;
-    return acc + ((item.price || 0) + varsTotal) * item.quantity;
-  }, 0);
-
-  // Fee logic: Only COD under 1000 has 100rs fee.
+  const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   const deliveryFee = paymentMethod === 'cod' && subtotal < 1000 && subtotal > 0 ? 100 : 0;
   const total = subtotal + deliveryFee;
 
@@ -71,146 +67,181 @@ function CheckoutPage() {
       
       playSuccessChime();
       localStorage.removeItem('cart');
+      localStorage.setItem('user_profile', JSON.stringify({ name, phone, email, address }));
+      localStorage.setItem('active_order', res.orderId || '');
       window.dispatchEvent(new Event('cartUpdated'));
-      window.location.href = `/orders/${res.orderId}`;
+      
+      // Navigate Home so they see the popup
+      navigate({ to: '/' });
+
     } catch (err: any) {
       setError(err.message || 'Failed to place order.');
-    } finally {
       setLoading(false);
     }
   };
 
+  const handleNext = () => {
+    if (step === 1 && (!name || !phone || !address)) {
+      setError('Please fill in all required fields.');
+      return;
+    }
+    setError('');
+    setStep(2);
+  };
+
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12 w-full">
-      <h1 className="text-3xl font-extrabold text-foreground mb-8 tracking-tight">Secure Checkout</h1>
-      
-      {error && (
-        <div className="mb-6 bg-destructive/10 border border-destructive text-destructive p-4 rounded-xl">
-          {error}
-        </div>
-      )}
+    <div className="container mx-auto px-4 pt-24 pb-32 max-w-2xl">
+      <h1 className="text-3xl font-black text-slate-900 mb-8">Checkout</h1>
 
       {cartItems.length === 0 ? (
-        <div className="text-center bg-card rounded-2xl p-12 border border-border">
-          <p className="text-muted-foreground mb-4">Your cart is empty.</p>
-          <a href="/menu" className="bg-primary text-primary-foreground font-bold px-6 py-2 rounded-full">Return to Menu</a>
+        <div className="text-center py-12 bg-white rounded-2xl shadow-sm border border-border">
+          <p className="text-muted-foreground">Your cart is empty.</p>
+          <button onClick={() => navigate({ to: '/menu' })} className="mt-4 text-primary font-bold hover:underline">
+            Browse Menu
+          </button>
         </div>
       ) : (
         <>
-          {/* Progress Stepper */}
-          <div className="flex items-center mb-10">
-            <div className={`flex-1 h-1.5 rounded-l-full ${step >= 1 ? 'bg-primary' : 'bg-muted transition-colors'}`}></div>
-            <div className={`flex-1 h-1.5 ${step >= 2 ? 'bg-primary' : 'bg-muted transition-colors'}`}></div>
-            <div className={`flex-1 h-1.5 rounded-r-full ${step >= 3 ? 'bg-primary' : 'bg-muted transition-colors'}`}></div>
+          <div className="flex gap-2 mb-8">
+            <div className={`h-2 flex-1 rounded-full ${step >= 1 ? 'bg-primary' : 'bg-muted'}`} />
+            <div className={`h-2 flex-1 rounded-full ${step >= 2 ? 'bg-primary' : 'bg-muted'}`} />
           </div>
 
-          <div className="bg-card rounded-2xl p-6 sm:p-8 border border-border shadow-xl">
+          <div className="bg-white rounded-3xl shadow-sm border border-border p-6 md:p-8">
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl font-medium text-sm border border-red-100">
+                {error}
+              </div>
+            )}
+
             {step === 1 && (
-              <section className="space-y-6 animate-in fade-in">
-                <h2 className="text-xl font-bold text-foreground">1. Contact Details</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <input type="text" placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} className="bg-accent/50 border border-border rounded-xl p-3.5 text-foreground w-full focus:ring-2 focus:ring-primary focus:outline-none" />
-                  <input type="tel" placeholder="Phone Number" value={phone} onChange={e => setPhone(e.target.value)} className="bg-accent/50 border border-border rounded-xl p-3.5 text-foreground w-full focus:ring-2 focus:ring-primary focus:outline-none" />
-                  <input type="email" placeholder="Email Address" value={email} onChange={e => setEmail(e.target.value)} className="bg-accent/50 border border-border rounded-xl p-3.5 text-foreground w-full md:col-span-2 focus:ring-2 focus:ring-primary focus:outline-none" />
+              <section className="animate-in fade-in slide-in-from-bottom-4">
+                <h2 className="text-xl font-bold mb-6">Delivery Details</h2>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">Full Name *</label>
+                    <input 
+                      type="text" 
+                      value={name} onChange={e => setName(e.target.value)}
+                      className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                      placeholder="Amir Khan"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">Phone Number *</label>
+                    <input 
+                      type="tel" 
+                      value={phone} onChange={e => setPhone(e.target.value)}
+                      className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                      placeholder="0300 1234567"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">Email (Optional)</label>
+                    <input 
+                      type="email" 
+                      value={email} onChange={e => setEmail(e.target.value)}
+                      className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                      placeholder="amir@example.com"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">Complete Address *</label>
+                    <textarea 
+                      value={address} onChange={e => setAddress(e.target.value)}
+                      rows={3}
+                      className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none"
+                      placeholder="House, Street, Area, Lahore"
+                    />
+                  </div>
                 </div>
-                <button onClick={() => setStep(2)} disabled={!name || !phone} className="w-full bg-primary text-primary-foreground font-bold py-3.5 rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-colors">Continue to Delivery</button>
+
+                <button 
+                  onClick={handleNext}
+                  className="w-full mt-8 bg-primary text-primary-foreground font-bold py-4 rounded-xl hover:bg-primary/90 shadow-lg shadow-primary/30 transition-all text-lg"
+                >
+                  Continue to Payment
+                </button>
               </section>
             )}
 
-                          {step === 2 && (
-                <section className="space-y-6 animate-in fade-in slide-in-from-right-4">
-                  <h2 className="text-xl font-bold text-foreground">2. Fulfillment</h2>
-                  <div className="flex gap-4">
-                    <button 
-                      onClick={() => { localStorage.setItem('fulfillment', 'delivery'); setAddress(''); window.dispatchEvent(new Event('fulfillmentUpdated')); }}
-                      className={`w-1/2 py-3.5 rounded-xl font-bold transition-colors ${(localStorage.getItem('fulfillment') || 'delivery') === 'delivery' ? 'bg-primary text-primary-foreground' : 'bg-accent text-foreground border border-border'}`}
-                    >
-                      Delivery 🛵
-                    </button>
-                    <button 
-                      onClick={() => { localStorage.setItem('fulfillment', 'takeaway'); setAddress('Takeaway'); window.dispatchEvent(new Event('fulfillmentUpdated')); }}
-                      className={`w-1/2 py-3.5 rounded-xl font-bold transition-colors ${localStorage.getItem('fulfillment') === 'takeaway' ? 'bg-primary text-primary-foreground' : 'bg-accent text-foreground border border-border'}`}
-                    >
-                      Takeaway 🏪
-                    </button>
-                  </div>
-                  
-                  {(localStorage.getItem('fulfillment') || 'delivery') === 'delivery' && (
-                    <textarea placeholder="Complete Street Address (House/Apt, Street, Area)" value={address === 'Takeaway' ? '' : address} onChange={e => setAddress(e.target.value)} rows={4} className="bg-accent/50 border border-border rounded-xl p-3.5 text-foreground w-full focus:ring-2 focus:ring-primary focus:outline-none"></textarea>
-                  )}
-                  
-                  <div className="flex gap-4">
-                    <button onClick={() => setStep(1)} className="w-1/3 bg-accent text-foreground font-bold py-3.5 rounded-xl hover:bg-accent/80 transition-colors">Back</button>
-                    <button onClick={() => setStep(3)} disabled={(localStorage.getItem('fulfillment') || 'delivery') === 'delivery' && (!address || address === 'Takeaway')} className="w-2/3 bg-primary text-primary-foreground font-bold py-3.5 rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-colors">Continue to Payment</button>
-                  </div>
-                </section>
-              )}
+            {step === 2 && (
+              <section className="animate-in fade-in slide-in-from-right-8">
+                <h2 className="text-xl font-bold mb-6">Payment & Summary</h2>
 
-            {step === 3 && (
-              <section className="space-y-6 animate-in fade-in slide-in-from-right-4">
-                <h2 className="text-xl font-bold text-foreground">3. Payment Method</h2>
-                
-                <div className="p-5 bg-background rounded-xl border border-border/50 mb-6 space-y-3">
-                  <div className="flex justify-between text-muted-foreground"><span>Subtotal</span><span>PKR {subtotal}</span></div>
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Delivery Fee</span>
-                    {deliveryFee === 0 ? <span className="text-emerald-500 font-bold">FREE</span> : <span>PKR {deliveryFee}</span>}
+                <div className="bg-slate-50 rounded-2xl p-4 mb-6 border border-border space-y-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="font-bold">PKR {subtotal}</span>
                   </div>
-                  <div className="flex justify-between text-foreground font-extrabold text-xl border-t border-border/50 pt-3 mt-1"><span>Total</span><span>PKR {total}</span></div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Delivery</span>
+                    <span className="font-bold">{deliveryFee === 0 ? 'FREE' : `PKR ${deliveryFee}`}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-border pt-3 mt-3 text-lg">
+                    <span className="font-black text-slate-900">Total</span>
+                    <span className="font-black text-primary">PKR {total}</span>
+                  </div>
                 </div>
 
-                <div className="space-y-4">
-                  <label className={`block border rounded-xl overflow-hidden cursor-pointer transition-all ${paymentMethod === 'online_transfer' ? 'border-primary ring-1 ring-primary shadow-lg shadow-primary/10' : 'border-border bg-accent/20'}`}>
-                    <div className="flex items-center gap-4 p-5 bg-card" onClick={() => setPaymentMethod('online_transfer')}>
-                      <input type="radio" name="payment" checked={paymentMethod === 'online_transfer'} readOnly className="w-5 h-5 text-primary" />
-                      <div>
-                        <span className="font-bold text-foreground block text-lg">Online Bank / Wallet Transfer</span>
-                        <span className="text-sm text-emerald-500 font-medium block mt-0.5">Secure • FREE Delivery Always</span>
-                      </div>
+                <div className="space-y-4 mb-8">
+                  <label className={`flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-colors ${paymentMethod === 'online_transfer' ? 'border-primary bg-primary/5' : 'border-border hover:bg-slate-50'}`}>
+                    <input 
+                      type="radio" 
+                      name="payment" 
+                      value="online_transfer"
+                      checked={paymentMethod === 'online_transfer'}
+                      onChange={() => setPaymentMethod('online_transfer')}
+                      className="w-5 h-5 accent-primary"
+                    />
+                    <div>
+                      <p className="font-bold text-slate-900">Bank Transfer / EasyPaisa</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Send to 0300-1234567 and upload TID</p>
                     </div>
-                    {paymentMethod === 'online_transfer' && (
-                      <div className="p-5 bg-background/50 border-t border-border/50 flex flex-col md:flex-row gap-6 items-start">
-                        <div className="shrink-0 bg-white p-2 rounded-lg mx-auto md:mx-0">
-                          <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=03001234567" alt="Easypaisa/JazzCash QR" className="w-24 h-24" />
-                        </div>
-                        <div className="flex-1 w-full space-y-3">
-                          <div>
-                            <p className="text-sm text-muted-foreground">Pay to EasyPaisa / JazzCash / Bank Account</p>
-                            <p className="font-mono text-xl font-bold text-foreground tracking-wider mt-1">0300 1234567</p>
-                            <p className="text-sm font-semibold text-primary mt-1">Account Title: AMIR FAST FOOD</p>
-                          </div>
-                          <input type="text" placeholder="Enter 11-digit Transaction ID (TID) / Ref No." value={trxId} onChange={e => setTrxId(e.target.value)} className="bg-card border border-border rounded-lg p-3 text-foreground w-full text-sm focus:ring-2 focus:ring-primary focus:outline-none" />
-                        </div>
-                      </div>
-                    )}
                   </label>
 
-                  <label className={`block border rounded-xl overflow-hidden cursor-pointer transition-all ${paymentMethod === 'cod' ? 'border-primary ring-1 ring-primary shadow-lg shadow-primary/10' : 'border-border bg-accent/20'}`}>
-                    <div className="flex items-center gap-4 p-5 bg-card" onClick={() => setPaymentMethod('cod')}>
-                      <input type="radio" name="payment" checked={paymentMethod === 'cod'} readOnly className="w-5 h-5 text-primary" />
-                      <div>
-                        { (localStorage.getItem('fulfillment') || 'delivery') === 'takeaway' ? (
-                            <>
-                              <span className="font-bold text-foreground block text-lg">Cash on Pickup (COP)</span>
-                              <span className="text-sm text-muted-foreground block mt-0.5">Pay in cash when picking up your order</span>
-                            </>
-                          ) : (
-                            <>
-                              <span className="font-bold text-foreground block text-lg">Cash on Delivery (COD)</span>
-                              <span className="text-sm text-muted-foreground block mt-0.5">Pay in cash when order arrives</span>
-                              {subtotal < 1000 && <span className="text-xs text-amber-500 font-bold block mt-1">PKR 100 delivery fee added (orders under PKR 1000)</span>}
-                            </>
-                          )}
-                      </div>
+                  <label className={`flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-colors ${paymentMethod === 'cod' ? 'border-primary bg-primary/5' : 'border-border hover:bg-slate-50'}`}>
+                    <input 
+                      type="radio" 
+                      name="payment" 
+                      value="cod"
+                      checked={paymentMethod === 'cod'}
+                      onChange={() => setPaymentMethod('cod')}
+                      className="w-5 h-5 accent-primary"
+                    />
+                    <div>
+                      <p className="font-bold text-slate-900">Cash on Delivery</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">+PKR 100 for orders under PKR 1000</p>
                     </div>
                   </label>
                 </div>
+
+                {paymentMethod === 'online_transfer' && (
+                  <div className="mb-8 animate-in fade-in zoom-in-95">
+                    <label className="block text-sm font-semibold mb-2">Transaction ID (TID) *</label>
+                    <input 
+                      type="text" 
+                      value={trxId} onChange={e => setTrxId(e.target.value)}
+                      className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                      placeholder="e.g. 123456789012"
+                    />
+                  </div>
+                )}
+
+                <label className="flex items-start gap-3 mb-6 p-4 bg-red-50 text-red-900 border border-red-200 rounded-xl cursor-pointer">
+                  <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1 w-5 h-5 accent-red-600 rounded" />
+                  <span className="text-sm font-medium">Orders once confirmed cannot be cancelled as preparation begins immediately. I agree and wish to place my order.</span>
+                </label>
 
                 <div className="flex gap-4 pt-6 mt-6 border-t border-border">
-                  <button onClick={() => setStep(2)} className="w-1/3 bg-accent text-foreground font-bold py-3.5 rounded-xl hover:bg-accent/80 transition-colors">Back</button>
+                  <button onClick={() => setStep(1)} className="w-1/3 bg-accent text-foreground font-bold py-3.5 rounded-xl hover:bg-accent/80 transition-colors">Back</button>
                   <button 
                     onClick={handlePlaceOrder}
-                    disabled={loading} 
+                    disabled={loading || !consent} 
                     className="w-2/3 bg-primary text-primary-foreground font-bold py-3.5 rounded-xl hover:bg-primary/90 shadow-lg shadow-primary/30 disabled:opacity-50 flex justify-center items-center transition-all"
                   >
                     {loading ? 'Processing...' : 'Place Order'}

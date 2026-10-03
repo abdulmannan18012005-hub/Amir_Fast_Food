@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { supabaseBrowser } from '../../lib/supabase';
+import { playSuccessChime } from '../../lib/sound';
+import { useNavigate } from '@tanstack/react-router';
 import { chatWithAmirBot } from '../../server/chat';
 import { MessageCircle, X, Send, Bot } from 'lucide-react';
 
@@ -14,6 +17,7 @@ export function AmirBotDrawer() {
   }, [messages]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [toast, setToast] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

@@ -6,6 +6,7 @@ export function OrderTracker() {
   const [orderId, setOrderId] = useState<string | null>(null);
   const [order, setOrder] = useState<any>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [hasOpenedAuto, setHasOpenedAuto] = useState(false);
 
   useEffect(() => {
     // Check local storage for active order
@@ -44,6 +45,19 @@ export function OrderTracker() {
     const interval = setInterval(fetchOrder, 30000); // Poll every 30s as fallback
     return () => clearInterval(interval);
   }, [orderId]);
+
+  
+  // Auto open for brand new orders
+  useEffect(() => {
+    if (order && !hasOpenedAuto) {
+      const start = new Date(order.created_at).getTime();
+      const elapsed = (Date.now() - start) / 60000;
+      if (elapsed < 1 && order.status === 'received') {
+        setIsOpen(true);
+        setHasOpenedAuto(true);
+      }
+    }
+  }, [order, hasOpenedAuto]);
 
   if (!orderId || !order) return null;
 

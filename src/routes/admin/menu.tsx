@@ -19,7 +19,7 @@ function AdminMenuEditor() {
     return false;
   });
   const [pin, setPin] = useState('');
-    console.log('🗝️ Owner Hint - Current Menu PIN:', getMenuPass());
+    
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPrice, setEditPrice] = useState('');
   const [editImage, setEditImage] = useState('');
@@ -121,14 +121,14 @@ function AdminMenuEditor() {
             className="w-full bg-background border border-border text-foreground text-center text-xl tracking-[0.5em] rounded-xl py-3 mb-4 focus:outline-none focus:border-primary"
             onKeyDown={e => {
               if (e.key === 'Enter') {
-                if (pin === getMenuPass()) { setIsAuthenticated(true); sessionStorage.setItem('menu_auth', Date.now().toString()); }
+                if (pin === '7864') { setIsAuthenticated(true); sessionStorage.setItem('menu_auth', Date.now().toString()); }
                 else { alert('Incorrect PIN!'); setPin(''); }
               }
             }}
           />
           <button 
             onClick={() => {
-              if (pin === getMenuPass()) { setIsAuthenticated(true); sessionStorage.setItem('menu_auth', Date.now().toString()); }
+              if (pin === '7864') { setIsAuthenticated(true); sessionStorage.setItem('menu_auth', Date.now().toString()); }
               else { alert('Incorrect PIN!'); setPin(''); }
             }}
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 rounded-xl transition-colors"
