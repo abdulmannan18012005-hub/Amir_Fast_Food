@@ -4,12 +4,15 @@ import { AmirBotDrawer } from '../components/chat/AmirBotDrawer';
 import { OrderTracker } from '../components/orders/OrderTracker';
 import { CartDrawer } from '../components/cart/CartDrawer';
 import { MobileBottomNav } from '../components/navigation/MobileBottomNav';
-
 import { ThemeSwitcher } from '../components/ThemeSwitcher';
 import { HeaderSearch } from '../components/navigation/HeaderSearch';
+import styles from '../index.css?url';
 
 export const Route = createRootRoute({
   component: RootComponent,
+  links: () => [
+    { rel: 'stylesheet', href: styles },
+  ]
 });
 
 function RootComponent() {
