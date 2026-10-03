@@ -22,6 +22,32 @@ function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<'cod' | 'online_transfer'>('online_transfer');
   const [trxId, setTrxId] = useState('');
   const [consent, setConsent] = useState(false);
+  const [lat, setLat] = useState<number | null>(null);
+  const [lng, setLng] = useState<number | null>(null);
+  const [distanceKm, setDistanceKm] = useState<number | null>(null);
+  const [gettingLocation, setGettingLocation] = useState(false);
+
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+      setError('Geolocation is not supported by your browser.');
+      return;
+    }
+    setGettingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLat(pos.coords.latitude);
+        setLng(pos.coords.longitude);
+        setGettingLocation(false);
+        // We just save it. The server calculates the exact distance fee.
+        // But for UI preview, we can calculate it here or fetch from an endpoint.
+      },
+      () => {
+        setError('Failed to get location. Please ensure location permissions are granted.');
+        setGettingLocation(false);
+      }
+    );
+  };
+
 
   // Real Cart State
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
@@ -55,7 +81,7 @@ function CheckoutPage() {
         customerName: name,
         customerPhone: phone,
         customerEmail: email,
-        deliveryAddress: address,
+        deliveryAddress: address, deliveryLat: lat, deliveryLng: lng,
         paymentMethod,
         items: cartItems,
         subtotal
@@ -81,9 +107,15 @@ function CheckoutPage() {
   };
 
   const handleNext = () => {
-    if (step === 1 && (!name || !phone || !address)) {
-      setError('Please fill in all required fields.');
-      return;
+    if (step === 1) {
+      if (!name.trim()) return setError('Please provide your name.');
+      if (!address.trim()) return setError('Please provide your complete address.');
+      
+      const phoneRegex = /^(?:\+923|923|03)\d{9}$/;
+      let normalizedPhone = phone.replace(/\s|-/g, '');
+      if (!phoneRegex.test(normalizedPhone)) {
+        return setError('Please enter a valid Pakistani phone number (e.g. 03001234567).');
+      }
     }
     setError('');
     setStep(2);
@@ -157,6 +189,10 @@ function CheckoutPage() {
                       className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none"
                       placeholder="House, Street, Area, Lahore"
                     />
+                    <button type="button" onClick={handleGetLocation} disabled={gettingLocation} className="mt-2 text-sm text-primary font-semibold flex items-center gap-1 hover:underline">
+                      📍 {gettingLocation ? 'Finding...' : 'Use my current location'}
+                    </button>
+                    {lat && lng && <p className="text-xs text-green-600 mt-1">Location pinned successfully.</p>}
                   </div>
                 </div>
 
@@ -200,7 +236,7 @@ function CheckoutPage() {
                     />
                     <div>
                       <p className="font-bold text-slate-900">Bank Transfer / EasyPaisa</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">Send to 0300-1234567 and upload TID</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Send to contact us on WhatsApp for account details and upload TID</p>
                     </div>
                   </label>
 

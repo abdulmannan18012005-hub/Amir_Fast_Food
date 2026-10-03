@@ -4,6 +4,7 @@ import { playSuccessChime } from '../../lib/sound';
 import { useNavigate } from '@tanstack/react-router';
 import { chatWithAmirBot } from '../../server/chat';
 import { MessageCircle, X, Send, Bot } from 'lucide-react';
+import { addToCart } from '../../lib/cart';
 
 export function AmirBotDrawer() {
   const [isOpen, setIsOpen] = useState(false);
@@ -18,6 +19,7 @@ export function AmirBotDrawer() {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [toast, setToast] = useState('');
+  const navigate = useNavigate();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -46,7 +48,54 @@ export function AmirBotDrawer() {
       })) as {role: 'user'|'assistant'|'system', content: string}[];
 
       const res = await chatWithAmirBot({ data: { text, history } });
-      setMessages(prev => [...prev, { role: 'bot', text: res.reply }]);
+      let replyText = res.reply || '';
+
+      let redirectCheckout = false;
+      if (replyText.includes('[ACTION:CHECKOUT]')) {
+        replyText = replyText.replace(/\[ACTION:CHECKOUT\]/g, '').trim();
+        redirectCheckout = true;
+      }
+
+      const cartMatch = replyText.match(/\[ACTION:ADD_CART:(.*?)\]/);
+      if (cartMatch) {
+        const itemName = cartMatch[1].trim();
+        replyText = replyText.replace(/\[ACTION:ADD_CART:.*?\]/g, '').trim();
+        
+        const { data: item } = await supabaseBrowser
+          .from('menu_items')
+          .select('*')
+          .ilike('name', itemName)
+          .eq('is_available', true)
+          .limit(1)
+          .single();
+
+        if (item) {
+          if (item.variants && item.variants.length > 0) {
+            setToast('Please choose options for ' + item.name + ' on the menu page.');
+            setTimeout(() => setToast(''), 3000);
+          } else {
+            addToCart({
+              menu_item_id: item.id,
+              quantity: 1,
+              price: item.price,
+              variants: []
+            }, true);
+            setToast(item.name + ' added to cart!');
+            setTimeout(() => setToast(''), 3000);
+          }
+        } else {
+          setToast('Item not found.');
+          setTimeout(() => setToast(''), 3000);
+        }
+      }
+
+      setMessages(prev => [...prev, { role: 'bot', text: replyText }]);
+
+      if (redirectCheckout) {
+        sessionStorage.setItem('amirbot_chat', JSON.stringify([...messages, { role: 'user', text }, { role: 'bot', text: replyText }]));
+        navigate({ to: '/checkout' });
+        setIsOpen(false);
+      }
     } catch (e) {
       setMessages(prev => [...prev, { role: 'bot', text: "Oops! Let me try again. In the meantime, you can browse our menu at /menu or call us at +92 301 4265785. 📞" }]);
     } finally {
@@ -58,6 +107,20 @@ export function AmirBotDrawer() {
     <>
       {/* Floating Button */}
       
+
+            {/* Toast */}
+      {toast && (
+        <div role="status" className="fixed top-20 left-1/2 -translate-x-1/2 z-[70] bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg font-medium text-sm animate-in fade-in slide-in-from-top-4">
+          {toast}
+        </div>
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div role="status" className="fixed top-20 left-1/2 -translate-x-1/2 z-[70] bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg font-medium text-sm animate-in fade-in slide-in-from-top-4">
+          {toast}
+        </div>
+      )}
 
       {/* Slide-up Drawer */}
       <div className={`fixed bottom-0 right-0 sm:right-6 sm:bottom-6 w-full max-w-full sm:w-96 h-[600px] max-h-[calc(100vh-6rem)] bg-card border border-border sm:rounded-2xl shadow-2xl flex flex-col transition-transform duration-300 transform ${isOpen ? 'translate-y-0' : 'translate-y-[150%]'} z-[60]`}>

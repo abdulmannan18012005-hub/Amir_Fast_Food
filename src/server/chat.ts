@@ -8,6 +8,15 @@ const openai = new OpenAI({
 });
 
 export const chatWithAmirBot = createServerFn({ method: 'POST' }).handler(async ({ data }: { data: { text: string, history?: {role: 'user'|'assistant'|'system', content: string}[] } }) => {
+  if (!data.text || data.text.length < 1 || data.text.length > 500) {
+    throw new Error('Message must be between 1 and 500 characters.');
+  }
+  
+  const safeHistory = (data.history || [])
+    .filter(m => m.role === 'user' || m.role === 'assistant')
+    .slice(-10)
+    .map(m => ({ ...m, content: m.content.substring(0, 500) }));
+
     // Token Saving LRU / Interceptor
   const inputLower = data.text.toLowerCase();
   if (inputLower.includes('where is the shop') || inputLower.includes('location')) {

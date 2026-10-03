@@ -1,7 +1,8 @@
-import { calculateDeliveryFee } from '../lib/pricing';
+import { calculateDeliveryFee, calculateDistanceKm } from '../lib/pricing';
 import { createServerFn } from '@tanstack/react-start';
 import { getSupabaseServer } from '../lib/supabase';
 import { sendOrderReceiptEmail } from './email';
+import { verifyAdminPin } from './auth';
 
 export interface CreateOrderPayload {
   userId?: string;
@@ -9,6 +10,8 @@ export interface CreateOrderPayload {
   customerPhone: string;
   customerEmail?: string;
   deliveryAddress: string;
+  deliveryLat?: number | null;
+  deliveryLng?: number | null;
   paymentMethod: 'cod' | 'online_transfer';
   paymentTrxId?: string;
   deliveryLat?: number;
@@ -174,10 +177,7 @@ export const updateOrderStatus = createServerFn({ method: "POST" })
   .validator((d: { orderId: string, status: string, pin?: string }) => d)
   .handler(async ({ data }) => {
     // Basic PIN check
-    const EXPECTED_PIN = process.env.ADMIN_PIN || '7864';
-    if (data.pin !== EXPECTED_PIN) {
-      throw new Error("Unauthorized: Invalid PIN");
-    }
+    verifyAdminPin(data.pin);
 
     const supabase = getSupabaseServer();
     const { error } = await supabase.from('orders').update({ status: data.status }).eq('id', data.orderId);
@@ -212,10 +212,7 @@ export const getPublicOrder = createServerFn({ method: "GET" })
 export const getKitchenOrders = createServerFn({ method: "GET" })
   .validator((d: { pin?: string }) => d)
   .handler(async ({ data }) => {
-    const EXPECTED_PIN = process.env.ADMIN_PIN || '7864';
-    if (data.pin !== EXPECTED_PIN) {
-      throw new Error("Unauthorized: Invalid PIN");
-    }
+    verifyAdminPin(data.pin);
 
     const supabase = getSupabaseServer();
     // Fetch received, preparing, and out_for_delivery

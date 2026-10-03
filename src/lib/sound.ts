@@ -1,10 +1,29 @@
 // Web Audio API Synths for Sensory Feedback
 
+let sharedCtx: AudioContext | null = null;
+
+export const getAudioContext = () => {
+  if (typeof window === 'undefined') return null;
+  if (!sharedCtx) {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (AudioContextClass) {
+      sharedCtx = new AudioContextClass();
+    }
+  }
+  return sharedCtx;
+};
+
+export const initAudio = () => {
+  const ctx = getAudioContext();
+  if (ctx && ctx.state === 'suspended') {
+    ctx.resume();
+  }
+};
+
 export const playSuccessChime = () => {
   try {
-    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContext) return;
-    const ctx = new AudioContext();
+    const ctx = getAudioContext();
+    if (!ctx) return;
     
     // Play a happy dual-tone chord (C5 + E5)
     const playNote = (freq: number, startTime: number) => {
@@ -33,9 +52,8 @@ export const playSuccessChime = () => {
 
 export const playCashChime = () => {
   try {
-    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContext) return;
-    const ctx = new AudioContext();
+    const ctx = getAudioContext();
+    if (!ctx) return;
     
     // Play a register 'ka-ching' style arpeggio
     const osc = ctx.createOscillator();
@@ -61,9 +79,8 @@ export const playCashChime = () => {
 
 export const playKitchenDing = () => {
   try {
-    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContext) return;
-    const ctx = new AudioContext();
+    const ctx = getAudioContext();
+    if (!ctx) return;
     
     // Play a sharp service bell ding
     const osc = ctx.createOscillator();
@@ -81,15 +98,4 @@ export const playKitchenDing = () => {
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + 1.0);
   } catch (e) { }
-};
-
-export const initAudio = () => {
-  try {
-    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContext) return;
-    const ctx = new AudioContext();
-    if (ctx.state === 'suspended') {
-      ctx.resume();
-    }
-  } catch (e) {}
 };
