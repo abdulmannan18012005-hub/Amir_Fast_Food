@@ -11,6 +11,7 @@ export const Route = createFileRoute('/checkout')({
 function CheckoutPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
+  const [successOrderId, setSuccessOrderId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
@@ -94,11 +95,11 @@ function CheckoutPage() {
       playSuccessChime();
       localStorage.removeItem('cart');
       localStorage.setItem('user_profile', JSON.stringify({ name, phone, email, address }));
-      localStorage.setItem('active_order', res.orderId || '');
+      sessionStorage.setItem('just_ordered', res.orderId || ''); // per master prompt
       window.dispatchEvent(new Event('cartUpdated'));
       
-      // Navigate Home so they see the popup
-      navigate({ to: '/' });
+      setSuccessOrderId(res.orderId || '');
+      setStep(3);
 
     } catch (err: any) {
       setError(err.message || 'Failed to place order.');
@@ -283,6 +284,30 @@ function CheckoutPage() {
                     {loading ? 'Processing...' : 'Place Order'}
                   </button>
                 </div>
+              </section>
+            )}
+
+            {step === 3 && (
+              <section className="animate-in fade-in zoom-in-95 text-center py-8">
+                <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <svg className="w-10 h-10 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h2 className="text-3xl font-black text-slate-900 mb-4">Order Placed!</h2>
+                <p className="text-muted-foreground mb-8 text-lg">Your order #{successOrderId.slice(0,8)} has been sent to the kitchen.</p>
+                
+                <div className="bg-slate-50 p-6 rounded-2xl border border-border mb-8">
+                  <p className="font-semibold text-slate-900 mb-2">Permanent Tracking Link:</p>
+                  <a href={`/orders/${successOrderId}`} className="text-primary hover:underline font-mono text-sm break-all">
+                    https://amir-fast-food.vercel.app/orders/{successOrderId}
+                  </a>
+                  <p className="text-xs text-muted-foreground mt-4">Save this link! You can use it to track your order status in real-time.</p>
+                </div>
+
+                <a href={`/orders/${successOrderId}`} className="inline-block w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl hover:bg-primary/90 shadow-lg shadow-primary/30 transition-all text-lg">
+                  Track My Order Now
+                </a>
               </section>
             )}
           </div>

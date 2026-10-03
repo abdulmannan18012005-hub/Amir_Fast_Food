@@ -225,3 +225,37 @@ export const getKitchenOrders = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     return orders || [];
   });
+
+
+export const getCompletedOrdersFn = createServerFn({ method: "POST" })
+  .validator((d: { pin?: string, date?: string, search?: string }) => d)
+  .handler(async ({ data }) => {
+    verifyAdminPin(data.pin);
+
+    const supabase = getSupabaseServer();
+    let query = supabase
+      .from('orders')
+      .select('*, order_items(*, menu_items(name))')
+      .in('status', ['delivered', 'canceled'])
+      .order('created_at', { ascending: false });
+
+    if (data.date) {
+      // Filter by a specific day (YYYY-MM-DD)
+      const startOfDay = new Date(data.date + 'T00:00:00.000Z');
+      const endOfDay = new Date(data.date + 'T23:59:59.999Z');
+      query = query.gte('created_at', startOfDay.toISOString()).lte('created_at', endOfDay.toISOString());
+    } else {
+      // Default to last 50 limit if no date
+      query = query.limit(50);
+    }
+
+    if (data.search) {
+      // Search by ID or name
+      const searchStr = data.search.trim();
+      query = query.or(`id.ilike.%${searchStr}%,customer_name.ilike.%${searchStr}%`);
+    }
+
+    const { data: orders, error } = await query;
+    if (error) throw new Error(error.message);
+    return orders;
+  });

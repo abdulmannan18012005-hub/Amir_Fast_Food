@@ -87,7 +87,8 @@ function RootComponent() {
         <HeadContent />
         <meta charSet="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
-        <title>Amir Fast Food - Shawarma, Burgers & Combos</title>
+        <link rel="manifest" href="/manifest.json" />
+          <title>Amir Fast Food - Shawarma, Burgers & Combos</title>
         <meta name="theme-color" content="#e8590c" />
           <meta name="description" content="Order the best Shawarma and Burgers in Lahore from Amir Fast Food." />
           <meta name="robots" content="index, follow" />

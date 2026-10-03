@@ -9,10 +9,22 @@ export function OrderTracker() {
   const [hasOpenedAuto, setHasOpenedAuto] = useState(false);
 
   useEffect(() => {
-    // Check local storage for active order
+    // Check storage for active order
     const checkOrder = () => {
+      const justOrdered = sessionStorage.getItem('just_ordered');
       const active = localStorage.getItem('active_order');
-      if (active) setOrderId(active);
+      
+      if (justOrdered) {
+        setOrderId(justOrdered);
+        if (!hasOpenedAuto) {
+          setIsOpen(true);
+          setHasOpenedAuto(true);
+          sessionStorage.removeItem('just_ordered'); // Consume it
+          localStorage.setItem('active_order', justOrdered); // Persist for floating badge
+        }
+      } else if (active) {
+        setOrderId(active);
+      }
     };
     checkOrder();
     window.addEventListener('cartUpdated', checkOrder);
