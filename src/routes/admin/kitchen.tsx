@@ -1,9 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { supabaseBrowser } from '../../lib/supabase';
-import { updateOrderStatus } from '../../server/order';
-import { playKitchenDing } from '../../lib/sound';
-import { Clock, CheckCircle, ChefHat } from 'lucide-react';
+import { updateOrderStatus, getKitchenOrders } from '../../server/order';
+import { playKitchenDing, initAudio } from '../../lib/sound';
+import { Clock, CheckCircle, ChefHat, Truck, XCircle, Volume2, VolumeX } from 'lucide-react';
 
 export const Route = createFileRoute('/admin/kitchen')({
   component: KitchenKDS,
@@ -11,226 +11,231 @@ export const Route = createFileRoute('/admin/kitchen')({
 
 function KitchenKDS() {
   const [orders, setOrders] = useState<any[]>([]);
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const stored = sessionStorage.getItem('kitchen_auth');
-      if (stored && Date.now() - parseInt(stored) < 300000) return true; // valid for 5 min
-    }
-    return false;
-  });
   const [pin, setPin] = useState('');
-    
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return typeof window !== 'undefined' && sessionStorage.getItem('admin_pin') === '7864';
+  });
+  const [connState, setConnState] = useState<'Live' | 'Reconnecting…' | 'Offline — retrying'>('Live');
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [now, setNow] = useState(Date.now());
+
+  // Tick for "x min ago"
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pin === '7864') {
+      sessionStorage.setItem('admin_pin', pin);
+      initAudio(); // Init audio context on user interaction
+      setIsAuthenticated(true);
+    } else {
+      setPin('');
+    }
+  };
+
+  const fetchAllOrders = async () => {
+    try {
+      const data = await getKitchenOrders({ data: { pin: sessionStorage.getItem('admin_pin') || '' } });
+      setOrders(data);
+      setLastUpdated(new Date());
+      setConnState('Live');
+    } catch (e) {
+      console.error(e);
+      setConnState('Offline — retrying');
+    }
+  };
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    // Initial fetch
-    const fetchOrders = async () => {
-      const { data } = await supabaseBrowser
-        .from('orders')
-        .select('*')
-        .in('status', ['received', 'preparing'])
-        .order('created_at', { ascending: true });
-      if (data) setOrders(data);
-    };
-    fetchOrders();
+    fetchAllOrders();
 
-    // Subscribe to new/updated orders
+    // Polling safety net
+    const pollTimer = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchAllOrders();
+      }
+    }, 15000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') fetchAllOrders();
+    };
+    const handleOnline = () => fetchAllOrders();
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('online', handleOnline);
+
+    // Realtime channel
     const channel = supabaseBrowser.channel('kds_orders')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-        if (payload.eventType === 'INSERT') {
-          playKitchenDing();
-          setOrders(prev => [...prev, payload.new]);
-        } else if (payload.eventType === 'UPDATE') {
-          setOrders(prev => {
-            const updated = payload.new;
-            if (updated.status === 'delivered' || updated.status === 'canceled') {
-              return prev.filter(o => o.id !== updated.id);
-            }
-            return prev.map(o => o.id === updated.id ? updated : o);
-          });
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, async (payload) => {
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          // Re-fetch everything to ensure we have items (since items aren't in the payload)
+          // and to ensure we don't have race conditions.
+          if (payload.eventType === 'INSERT' && soundEnabled) {
+             playKitchenDing();
+          }
+          fetchAllOrders();
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') setConnState('Live');
+        if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR') setConnState('Offline — retrying');
+      });
 
     return () => {
+      clearInterval(pollTimer);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('online', handleOnline);
       supabaseBrowser.removeChannel(channel);
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, soundEnabled]);
 
   const handleBump = async (orderId: string, newStatus: string) => {
     try {
-      await updateOrderStatus({ data: { orderId, status: newStatus } });
-      // UI optimistic update is optional since the websocket will catch it
+      // Optimistic
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+      await updateOrderStatus({ data: { orderId, status: newStatus, pin: sessionStorage.getItem('admin_pin') || '' } });
     } catch (e) {
       console.error(e);
+      fetchAllOrders(); // rollback
     }
   };
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
-        <div className="bg-card border border-border p-8 rounded-2xl max-w-sm w-full text-center shadow-2xl">
-          <ChefHat className="text-primary w-16 h-16 mx-auto mb-6" />
-          <h1 className="text-2xl font-bold text-foreground mb-2">Kitchen Access</h1>
-          <p className="text-muted-foreground mb-6 text-sm">Enter the admin PIN to access the KDS.</p>
-          <input 
-            type="password" 
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4">
+        <form onSubmit={handleLogin} className="bg-slate-800 p-8 rounded-2xl shadow-xl w-full max-w-sm">
+          <ChefHat className="w-12 h-12 text-primary mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-white text-center mb-6">Kitchen Login</h1>
+          <input
+            type="password"
             value={pin}
             onChange={e => setPin(e.target.value)}
             placeholder="Enter PIN"
-            className="w-full bg-white border border-border text-slate-900 text-center text-xl tracking-[0.5em] rounded-xl py-3 mb-4 focus:outline-none focus:border-primary"
-            onKeyDown={e => {
-              if (e.key === 'Enter') {
-                if (pin === '7864') { setIsAuthenticated(true); sessionStorage.setItem('kitchen_auth', Date.now().toString()); }
-                else { alert('Incorrect PIN!'); setPin(''); }
-              }
-            }}
+            className="w-full bg-slate-700 text-white border-0 rounded-xl p-4 text-center text-xl mb-4 focus:ring-2 focus:ring-primary"
+            autoFocus
           />
-          <button 
-            onClick={() => {
-              if (pin === '7864') { setIsAuthenticated(true); sessionStorage.setItem('kitchen_auth', Date.now().toString()); }
-              else { alert('Incorrect PIN!'); setPin(''); }
-            }}
-            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 rounded-xl transition-colors"
-          >
+          <button type="submit" className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl">
             Unlock KDS
           </button>
-        </div>
+        </form>
       </div>
     );
   }
 
-  const receivedOrders = orders.filter(o => o.status === 'received');
-  const preparingOrders = orders.filter(o => o.status === 'preparing');
-
-  const OrderCard = ({ order, nextStatus, label, icon: Icon, btnColor }: any) => (
-    <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 shadow-lg animate-in slide-in-from-bottom-2">
-      <div className="flex justify-between items-start mb-3">
-        <h4 className="text-white font-bold text-lg">#{order.id.slice(0, 8)}</h4>
-        <span className="text-slate-400 text-xs">{new Date(order.created_at).toLocaleTimeString()}</span>
-      </div>
-      <p className="text-slate-300 mb-2 font-medium">{order.customer_name}</p>
-      <div className="text-sm text-slate-400 mb-4 h-16 overflow-y-auto">
-        (Items omitted for KDS view, fetch via RPC/Joins in prod)
-      </div>
-      <button
-        onClick={() => handleBump(order.id, nextStatus)}
-        className={`w-full py-2 px-4 rounded-lg font-bold text-white flex items-center justify-center gap-2 transition-colors ${btnColor}`}
-      >
-        <Icon size={18} /> {label}
-      </button>
-    </div>
-  );
+  const received = orders.filter(o => o.status === 'received');
+  const preparing = orders.filter(o => o.status === 'preparing');
+  const outForDelivery = orders.filter(o => o.status === 'out_for_delivery');
 
   return (
-    <div className="min-h-screen bg-slate-900 p-6">
-      <header className="mb-8 flex items-center justify-between">
+    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 font-sans">
+      <div className="flex justify-between items-center mb-6 bg-slate-900 p-4 rounded-xl">
+        <div className="flex items-center gap-4">
+          <ChefHat className="w-8 h-8 text-primary" />
+          <h1 className="text-2xl font-black">KITCHEN DISPLAY</h1>
+          <div className="flex items-center gap-2 ml-4">
+            <span className={`w-3 h-3 rounded-full ${connState === 'Live' ? 'bg-green-500' : 'bg-red-500 animate-pulse'}`}></span>
+            <span className="text-sm text-slate-400">{connState} - Updated {lastUpdated.toLocaleTimeString()}</span>
+          </div>
+        </div>
+        <div className="flex gap-4">
+          <button onClick={() => { setSoundEnabled(!soundEnabled); if(!soundEnabled) playKitchenDing(); }} className="flex items-center gap-2 px-4 py-2 bg-slate-800 rounded-lg">
+            {soundEnabled ? <Volume2 className="w-5 h-5 text-green-400" /> : <VolumeX className="w-5 h-5 text-red-400" />}
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Column title="RECEIVED" count={received.length} items={received} onBump={handleBump} now={now} />
+        <Column title="PREPARING" count={preparing.length} items={preparing} onBump={handleBump} now={now} />
+        <Column title="OUT FOR DELIVERY" count={outForDelivery.length} items={outForDelivery} onBump={handleBump} now={now} />
+      </div>
+    </div>
+  );
+}
+
+function Column({ title, count, items, onBump, now }: { title: string, count: number, items: any[], onBump: any, now: number }) {
+  return (
+    <div className="bg-slate-900/50 rounded-2xl p-4 border border-slate-800 min-h-[80vh] flex flex-col">
+      <h2 className="text-xl font-bold mb-4 flex justify-between items-center pb-2 border-b border-slate-800">
+        {title} <span className="bg-slate-800 px-3 py-1 rounded-full text-sm">{count}</span>
+      </h2>
+      <div className="flex-1 space-y-4 overflow-y-auto pr-2">
+        {items.map(order => (
+          <OrderCard key={order.id} order={order} onBump={onBump} now={now} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function OrderCard({ order, onBump, now }: { order: any, onBump: any, now: number }) {
+  const elapsed = Math.floor((now - new Date(order.created_at).getTime()) / 60000);
+  const isPaid = order.payment_method === 'online_transfer';
+  const ageColor = elapsed > 20 ? 'text-red-400' : elapsed > 10 ? 'text-amber-400' : 'text-green-400';
+
+  return (
+    <div className="bg-slate-800 rounded-xl p-4 shadow-lg border border-slate-700 animate-in fade-in zoom-in-95 duration-200">
+      <div className="flex justify-between items-start mb-3 pb-3 border-b border-slate-700">
         <div>
-          <h1 className="text-3xl font-extrabold text-white flex items-center gap-3">
-            <ChefHat className="text-red-500" size={32} />
-            Kitchen Display System
-          </h1>
-          <p className="text-slate-400 mt-1">Live order synchronization.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="relative flex h-3 w-3">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-          </span>
-          <span className="text-green-400 text-sm font-medium">Realtime Active</span>
-        </div>
-      </header>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Column 1: Received */}
-        <div className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700/50 min-h-[600px]">
-          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            <span className="bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm">{receivedOrders.length}</span>
-            New Orders
-          </h2>
-          <div className="space-y-4">
-            {receivedOrders.map(o => (
-              <OrderCard key={o.id} order={o} nextStatus="preparing" label="Start Preparing" icon={Clock} btnColor="bg-amber-600 hover:bg-amber-500" />
-            ))}
-            {receivedOrders.length === 0 && <p className="text-slate-500 text-center py-10">No new orders.</p>}
+          <span className="font-mono font-bold text-lg text-white">#{order.id.slice(0,5).toUpperCase()}</span>
+          <div className={`flex items-center gap-1 text-sm font-semibold ${ageColor}`}>
+            <Clock className="w-4 h-4" /> {elapsed} min ago
           </div>
         </div>
-
-        {/* Column 2: Preparing */}
-        <div className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700/50 min-h-[600px]">
-          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            <span className="bg-amber-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm">{preparingOrders.length}</span>
-            Preparing
-          </h2>
-          <div className="space-y-4">
-            {preparingOrders.map(o => (
-              <OrderCard key={o.id} order={o} nextStatus="out_for_delivery" label="Mark Ready" icon={CheckCircle} btnColor="bg-emerald-600 hover:bg-emerald-500" />
-            ))}
-            {preparingOrders.length === 0 && <p className="text-slate-500 text-center py-10">No orders currently preparing.</p>}
-          </div>
+        <div className={`px-3 py-1 rounded-md font-black text-sm ${isPaid ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+          {isPaid ? 'PAID' : 'COD'}
         </div>
+      </div>
 
-        {/* Column 3: Ready / Completed */}
-        <div className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700/50 min-h-[600px] opacity-75">
-          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            Ready for Pickup / Delivery
-          </h2>
-          <p className="text-slate-500 text-center py-10">Moved to dispatch queue automatically.</p>
-        </div>
+      <div className="mb-4 text-sm text-slate-300">
+        <p className="font-bold text-white text-base">{order.customer_name}</p>
+        <a href={`tel:${order.customer_phone}`} className="text-blue-400 hover:underline block mb-1">{order.customer_phone}</a>
+        <p className="line-clamp-2 leading-snug">{order.delivery_address}</p>
+      </div>
 
-      
-        {/* Out For Delivery Column */}
-        <div className="bg-card border border-border rounded-xl p-4 flex flex-col max-h-[85vh]">
-          <div className="flex items-center gap-3 mb-6 bg-blue-600/10 p-3 rounded-lg border border-blue-600/20 text-blue-600">
-            <CheckCircle className="w-6 h-6" />
-            <h2 className="text-xl font-black uppercase tracking-wider">Out for Delivery</h2>
-            <span className="ml-auto bg-blue-600 text-white text-sm py-1 px-3 rounded-full font-bold">
-              {orders.filter((o) => o.status === 'out_for_delivery').length}
-            </span>
+      <div className="bg-slate-900 rounded-lg p-3 mb-4 space-y-2">
+        {order.order_items?.map((item: any, i: number) => (
+          <div key={i} className="flex justify-between text-sm">
+            <span className="font-semibold text-white">{item.quantity}x {item.menu_items?.name || item.menu_item_id}</span>
+            <span className="text-slate-400">PKR {item.unit_price}</span>
           </div>
-
-          <div className="flex-1 overflow-y-auto space-y-4 pr-2">
-            {orders
-              .filter((o) => o.status === 'out_for_delivery')
-              .map((order) => (
-                <div key={order.id} className="bg-muted p-4 rounded-xl border border-border flex flex-col relative overflow-hidden shadow-sm">
-                  <div className="flex justify-between items-start mb-3">
-                    <span className="font-mono text-sm bg-background px-2 py-1 rounded font-bold border border-border">
-                      #{order.id.slice(0, 5).toUpperCase()}
-                    </span>
-                    <div className="flex gap-2">
-                      <span className={`text-xs font-bold px-2 py-1 rounded-md ${order.payment_method === 'cod' ? 'bg-red-100 text-red-800 border border-red-200' : 'bg-green-100 text-green-800 border border-green-200'}`}>
-                        {order.payment_method === 'cod' ? 'CASH ON DELIVERY' : 'ONLINE PAID'}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="text-sm bg-background p-3 rounded-md mb-4 border border-border">
-                    <p className="font-bold">{order.customer_name} - {order.customer_phone}</p>
-                    <p className="text-muted-foreground mt-1 text-xs">{order.delivery_address}</p>
-                    <p className="text-xs font-semibold text-primary mt-2">Distance Check: Pending (+PKR 0)</p>
-                  </div>
-
-                  <ul className="space-y-3 mb-4">
-                    {order.order_items.map((item: any) => (
-                      <li key={item.id} className="flex gap-3 text-sm border-b border-border/50 pb-2 last:border-0">
-                        <span className="font-black text-primary bg-primary/10 px-2 py-1 rounded h-fit">{item.quantity}x</span>
-                        <span className="font-bold text-foreground mt-1">{item.menu_items.name}</span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  <button
-                    onClick={() => handleBump(order.id, 'delivered')}
-                    className="w-full mt-auto bg-gray-800 text-white font-bold py-3 rounded-lg shadow hover:opacity-90 flex items-center justify-center gap-2"
-                  >
-                    ✅ Mark Completed
-                  </button>
-                </div>
-              ))}
+        ))}
+        {!isPaid && (
+          <div className="pt-2 mt-2 border-t border-slate-700 flex justify-between font-bold text-white">
+            <span>Collect:</span>
+            <span>PKR {order.total_amount}</span>
           </div>
-        </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 mt-auto">
+        {order.status === 'received' && (
+          <>
+            <button onClick={() => onBump(order.id, 'preparing')} className="col-span-2 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2">
+              <ChefHat className="w-5 h-5" /> Prep Food
+            </button>
+            <button onClick={() => onBump(order.id, 'out_for_delivery')} className="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 rounded-lg text-sm">
+              Skip to Delivery
+            </button>
+            <button onClick={() => { if(confirm('Cancel order?')) onBump(order.id, 'canceled') }} className="bg-red-900/50 hover:bg-red-900 text-red-200 font-bold py-2 rounded-lg text-sm">
+              Cancel
+            </button>
+          </>
+        )}
+        {order.status === 'preparing' && (
+          <button onClick={() => onBump(order.id, 'out_for_delivery')} className="col-span-2 bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2">
+            <Truck className="w-5 h-5" /> Dispatch
+          </button>
+        )}
+        {order.status === 'out_for_delivery' && (
+          <button onClick={() => onBump(order.id, 'delivered')} className="col-span-2 bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2">
+            <CheckCircle className="w-5 h-5" /> Mark Completed
+          </button>
+        )}
       </div>
     </div>
   );

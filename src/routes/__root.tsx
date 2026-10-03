@@ -88,7 +88,7 @@ function RootComponent() {
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
         <title>Amir Fast Food - Shawarma, Burgers & Combos</title>
         <meta name="theme-color" content="#e8590c" />
-        <script src="https://cdn.tailwindcss.com"></script>
+        
         <script dangerouslySetInnerHTML={{ __html: `
           tailwind.config = {
             darkMode: 'class',
@@ -122,35 +122,7 @@ function RootComponent() {
             }
           }
         `}}></script>
-        <style dangerouslySetInnerHTML={{ __html: `
-          :root {
-            --background: 30 20% 98%; --foreground: 220 20% 10%;
-            --card: 0 0% 100%; --card-foreground: 220 20% 10%;
-            --popover: 0 0% 100%; --popover-foreground: 220 20% 10%;
-            --primary: 25 95% 53%; --primary-foreground: 0 0% 100%;
-            --secondary: 30 14% 94%; --secondary-foreground: 220 20% 10%;
-            --muted: 30 14% 94%; --muted-foreground: 220 10% 46%;
-            --accent: 25 95% 95%; --accent-foreground: 25 95% 30%;
-            --destructive: 0 84% 60%; --destructive-foreground: 0 0% 100%;
-            --border: 30 13% 89%; --input: 30 13% 89%; --ring: 25 95% 53%;
-            --radius: 0.75rem;
-          }
-          .dark {
-            --background: 220 20% 4%; --foreground: 220 10% 95%;
-            --card: 220 18% 7%; --card-foreground: 220 10% 95%;
-            --popover: 220 18% 7%; --popover-foreground: 220 10% 95%;
-            --primary: 25 95% 53%; --primary-foreground: 0 0% 100%;
-            --secondary: 220 15% 12%; --secondary-foreground: 220 10% 90%;
-            --muted: 220 15% 12%; --muted-foreground: 220 10% 55%;
-            --accent: 25 95% 12%; --accent-foreground: 25 95% 70%;
-            --destructive: 0 72% 45%; --destructive-foreground: 0 0% 100%;
-            --border: 220 15% 15%; --input: 220 15% 15%; --ring: 25 95% 53%;
-          }
-          body { background-color: hsl(var(--background)); color: hsl(var(--foreground)); transition: background-color 0.3s ease, color 0.3s ease; }
-          .glass { border-bottom-width: 1px; border-color: hsl(var(--border) / 0.5); background-color: hsl(var(--background) / 0.8); backdrop-filter: blur(24px); }
-          .gradient-primary { background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8)); }
-          .text-gradient { -webkit-background-clip: text; background-clip: text; color: transparent; background-image: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.7)); }
-        `}}></style>
+        
       </head>
       <body className="min-h-screen flex flex-col font-sans overflow-x-hidden">
         {/* Navigation */}

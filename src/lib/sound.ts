@@ -82,3 +82,14 @@ export const playKitchenDing = () => {
     osc.stop(ctx.currentTime + 1.0);
   } catch (e) { }
 };
+
+export const initAudio = () => {
+  try {
+    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+    }
+  } catch (e) {}
+};

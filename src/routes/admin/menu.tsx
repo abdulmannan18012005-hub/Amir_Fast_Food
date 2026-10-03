@@ -66,7 +66,7 @@ function AdminMenuEditor() {
 
   const handleSaveHighlights = async () => {
     try {
-      await updateHighlightImagesFn({ data: highlightImages });
+      await updateHighlightImagesFn({ data: { data: highlightImages, pin: sessionStorage.getItem('admin_pin') || '' } });
       alert('Highlight images updated successfully!');
     } catch (e) {
       alert('Failed to update highlight images');
@@ -82,7 +82,7 @@ function AdminMenuEditor() {
 
   const handleSaveCategory = async () => {
     try {
-      await updateCategoryImagesFn({ data: categoryImages });
+      await updateCategoryImagesFn({ data: { data: categoryImages, pin: sessionStorage.getItem('admin_pin') || '' } });
       alert('Category images updated successfully!');
     } catch (e) {
       alert('Failed to update category images');

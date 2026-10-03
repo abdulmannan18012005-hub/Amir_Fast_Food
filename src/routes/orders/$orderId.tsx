@@ -28,10 +28,10 @@ function OrderTrackingPage() {
 
     const channel = supabaseBrowser.channel(`order_${orderId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${orderId}` }, (payload) => {
-        setOrder(payload.new);
+        fetchOrder();
         if (notificationPermission === 'granted') {
           new Notification('Order Update!', {
-            body: `Your order status is now: ${payload.new.status}`,
+            body: `Your order status has been updated!`,
             icon: '/vite.svg'
           });
           const audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
