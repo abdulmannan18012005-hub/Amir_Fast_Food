@@ -45,7 +45,16 @@
       ]
     },
     {
-      "source": "/(admin|orders|checkout)/(.*)",
+      "source": "/(sw\\.js|manifest\\.json)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, max-age=0, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/(api|admin|orders|checkout)(.*)",
       "headers": [
         {
           "key": "Cache-Control",

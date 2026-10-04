@@ -17,6 +17,7 @@ import { Route as LocationsRouteImport } from './routes/locations'
 import { Route as MenuRouteImport } from './routes/menu'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as AdminHistoryRouteImport } from './routes/admin/history'
 import { Route as AdminKitchenRouteImport } from './routes/admin/kitchen'
 import { Route as AdminMenuRouteImport } from './routes/admin/menu'
 import { Route as OrdersOrderIdRouteImport } from './routes/orders/$orderId'
@@ -61,6 +62,11 @@ const TermsRoute = TermsRouteImport.update({
   path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminHistoryRoute = AdminHistoryRouteImport.update({
+  id: '/admin/history',
+  path: '/admin/history',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminKitchenRoute = AdminKitchenRouteImport.update({
   id: '/admin/kitchen',
   path: '/admin/kitchen',
@@ -86,6 +92,7 @@ export interface FileRoutesByFullPath {
   '/menu': typeof MenuRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
+  '/admin/history': typeof AdminHistoryRoute
   '/admin/kitchen': typeof AdminKitchenRoute
   '/admin/menu': typeof AdminMenuRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
@@ -99,6 +106,7 @@ export interface FileRoutesByTo {
   '/menu': typeof MenuRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
+  '/admin/history': typeof AdminHistoryRoute
   '/admin/kitchen': typeof AdminKitchenRoute
   '/admin/menu': typeof AdminMenuRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
@@ -113,6 +121,7 @@ export interface FileRoutesById {
   '/menu': typeof MenuRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
+  '/admin/history': typeof AdminHistoryRoute
   '/admin/kitchen': typeof AdminKitchenRoute
   '/admin/menu': typeof AdminMenuRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
@@ -128,6 +137,7 @@ export interface FileRouteTypes {
     | '/menu'
     | '/privacy'
     | '/terms'
+    | '/admin/history'
     | '/admin/kitchen'
     | '/admin/menu'
     | '/orders/$orderId'
@@ -141,6 +151,7 @@ export interface FileRouteTypes {
     | '/menu'
     | '/privacy'
     | '/terms'
+    | '/admin/history'
     | '/admin/kitchen'
     | '/admin/menu'
     | '/orders/$orderId'
@@ -154,6 +165,7 @@ export interface FileRouteTypes {
     | '/menu'
     | '/privacy'
     | '/terms'
+    | '/admin/history'
     | '/admin/kitchen'
     | '/admin/menu'
     | '/orders/$orderId'
@@ -168,6 +180,7 @@ export interface RootRouteChildren {
   MenuRoute: typeof MenuRoute
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
+  AdminHistoryRoute: typeof AdminHistoryRoute
   AdminKitchenRoute: typeof AdminKitchenRoute
   AdminMenuRoute: typeof AdminMenuRoute
   OrdersOrderIdRoute: typeof OrdersOrderIdRoute
@@ -231,6 +244,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/history': {
+      id: '/admin/history'
+      path: '/admin/history'
+      fullPath: '/admin/history'
+      preLoaderRoute: typeof AdminHistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/kitchen': {
       id: '/admin/kitchen'
       path: '/admin/kitchen'
@@ -264,6 +284,7 @@ const rootRouteChildren: RootRouteChildren = {
   MenuRoute: MenuRoute,
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
+  AdminHistoryRoute: AdminHistoryRoute,
   AdminKitchenRoute: AdminKitchenRoute,
   AdminMenuRoute: AdminMenuRoute,
   OrdersOrderIdRoute: OrdersOrderIdRoute,

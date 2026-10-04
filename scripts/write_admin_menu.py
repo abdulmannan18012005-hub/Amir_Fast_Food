@@ -1,4 +1,6 @@
-import { createFileRoute } from '@tanstack/react-router';
+import os
+
+menu_code = """import { createFileRoute } from '@tanstack/react-router';
 import React, { useEffect, useState } from 'react';
 import { supabaseBrowser } from '../../lib/supabase';
 import { updateMenuItemFn, getCategoryImagesFn, updateCategoryImagesFn, getHighlightImagesFn, updateHighlightImagesFn } from '../../server/menu';
@@ -35,8 +37,8 @@ function AdminMenuEditor() {
       if (data) {
         data.sort((a, b) => {
           if (a.category_id === 'cat_deals' && b.category_id === 'cat_deals') {
-            const numA = parseInt((a.name.match(/\d+/) || [0])[0] as string);
-            const numB = parseInt((b.name.match(/\d+/) || [0])[0] as string);
+            const numA = parseInt((a.name.match(/\\d+/) || [0])[0] as string);
+            const numB = parseInt((b.name.match(/\\d+/) || [0])[0] as string);
             return numA - numB;
           }
           return a.name.localeCompare(b.name);
@@ -61,7 +63,7 @@ function AdminMenuEditor() {
 
   const handleSaveHighlights = async () => {
     try {
-      const pin = getRawSession('admin_pin') || '';
+      const pin = safeJson('admin_pin', '');
       await updateHighlightImagesFn({ data: { data: highlightImages, pin } });
       alert('Highlight images updated successfully!');
     } catch (e: any) {
@@ -71,7 +73,7 @@ function AdminMenuEditor() {
 
   const handleSaveCategory = async () => {
     try {
-      const pin = getRawSession('admin_pin') || '';
+      const pin = safeJson('admin_pin', '');
       await updateCategoryImagesFn({ data: { data: categoryImages, pin } });
       alert('Category images updated successfully!');
     } catch (e: any) {
@@ -81,7 +83,7 @@ function AdminMenuEditor() {
 
   const handleSaveItem = async (id: string) => {
     try {
-      const pin = getRawSession('admin_pin') || '';
+      const pin = safeJson('admin_pin', '');
       const price = parseFloat(editPrice);
       if (isNaN(price)) return alert('Invalid price');
 
@@ -266,3 +268,7 @@ function AdminMenuEditor() {
     </div>
   );
 }
+"""
+
+with open("src/routes/admin/menu.tsx", "w", encoding="utf-8") as f:
+    f.write(menu_code)

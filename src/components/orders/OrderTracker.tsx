@@ -1,169 +1,154 @@
 import React, { useEffect, useState } from 'react';
-import { supabaseBrowser } from '../../lib/supabase';
-import { Clock, MapPin, CheckCircle, ChefHat } from 'lucide-react';
+import { useLiveOrder } from '../../hooks/useLiveOrder';
+import { usePushSetup } from '../../hooks/usePushSetup';
+import { getActiveOrders, consumeJustOrdered, removeActiveOrder } from '../../lib/activeOrders';
+import { OrderStatusView } from './OrderStatusView';
+import { ChevronUp, ChevronDown, Package, X } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
 
 export function OrderTracker() {
   const [orderId, setOrderId] = useState<string | null>(null);
-  const [order, setOrder] = useState<any>(null);
-  const [isOpen, setIsOpen] = useState(false);
-  const [hasOpenedAuto, setHasOpenedAuto] = useState(false);
-
+  const [isExpanded, setIsExpanded] = useState(false);
+  const { enableOrderNotifications, silentlyAttach } = usePushSetup();
+  
   useEffect(() => {
-    // Check storage for active order
     const checkOrder = () => {
-      const justOrdered = sessionStorage.getItem('just_ordered');
-      const active = localStorage.getItem('active_order');
-      
+      const justOrdered = consumeJustOrdered();
+      const actives = getActiveOrders();
       if (justOrdered) {
         setOrderId(justOrdered);
-        if (!hasOpenedAuto) {
-          setIsOpen(true);
-          setHasOpenedAuto(true);
-          sessionStorage.removeItem('just_ordered'); // Consume it
-          localStorage.setItem('active_order', justOrdered); // Persist for floating badge
+        setIsExpanded(true); // auto open once
+        silentlyAttach(justOrdered);
+      } else if (actives.length > 0) {
+        if (!orderId || !actives.find(o => o.id === orderId)) {
+          setOrderId(actives[0].id);
         }
-      } else if (active) {
-        setOrderId(active);
+      } else {
+        setOrderId(null);
+        setIsExpanded(false);
       }
     };
+    
     checkOrder();
-    window.addEventListener('cartUpdated', checkOrder);
-    return () => window.removeEventListener('cartUpdated', checkOrder);
-  }, []);
-
-  useEffect(() => {
-    if (!orderId) return;
-
-    const fetchOrder = async () => {
-      const { data } = await supabaseBrowser
-        .from('orders')
-        .select('*')
-        .eq('id', orderId)
-        .single();
-      
-      if (data) {
-        setOrder(data);
-        if (data.status === 'delivered' || data.status === 'canceled') {
-          setTimeout(() => {
-            localStorage.removeItem('active_order');
-            setOrderId(null);
-            setOrder(null);
-          }, 10000); // clear after 10 sec of completion
-        }
-      }
+    
+    const handleOrderPlaced = () => checkOrder();
+    window.addEventListener('orderPlaced', handleOrderPlaced);
+    window.addEventListener('focus', handleOrderPlaced); // Catch up if changed in other tab
+    
+    return () => {
+      window.removeEventListener('orderPlaced', handleOrderPlaced);
+      window.removeEventListener('focus', handleOrderPlaced);
     };
+  }, [orderId, silentlyAttach]);
 
-    fetchOrder();
-    const interval = setInterval(fetchOrder, 30000); // Poll every 30s as fallback
-    return () => clearInterval(interval);
-  }, [orderId]);
-
-  
-  // Auto open for brand new orders
-  useEffect(() => {
-    if (order && !hasOpenedAuto) {
-      const start = new Date(order.created_at).getTime();
-      const elapsed = (Date.now() - start) / 60000;
-      if (elapsed < 1 && order.status === 'received') {
-        setIsOpen(true);
-        setHasOpenedAuto(true);
+  const { order, loading } = useLiveOrder(orderId, (newStatus, oldStatus, currentOrder) => {
+    // Sound + vibration on status change
+    try {
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      if (newStatus === 'canceled') {
+        setIsExpanded(true); // Blocking popup logic for cancel handled inside OrderStatusView
       }
-    }
-  }, [order, hasOpenedAuto]);
+    } catch(e) {}
+  });
 
-  if (!orderId || !order) return null;
+  if (!orderId) return null;
+  if (!order && !loading) return null;
 
-  // Calculate standard 30 min progress
-  const start = new Date(order.created_at).getTime();
-  const now = Date.now();
-  const elapsedMinutes = (now - start) / 60000;
-  
-  let phase = 1;
-  let label = 'Received';
-  let Icon = CheckCircle;
-  let riderInfo = null;
+  const handleDismiss = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    removeActiveOrder(orderId);
+    setOrderId(null);
+    setIsExpanded(false);
+  };
 
-  if (order.status === 'delivered') { phase = 4; label = 'Delivered'; }
-  else if (order.status === 'out_for_delivery') { phase = 3; label = 'Out for Delivery'; Icon = MapPin; riderInfo = order.rider_name; }
-  else if (order.status === 'preparing') { phase = 2; label = 'Preparing'; Icon = ChefHat; }
-  else {
-    // time-based fallback if status hasn't synced
-    if (elapsedMinutes > 22.5) { phase = 4; label = 'Delivered'; }
-    else if (elapsedMinutes > 15) { phase = 3; label = 'Out for Delivery'; Icon = MapPin; }
-    else if (elapsedMinutes > 7.5) { phase = 2; label = 'Preparing'; Icon = ChefHat; }
-  }
-
-  const progress = Math.min(100, Math.max(0, (elapsedMinutes / 30) * 100));
+  const status = order?.status || 'received';
 
   return (
     <>
+      {isExpanded && (
+        <div 
+           className="fixed inset-0 bg-black/60 z-[60] backdrop-blur-sm animate-in fade-in"
+           onClick={() => setIsExpanded(false)}
+        />
+      )}
       <div 
-        onClick={() => setIsOpen(true)}
-        className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-primary text-primary-foreground px-4 py-3 rounded-full shadow-lg shadow-primary/30 flex items-center gap-3 cursor-pointer animate-in slide-in-from-bottom-8 w-[90%] sm:w-[400px] hover:scale-105 transition-transform"
+        className={`fixed bottom-0 left-0 right-0 z-[70] bg-white border-t border-slate-200 shadow-2xl transition-all duration-300 ease-in-out transform flex flex-col ${isExpanded ? 'h-[85dvh] rounded-t-3xl' : 'pb-[calc(env(safe-area-inset-bottom)+60px)]'}`}
       >
-        <div className="bg-white/20 p-2 rounded-full animate-pulse">
-          <Clock size={20} />
-        </div>
-        <div className="flex-1">
-          <p className="text-xs font-medium opacity-90">Order {label}</p>
-          <div className="w-full bg-primary-foreground/20 h-1.5 rounded-full mt-1.5 overflow-hidden">
-            <div className="bg-white h-full rounded-full transition-all duration-1000" style={{ width: `${progress}%` }} />
+        {/* Header bar (Collapsed view) */}
+        {!isExpanded && (
+          <div 
+            className="px-4 py-3 flex items-center justify-between cursor-pointer active:bg-slate-50"
+            onClick={() => setIsExpanded(true)}
+          >
+            <div className="flex items-center gap-3 flex-1">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
+                status === 'delivered' ? 'bg-green-100 text-green-600' :
+                status === 'canceled' ? 'bg-red-100 text-red-600' : 'bg-primary/10 text-primary'
+              }`}>
+                <Package size={20} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-slate-900 truncate">
+                  {status === 'received' && 'Order Received'}
+                  {status === 'preparing' && 'Preparing Food'}
+                  {status === 'out_for_delivery' && 'Out for Delivery'}
+                  {status === 'delivered' && 'Delivered'}
+                  {status === 'canceled' && 'Canceled'}
+                </p>
+                <div className="text-xs text-slate-500 mt-0.5 truncate">
+                  {status === 'out_for_delivery' && order?.rider_name ? `Rider: ${order.rider_name}` : `Order #${order?.shortCode || '...'}`}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 ml-4">
+               {(status === 'delivered' || status === 'canceled') && (
+                 <button onClick={handleDismiss} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 text-slate-600">
+                   <X size={16} />
+                 </button>
+               )}
+               <ChevronUp size={20} className="text-slate-400" />
+            </div>
           </div>
-        </div>
-      </div>
+        )}
 
-      {isOpen && (
-        <div className="fixed inset-0 z-[100] bg-background/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
-          <div className="bg-card w-full max-w-md rounded-2xl shadow-2xl border border-border p-6 animate-in slide-in-from-bottom-8">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="font-bold text-xl">Order Status</h3>
-              <button onClick={() => setIsOpen(false)} className="text-muted-foreground p-1 rounded-full bg-muted">✕</button>
+        {/* Expanded Sheet Content */}
+        {isExpanded && order && (
+          <div className="flex flex-col h-full overflow-hidden relative">
+            <div className="w-full flex justify-center pt-3 pb-1 cursor-pointer" onClick={() => setIsExpanded(false)}>
+              <div className="w-12 h-1.5 bg-slate-200 rounded-full" />
             </div>
             
-            <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-border before:to-transparent">
-              
-              <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-card ${phase >= 1 ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'} shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow`}>
-                  <CheckCircle size={18} />
-                </div>
-                <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-muted p-4 rounded-xl border border-border">
-                  <h4 className="font-bold text-sm">Order Received</h4>
-                  <p className="text-xs text-muted-foreground mt-1">Kitchen has received your order.</p>
-                </div>
-              </div>
-
-              <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-card ${phase >= 2 ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'} shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow`}>
-                  <ChefHat size={18} />
-                </div>
-                <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-muted p-4 rounded-xl border border-border">
-                  <h4 className="font-bold text-sm">Preparing</h4>
-                  <p className="text-xs text-muted-foreground mt-1">Cooking your delicious food.</p>
-                </div>
-              </div>
-
-              <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-card ${phase >= 3 ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'} shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow`}>
-                  <MapPin size={18} />
-                </div>
-                <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-muted p-4 rounded-xl border border-border">
-                  <h4 className="font-bold text-sm">Out for Delivery</h4>
-                  <p className="text-xs text-muted-foreground mt-1">Your order is on the way!</p>
-                  {phase >= 3 && riderInfo && (
-                    <div className="mt-3 bg-card rounded-lg p-2 flex flex-col gap-2 border border-primary/20">
-                      <span className="text-xs font-semibold text-primary">Rider: {riderInfo}</span>
-                      {order.rider_phone && (
-                         <a href={`tel:${order.rider_phone}`} className="text-xs bg-primary/10 text-primary py-1 px-2 rounded-md font-bold text-center block w-full hover:bg-primary hover:text-white transition-colors">📞 {order.rider_phone}</a>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
+            <div className="absolute top-2 right-4">
+               <button onClick={handleDismiss} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 text-slate-600">
+                 <X size={20} />
+               </button>
+            </div>
+            
+            <div className="flex-1 overflow-hidden relative">
+              <OrderStatusView 
+                order={order} 
+                onNotify={() => enableOrderNotifications(orderId)}
+              />
+            </div>
+            
+            <div className="px-6 py-4 bg-white border-t border-slate-100 flex gap-3 pb-[calc(env(safe-area-inset-bottom)+16px)]">
+              <Link 
+                 to={`/orders/${orderId}`}
+                 className="flex-1 text-center py-3 font-bold text-slate-700 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors"
+                 onClick={() => setIsExpanded(false)}
+              >
+                 Full Page
+              </Link>
+              <button 
+                 onClick={() => setIsExpanded(false)}
+                 className="flex-1 py-3 font-bold text-white bg-slate-900 rounded-xl hover:bg-slate-800 transition-colors"
+              >
+                 Close
+              </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </>
   );
 }

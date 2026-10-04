@@ -1,14 +1,27 @@
 import crypto from 'crypto';
+import { getRequestIP, getRequestHeaders } from '@tanstack/react-start/server';
+import { checkRateLimit } from './rateLimit';
 
 const attempts = new Map<string, { count: number, lockUntil: number }>();
 
 export function getClientIp(): string {
-  // best-effort IP (hard in SSR without req object directly)
+  try {
+    const headers = getRequestHeaders() as any;
+    const xForwarded = headers['x-forwarded-for'];
+    if (xForwarded) {
+      const parts = String(xForwarded).split(',');
+      if (parts[0]) return parts[0].trim();
+    }
+    const ip = getRequestIP();
+    if (ip) return ip;
+  } catch (e) {
+    // Ignore error if not called in request context
+  }
   return 'global_ip_fallback';
 }
 
 export function verifyAdminPin(providedPin?: string): boolean {
-  if (!providedPin) throw new Error('PIN is required');
+  if (!providedPin) throw new Error('Unauthorized: PIN is required');
 
   const ip = getClientIp();
   const now = Date.now();
@@ -20,7 +33,6 @@ export function verifyAdminPin(providedPin?: string): boolean {
 
   const expectedPin = process.env.ADMIN_PIN || '7864';
   
-  // Constant time comparison
   let isMatch = false;
   try {
     const expectedBuffer = Buffer.from(expectedPin);

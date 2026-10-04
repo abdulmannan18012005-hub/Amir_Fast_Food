@@ -3,24 +3,32 @@ import { supabaseBrowser } from '../../lib/supabase';
 import { playSuccessChime } from '../../lib/sound';
 import { useNavigate } from '@tanstack/react-router';
 import { chatWithAmirBot } from '../../server/chat';
-import { MessageCircle, X, Send, Bot } from 'lucide-react';
-import { addToCart } from '../../lib/cart';
+import { MessageCircle, X, Send, Bot, Trash2 } from 'lucide-react';
+import { addToCart, getCart, removeItem, clearCart, getCartSubtotal, buildCartItem } from '../../lib/cart';
+import { safeJson } from '../../lib/storage';
+import { getActiveOrders } from '../../lib/activeOrders';
+
+type ToastInfo = { id: number; msg: string; type: 'success' | 'error' | 'info' };
 
 export function AmirBotDrawer() {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<{ role: 'user' | 'bot', text: string }[]>(() => {
-    const saved = typeof window !== 'undefined' ? sessionStorage.getItem('amirbot_chat') : null;
-    return saved ? JSON.parse(saved) : [{ role: 'bot', text: 'Hi! I am AmirBot. How can I help you today?' }];
+  const [messages, setMessages] = useState<{ role: 'user' | 'bot' | 'system', text: string }[]>(() => {
+    const saved = safeJson('amirbot_chat', [{ role: 'bot', text: 'Hi! I am AmirBot. How can I help you today?' }]);
+    return saved;
   });
 
-  useEffect(() => {
-    sessionStorage.setItem('amirbot_chat', JSON.stringify(messages));
-  }, [messages]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [toast, setToast] = useState('');
+  const [toasts, setToasts] = useState<ToastInfo[]>([]);
   const navigate = useNavigate();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const toastIdRef = useRef(0);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('amirbot_chat', JSON.stringify(messages.slice(-50)));
+    }
+  }, [messages]);
 
   useEffect(() => {
     const handleToggle = () => setIsOpen(prev => !prev);
@@ -32,175 +40,204 @@ export function AmirBotDrawer() {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, isTyping]);
+  }, [messages, isTyping, isOpen]);
 
-  const handleSend = async (text: string) => {
-    if (!text.trim()) return;
-    setMessages(prev => [...prev, { role: 'user', text }]);
+  const addToast = (msg: string, type: 'success' | 'error' | 'info') => {
+    const id = ++toastIdRef.current;
+    setToasts(prev => [...prev, { id, msg, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 3000);
+  };
+
+  const processActionTags = async (text: string) => {
+    const tagRegex = /\[ACTION:([A-Z_]+)(?::([^\]]+))?\]/g;
+    let match;
+    const actions: { type: string, payload?: string }[] = [];
+    
+    while ((match = tagRegex.exec(text)) !== null) {
+      actions.push({ type: match[1], payload: match[2] });
+    }
+    
+    for (const action of actions) {
+      if (action.type === 'ADD_CART' && action.payload) {
+        const parts = action.payload.split('|');
+        const itemName = parts[0].trim();
+        const qty = parts.length > 1 ? parseInt(parts[1], 10) : 1;
+        const validQty = isNaN(qty) || qty < 1 ? 1 : Math.min(qty, 20);
+
+        try {
+          const { data, error } = await supabaseBrowser
+            .from('menu_items')
+            .select('*')
+            .ilike('name', itemName.replace(/[%_]/g, '\\\\$&'))
+            .eq('is_available', true)
+            .maybeSingle();
+
+          if (error || !data) {
+            addToast(`Couldn't find '${itemName}'`, 'error');
+          } else if (data.variants && data.variants.length > 0) {
+            addToast(`'${itemName}' requires options. Please choose on the menu.`, 'info');
+            navigate({ to: '/menu' });
+          } else {
+            addToCart(buildCartItem(data as any, [], validQty));
+            playSuccessChime();
+            addToast(`Added ${itemName} to cart`, 'success');
+          }
+        } catch(e) {
+           addToast(`Error finding '${itemName}'`, 'error');
+        }
+      } else if (action.type === 'REMOVE_CART' && action.payload) {
+         const itemName = action.payload.trim();
+         // Basic removal (assuming no variants)
+         const cart = getCart();
+         const item = cart.find(i => i.name.toLowerCase() === itemName.toLowerCase());
+         if (item) {
+           removeItem(item.menu_item_id, item.variants);
+           addToast(`Removed ${itemName}`, 'info');
+         }
+      } else if (action.type === 'CLEAR_CART') {
+         clearCart();
+         addToast('Cart cleared', 'info');
+      } else if (action.type === 'CHECKOUT') {
+         const cart = getCart();
+         if (cart.length > 0) {
+           setIsOpen(false);
+           navigate({ to: '/checkout' });
+         }
+      } else if (action.type === 'OPEN_MENU') {
+         setIsOpen(false);
+         navigate({ to: '/menu' });
+      } else if (action.type === 'TRACK_ORDER') {
+         setIsOpen(false);
+         // Open tracker if possible
+      }
+    }
+  };
+
+  const handleSend = async () => {
+    const txt = input.trim();
+    if (!txt || isTyping || txt.length > 500) return;
+
     setInput('');
+    const newMessages = [...messages, { role: 'user' as const, text: txt }];
+    setMessages(newMessages);
     setIsTyping(true);
 
     try {
-      // Format history for the server
-      const history = messages.slice(-50).map(m => ({ 
-        role: m.role === 'bot' ? 'assistant' : 'user', 
-        content: m.text 
-      })) as {role: 'user'|'assistant'|'system', content: string}[];
+      const cart = getCart();
+      const cartSummary = cart.length > 0 ? `${cart.length} items, subtotal PKR ${getCartSubtotal(cart)}` : 'Empty';
+      const activeOrderId = getActiveOrders()[0]?.id || safeJson('just_ordered', '');
 
-      const res = await chatWithAmirBot({ data: { text, history } });
-      let replyText = res.reply || '';
-
-      let redirectCheckout = false;
-      if (replyText.includes('[ACTION:CHECKOUT]')) {
-        replyText = replyText.replace(/\[ACTION:CHECKOUT\]/g, '').trim();
-        redirectCheckout = true;
+      // Send to backend
+      const res = await chatWithAmirBot({ data: { 
+        text: txt, 
+        history: newMessages.filter(m => m.role !== 'system') as any,
+        cartSummary,
+        activeOrderId
+      }});
+      
+      const replyRaw = res.reply;
+      await processActionTags(replyRaw);
+      
+      const replyClean = replyRaw.replace(/\[ACTION:([A-Z_]+)(?::([^\]]+))?\]/g, '').trim();
+      if (replyClean) {
+        setMessages(prev => [...prev, { role: 'bot', text: replyClean }]);
       }
-
-      const cartMatch = replyText.match(/\[ACTION:ADD_CART:(.*?)\]/);
-      if (cartMatch) {
-        const itemName = cartMatch[1].trim();
-        replyText = replyText.replace(/\[ACTION:ADD_CART:.*?\]/g, '').trim();
-        
-        const { data: item } = await supabaseBrowser
-          .from('menu_items')
-          .select('*')
-          .ilike('name', itemName)
-          .eq('is_available', true)
-          .limit(1)
-          .single();
-
-        if (item) {
-          if (item.variants && item.variants.length > 0) {
-            setToast('Please choose options for ' + item.name + ' on the menu page.');
-            setTimeout(() => setToast(''), 3000);
-          } else {
-            addToCart({
-              menu_item_id: item.id,
-              quantity: 1,
-              price: item.price,
-              variants: []
-            }, true);
-            setToast(item.name + ' added to cart!');
-            setTimeout(() => setToast(''), 3000);
-          }
-        } else {
-          setToast('Item not found.');
-          setTimeout(() => setToast(''), 3000);
-        }
-      }
-
-      setMessages(prev => [...prev, { role: 'bot', text: replyText }]);
-
-      if (redirectCheckout) {
-        sessionStorage.setItem('amirbot_chat', JSON.stringify([...messages, { role: 'user', text }, { role: 'bot', text: replyText }]));
-        navigate({ to: '/checkout' });
-        setIsOpen(false);
-      }
-    } catch (e) {
-      setMessages(prev => [...prev, { role: 'bot', text: "Oops! Let me try again. In the meantime, you can browse our menu at /menu or call us at +92 301 4265785. 📞" }]);
+    } catch (err) {
+      setMessages(prev => [...prev, { role: 'system', text: 'Error connecting to AmirBot.' }]);
     } finally {
       setIsTyping(false);
     }
   };
 
+  if (!isOpen) return null;
+
   return (
     <>
-      {/* Floating Button */}
+      <div className="fixed inset-0 bg-black/40 z-50 backdrop-blur-sm transition-opacity" onClick={() => setIsOpen(false)} />
       
-
-            {/* Toast */}
-      {toast && (
-        <div role="status" className="fixed top-20 left-1/2 -translate-x-1/2 z-[70] bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg font-medium text-sm animate-in fade-in slide-in-from-top-4">
-          {toast}
-        </div>
-      )}
-
-      {/* Toast */}
-      {toast && (
-        <div role="status" className="fixed top-20 left-1/2 -translate-x-1/2 z-[70] bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg font-medium text-sm animate-in fade-in slide-in-from-top-4">
-          {toast}
-        </div>
-      )}
-
-      {/* Slide-up Drawer */}
-      <div className={`fixed bottom-0 right-0 sm:right-6 sm:bottom-6 w-full max-w-full sm:w-96 h-[600px] max-h-[calc(100vh-6rem)] bg-card border border-border sm:rounded-2xl shadow-2xl flex flex-col transition-transform duration-300 transform ${isOpen ? 'translate-y-0' : 'translate-y-[150%]'} z-[60]`}>
+      <div className="fixed bottom-0 right-0 w-full md:w-[400px] h-[85vh] md:h-screen md:max-h-[800px] bg-white md:rounded-l-3xl rounded-t-3xl shadow-2xl z-50 flex flex-col transform transition-transform duration-300">
         
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border bg-accent/50 sm:rounded-t-2xl">
+        {/* Toasts Stack */}
+        <div className="absolute top-0 left-0 right-0 -mt-16 flex flex-col items-center gap-2 pointer-events-none z-50">
+          {toasts.map(t => (
+            <div key={t.id} role="status" aria-live="polite" className={`px-4 py-2 rounded-full text-white text-sm font-bold shadow-lg pointer-events-auto transition-all ${
+              t.type === 'success' ? 'bg-green-500' : t.type === 'error' ? 'bg-red-500' : 'bg-slate-700'
+            }`}>
+              {t.msg}
+            </div>
+          ))}
+        </div>
+
+        <div className="p-4 bg-primary text-primary-foreground flex justify-between items-center md:rounded-tl-3xl rounded-t-3xl shadow-md z-10">
           <div className="flex items-center gap-3">
-            <div className="bg-primary/20 p-2 rounded-xl relative">
-              <Bot className="text-primary" size={24} />
-              <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 border-2 border-card rounded-full animate-pulse"></span>
+            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+              <Bot size={24} className="text-white" />
             </div>
             <div>
-              <h3 className="font-bold text-foreground">AmirBot</h3>
-              <p className="text-xs text-emerald-500 font-medium flex items-center gap-1">
-                Online
-              </p>
+              <h2 className="font-bold text-lg leading-tight">AmirBot v2</h2>
+              <p className="text-xs text-primary-foreground/80">Always here to help</p>
             </div>
           </div>
-          <button onClick={() => setIsOpen(false)} className="text-muted-foreground hover:text-foreground p-1 bg-background rounded-full transition-colors border border-border">
-            <X size={20} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setMessages([{ role: 'bot', text: 'Chat cleared! How can I help?' }])} className="p-2 hover:bg-white/20 rounded-full transition-colors" title="Clear Chat">
+              <Trash2 size={20} />
+            </button>
+            <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+              <X size={24} />
+            </button>
+          </div>
         </div>
 
-        {/* Messages */}
-        <div ref={scrollRef} className="flex-1 p-4 overflow-y-auto space-y-4">
-          {messages.map((msg, i) => (
-            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-none shadow-md' : 'bg-accent border border-border text-foreground rounded-bl-none shadow-sm'}`}>
-                {msg.text.split('\n').map((line, idx) => (
-                  <React.Fragment key={idx}>
-                    {line}
-                    {idx < msg.text.split('\n').length - 1 && <br />}
-                  </React.Fragment>
-                ))}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50">
+          {messages.map((msg, idx) => (
+            <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}>
+              <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 shadow-sm text-sm ${
+                msg.role === 'user' 
+                  ? 'bg-primary text-primary-foreground rounded-br-sm' 
+                  : msg.role === 'system'
+                  ? 'bg-red-100 text-red-700 mx-auto text-xs'
+                  : 'bg-white border border-border text-slate-800 rounded-bl-sm'
+              }`}>
+                {msg.text}
               </div>
             </div>
           ))}
           {isTyping && (
             <div className="flex justify-start">
-              <div className="bg-accent border border-border p-3.5 rounded-2xl rounded-bl-none flex gap-1 shadow-sm">
-                <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce"></span>
-                <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce delay-75"></span>
-                <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce delay-150"></span>
+              <div className="bg-white border border-border rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm flex gap-1">
+                <div className="w-2 h-2 bg-slate-300 rounded-full animate-bounce" />
+                <div className="w-2 h-2 bg-slate-300 rounded-full animate-bounce [animation-delay:0.2s]" />
+                <div className="w-2 h-2 bg-slate-300 rounded-full animate-bounce [animation-delay:0.4s]" />
               </div>
             </div>
           )}
         </div>
 
-        {/* Suggestion Chips */}
-        {messages.length === 1 && (
-          <div className="px-4 pb-3 flex flex-wrap gap-2">
-            <button onClick={() => handleSend("Show Top Burgers")} className="text-xs bg-background hover:bg-accent text-foreground px-3 py-2 rounded-full border border-border transition-colors font-medium">
-              🍔 Show Top Burgers
+        <div className="p-4 bg-white border-t border-border">
+          <form onSubmit={e => { e.preventDefault(); handleSend(); }} className="flex gap-2">
+            <input 
+              type="text" 
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              placeholder="Ask anything or add items..."
+              className="flex-1 bg-slate-50 border border-border rounded-full px-4 py-3 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              disabled={isTyping}
+              maxLength={500}
+            />
+            <button 
+              type="submit" 
+              disabled={!input.trim() || isTyping}
+              className="w-12 h-12 bg-primary text-primary-foreground rounded-full flex items-center justify-center hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm flex-shrink-0"
+            >
+              <Send size={20} className={input.trim() && !isTyping ? "translate-x-0.5" : ""} />
             </button>
-            <button onClick={() => handleSend("Best Broast Deals")} className="text-xs bg-background hover:bg-accent text-foreground px-3 py-2 rounded-full border border-border transition-colors font-medium">
-              🍗 Best Broast Deals
-            </button>
-            <button onClick={() => handleSend("Delivery Fee Rules")} className="text-xs bg-background hover:bg-accent text-foreground px-3 py-2 rounded-full border border-border transition-colors font-medium">
-              🛵 Delivery Fee Rules
-            </button>
-            <button onClick={() => handleSend("Where is the shop located?")} className="text-xs bg-background hover:bg-accent text-foreground px-3 py-2 rounded-full border border-border transition-colors font-medium">
-              📍 Where is the shop located?
-            </button>
+          </form>
+          <div className="text-right mt-1 px-2 text-[10px] text-slate-400">
+            {input.length}/500
           </div>
-        )}
-
-        {/* Input */}
-        <form onSubmit={(e) => { e.preventDefault(); handleSend(input); }} className="p-4 border-t border-border bg-background sm:rounded-b-2xl flex gap-2">
-          <input 
-            type="text" 
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            placeholder="Type your message..." 
-            className="flex-1 bg-accent/50 border border-border text-foreground rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
-          />
-          <button type="submit" disabled={!input.trim()} className="bg-primary text-primary-foreground w-12 flex items-center justify-center rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-colors shadow-md shadow-primary/20">
-            <Send size={18} />
-          </button>
-        </form>
-
+        </div>
       </div>
     </>
   );

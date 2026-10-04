@@ -1,4 +1,6 @@
-import { createFileRoute } from '@tanstack/react-router';
+import os
+
+kitchen_code = """import { createFileRoute } from '@tanstack/react-router';
 import React, { useEffect, useState } from 'react';
 import { supabaseBrowser } from '../../lib/supabase';
 import { updateOrderStatus, getKitchenOrders } from '../../server/order';
@@ -71,7 +73,7 @@ function KitchenKDS() {
   }, []);
 
   const fetchOrders = async () => {
-    const pin = getRawSession('admin_pin') || '';
+    const pin = safeJson('admin_pin', '');
     try {
       const data = await getKitchenOrders({ data: { pin } });
       setOrders(data);
@@ -131,7 +133,7 @@ function KitchenKDS() {
   }, [orders, soundEnabled]);
 
   const handleStatusUpdate = async (orderId: string, status: any, reason?: string, riderN?: string, riderP?: string, expectedFrom?: any) => {
-    const savedPin = getRawSession('admin_pin') || '';
+    const savedPin = safeJson('admin_pin', '');
     try {
       await updateOrderStatus({ data: { 
         orderId, 
@@ -241,56 +243,50 @@ function KitchenKDS() {
           ))}
         </div>
 
-        <div className="flex gap-2 mt-2 pt-3 border-t border-slate-700 flex-wrap">
+        <div className="flex gap-2 mt-2 pt-3 border-t border-slate-700">
           <button 
              onClick={() => handlePrint(order)}
-             className="bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-colors"
+             className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-colors"
           >
-             <Printer size={16} />
+             <Printer size={16} /> Print
           </button>
           
           {currentStatus === 'received' && (
-            <>
-              <button 
-                onClick={() => handleStatusUpdate(order.id, 'preparing', undefined, undefined, undefined, 'received')}
-                className="flex-[1] bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-2 px-2 rounded-lg text-sm transition-colors"
-              >
-                Prep Food
-              </button>
-              <button 
-                onClick={() => setDispatchModalOpen({ id: order.id, expected: 'received' })}
-                className="flex-[1] bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-2 rounded-lg text-sm transition-colors"
-              >
-                Skip to Delivery
-              </button>
-            </>
+            <button 
+              onClick={() => handleStatusUpdate(order.id, 'preparing', undefined, undefined, undefined, 'received')}
+              className="flex-[2] bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-colors"
+            >
+              <ChefHat size={16} /> Accept
+            </button>
           )}
 
           {currentStatus === 'preparing' && (
             <button 
               onClick={() => setDispatchModalOpen({ id: order.id, expected: 'preparing' })}
-              className="flex-[2] bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-3 rounded-lg text-sm transition-colors"
+              className="flex-[2] bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-colors"
             >
-              Dispatch
+              <Truck size={16} /> Dispatch
             </button>
           )}
 
           {currentStatus === 'out_for_delivery' && (
             <button 
               onClick={() => handleStatusUpdate(order.id, 'delivered', undefined, undefined, undefined, 'out_for_delivery')}
-              className="flex-[2] bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-3 rounded-lg text-sm transition-colors"
+              className="flex-[2] bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-colors"
             >
-              Mark Completed
+              <CheckCircle size={16} /> Delivered
             </button>
           )}
 
-          <button 
-            onClick={() => setCancelModalOpen({ id: order.id, expected: currentStatus })}
-            className="bg-slate-700 hover:bg-red-900/50 text-red-400 hover:text-red-300 py-2 px-3 rounded-lg transition-colors"
-            title="Cancel"
-          >
-            <XCircle size={16} />
-          </button>
+          {(currentStatus === 'received' || currentStatus === 'preparing') && (
+             <button 
+               onClick={() => setCancelModalOpen({ id: order.id, expected: currentStatus })}
+               className="bg-slate-700 hover:bg-red-900/50 text-red-400 hover:text-red-300 py-2 px-3 rounded-lg transition-colors"
+               title="Cancel Order"
+             >
+               <XCircle size={16} />
+             </button>
+          )}
         </div>
       </div>
     );
@@ -442,7 +438,7 @@ function KitchenKDS() {
                <button onClick={() => { setDispatchModalOpen(null); setRiderName(''); setRiderPhone(''); }} className="flex-1 bg-slate-700 text-white font-bold py-2 rounded-xl">Back</button>
                <button 
                  onClick={() => {
-                   // Rider name optional
+                   if (!riderName.trim()) return alert("Rider Name is required.");
                    handleStatusUpdate(dispatchModalOpen.id, 'out_for_delivery', undefined, riderName, riderPhone, dispatchModalOpen.expected);
                    setDispatchModalOpen(null);
                    setRiderName(''); setRiderPhone('');
@@ -459,3 +455,7 @@ function KitchenKDS() {
     </div>
   );
 }
+"""
+
+with open("src/routes/admin/kitchen.tsx", "w", encoding="utf-8") as f:
+    f.write(kitchen_code)

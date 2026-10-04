@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import os
+
+checkout_code = """import React, { useState, useEffect } from 'react';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { createOrder } from '../server/order';
 import { reverseGeocodeFn } from '../server/location';
@@ -184,8 +186,8 @@ function CheckoutPage() {
       if (!address.trim()) return setError('Please provide your complete address.');
       if (distanceError) return setError(distanceError);
       
-      const phoneRegex = /^(?:\+923|923|03)\d{9}$/;
-      let normalizedPhone = phone.replace(/\s|-/g, '');
+      const phoneRegex = /^(?:\\+923|923|03)\\d{9}$/;
+      let normalizedPhone = phone.replace(/\\s|-/g, '');
       if (!phoneRegex.test(normalizedPhone)) {
         return setError('Please enter a valid Pakistani phone number (e.g. 03001234567).');
       }
@@ -413,3 +415,7 @@ function CheckoutPage() {
     </div>
   );
 }
+"""
+
+with open("src/routes/checkout.tsx", "w", encoding="utf-8") as f:
+    f.write(checkout_code)

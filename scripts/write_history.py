@@ -1,4 +1,6 @@
-import { createFileRoute } from '@tanstack/react-router';
+import os
+
+history_code = """import { createFileRoute } from '@tanstack/react-router';
 import React, { useState, useEffect } from 'react';
 import { getCompletedOrdersFn } from '../../server/order';
 import { ChefHat, Search, Calendar, RefreshCcw } from 'lucide-react';
@@ -28,7 +30,7 @@ function AdminHistoryPage() {
 
   const fetchOrders = async () => {
     setIsLoading(true);
-    const savedPin = getRawSession('admin_pin') || '';
+    const savedPin = safeJson('admin_pin', '');
     try {
       const res = await getCompletedOrdersFn({ data: { pin: savedPin, date: dateFilter, search: searchQuery, status: statusFilter, page, pageSize: 25 } });
       setOrders(res.orders || []);
@@ -183,3 +185,7 @@ function AdminHistoryPage() {
     </div>
   );
 }
+"""
+
+with open("src/routes/admin/history.tsx", "w", encoding="utf-8") as f:
+    f.write(history_code)

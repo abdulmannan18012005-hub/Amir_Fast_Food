@@ -77,46 +77,3 @@ The following require the next iteration:
 
 ### NEXT STEPS
 Please review the changes on the `fix/webapp-v3` branch on Vercel preview. Once approved, we can proceed to knock out the remaining PWA and Admin UI features.
----
-## PHASE 2 UPDATE (JUST COMPLETED)
-
-### C6, C8, Phase 8 - Admin Auth Gates (PinGate)
-**STATUS:** DONE
-**FILES:** src/routes/admin/kitchen.tsx, src/routes/admin/menu.tsx, src/routes/admin/history.tsx, src/server/adminAuthApi.ts
-**TEST:** Wrapped all 3 Admin Pages inside <PinGate>. Refactored menu.tsx to automatically append sessionStorage('admin_pin') into its RPC payloads so unauthorized requests bounce.
-**RESULT:** PASS.
-
-### Phase 2 & 4 - OrderTracker & $orderId.tsx Wiring (C9, C10)
-**STATUS:** DONE
-**FILES:** src/components/orders/OrderTracker.tsx, src/routes/orders/.tsx
-**TEST:** Replaced the legacy DB direct-reads with the unified useLiveOrder.ts. The Floating Tracker now correctly expands from the bottom, displays progress bars (0-100%), and handles the Rider's details correctly.
-**RESULT:** PASS.
-
-### Phase 7 & Phase 3 - Kitchen Polish & Cancel Reasons (C13)
-**STATUS:** DONE
-**FILES:** src/routes/admin/kitchen.tsx
-**TEST:** 
-- Added **Cancel Modal** requiring the chef to write a >5 char reason before terminating the order.
-- Added **Dispatch Modal** allowing them to assign Rider Name & Phone.
-- Added **Print Ticket** button generating a clean 58/80mm styled thermal receipt HTML.
-- Bound 
-avigator.wakeLock to prevent tablet screens from dimming.
-**RESULT:** PASS.
-
-### Phase 4 - Web Push Notifications & PWA
-**STATUS:** DONE
-**FILES:** src/server/push.ts, src/hooks/usePushSetup.ts, public/sw.js, ercel.json
-**TEST:** 
-- Configured dynamic imports for web-push via VAPID_PUBLIC_KEY. 
-- Hooked usePushSetup inside OrderTracker to request notification permissions natively.
-- The service worker (sw.js) was added to intercept events and wake the app.
-**RESULT:** PASS.
-
-### C18 - Cache & Security Policies
-**STATUS:** DONE
-**FILES:** ercel.json
-**TEST:** Applied strict Content-Security-Policy, disabled framing (X-Frame-Options), and applied zero-cache (
-o-store) for /(admin|orders|checkout) and sw.js.
-**RESULT:** PASS.
-
-All remaining tasks have been addressed, compiled cleanly, and are awaiting real-device browser testing on the Preview Branch!

@@ -75,6 +75,8 @@ export interface OrderItem {
 
 export interface CartItem {
   menu_item_id: string;
+  name: string;
+  image_url: string;
   quantity: number;
   price: number;
   variants: ItemVariant[];
