@@ -29,29 +29,11 @@ const getSsrOptions = () => {
 };
 
 // Browser client (safe for public use, uses anon key)
-let browserClient: ReturnType<typeof createClient>;
-
-if (typeof window !== 'undefined') {
-  browserClient = createClient(
-    supabaseUrl || 'https://placeholder.supabase.co', 
-    supabaseAnonKey || 'placeholder'
-  );
-} else {
-  // Create a dummy client for SSR that doesn't trigger the WebSocket error
-  browserClient = {
-    channel: () => ({
-      on: () => ({ subscribe: () => {} }),
-      subscribe: () => {},
-      unsubscribe: () => {}
-    }),
-    removeChannel: () => {},
-    from: () => ({
-      select: () => ({ eq: () => ({ single: () => ({ data: null, error: null }) }) })
-    })
-  } as any;
-}
-
-export const supabaseBrowser = browserClient;
+export const supabaseBrowser = createClient(
+  supabaseUrl || 'https://placeholder.supabase.co', 
+  supabaseAnonKey || 'placeholder',
+  getSsrOptions()
+);
 
 // Server client (requires service role key, DO NOT EXPOSE TO BROWSER)
 export const getSupabaseServer = () => {
