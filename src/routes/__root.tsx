@@ -1,8 +1,8 @@
 import { createRootRoute, Outlet, useLocation, Scripts, HeadContent, ScrollRestoration } from '@tanstack/react-router';
 import React, { useState } from 'react';
-import { AmirBotDrawer } from '../components/chat/AmirBotDrawer';
+const AmirBotDrawer = React.lazy(() => import('../components/chat/AmirBotDrawer').then(m => ({ default: m.AmirBotDrawer })));
 import { OrderTracker } from '../components/orders/OrderTracker';
-import { CartDrawer } from '../components/cart/CartDrawer';
+const CartDrawer = React.lazy(() => import('../components/cart/CartDrawer').then(m => ({ default: m.CartDrawer })));
 import { MobileBottomNav } from '../components/navigation/MobileBottomNav';
 import { ThemeSwitcher } from '../components/ThemeSwitcher';
 import { HeaderSearch } from '../components/navigation/HeaderSearch';
@@ -230,9 +230,9 @@ function RootComponent() {
         <MobileBottomNav onOpenCart={() => setIsCartOpen(true)} onOpenBot={() => {
           window.dispatchEvent(new Event('toggleAmirBot'));
         }} />
-        <AmirBotDrawer />
+        <React.Suspense fallback={null}><AmirBotDrawer /></React.Suspense>
         <OrderTracker />
-        <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} items={cartItems} onUpdateQuantity={handleUpdateQuantity} onRemoveItem={handleRemoveItem} onClearCart={handleClearCart} />
+        <React.Suspense fallback={null}><CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} items={cartItems} onUpdateQuantity={handleUpdateQuantity} onRemoveItem={handleRemoveItem} onClearCart={handleClearCart} /></React.Suspense>
         <ScrollRestoration />
         <Scripts />
       </body>

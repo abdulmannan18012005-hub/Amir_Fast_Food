@@ -4,6 +4,12 @@ import { getCategoryImagesFn, getHighlightImagesFn } from '../server/menu';
 
 export const Route = createFileRoute('/')({
   component: Index,
+  head: () => ({
+    meta: [{ title: 'Amir Fast Food - Shawarma & Burgers' }],
+    links: [
+      { rel: 'preload', as: 'image', href: 'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=1200&q=80', fetchPriority: 'high' }
+    ]
+  }),
   loader: async () => {
     const categoryImages = await getCategoryImagesFn();
     const highlightImages = await getHighlightImagesFn();
@@ -21,7 +27,7 @@ function Index() {
 
         {/* Right side image - full bleed on desktop */}
         <div className="absolute top-0 right-0 w-full lg:w-1/2 h-full z-0 hidden lg:block">
-          <img src="https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=1200&q=80" alt="Amir Fast Food - Shawarma & Burgers" className="w-full h-full object-cover object-center" loading="eager" />
+          <img src="https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=1200&q=80" alt="Amir Fast Food - Shawarma & Burgers" className="w-full h-full object-cover object-center" fetchPriority="high" />
           <div className="absolute inset-0 bg-gradient-to-r from-background via-background/40 to-transparent"></div>
         </div>
 
@@ -63,7 +69,7 @@ function Index() {
           
           {/* Mobile Image */}
           <div className="mt-12 w-full lg:hidden rounded-2xl overflow-hidden aspect-[4/3] relative">
-            <img src="https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=1200&q=80" alt="Amir Fast Food - Shawarma & Burgers" className="w-full h-full object-cover" />
+            <img src="https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=1200&q=80" alt="Amir Fast Food - Shawarma & Burgers" className="w-full h-full object-cover" fetchPriority="high" />
           </div>
         </div>
       </section>
