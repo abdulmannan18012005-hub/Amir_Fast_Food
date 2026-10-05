@@ -100,7 +100,7 @@ function AdminHistoryPage() {
         </div>
       </header>
 
-      <main className="p-6 max-w-7xl mx-auto">
+      <div className="p-6 max-w-7xl mx-auto">
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
@@ -180,7 +180,7 @@ function AdminHistoryPage() {
             </div>
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

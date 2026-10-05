@@ -37,7 +37,7 @@ export function MobileBottomNav({
           <span className="text-[10px] mt-1 font-medium">Menu</span>
         </Link>
         
-        <button onClick={onOpenCart} className="relative flex flex-col items-center justify-center w-full h-full text-muted-foreground hover:text-foreground">
+        <button onClick={onOpenCart} aria-label="Open cart" className="relative flex flex-col items-center justify-center w-full h-full text-muted-foreground hover:text-foreground">
           <div className="relative">
             <ShoppingCart size={20} />
             {cartCount > 0 && (
@@ -48,7 +48,7 @@ export function MobileBottomNav({
           </div>
           <span className="text-[10px] mt-1 font-medium">Cart</span>
         </button>
-        <button onClick={onOpenBot} className="flex flex-col items-center justify-center w-full h-full text-muted-foreground hover:text-foreground">
+        <button onClick={onOpenBot} aria-label="Open chat bot" className="flex flex-col items-center justify-center w-full h-full text-muted-foreground hover:text-foreground">
           <div className="relative">
             <MessageSquare size={20} />
             <span className="absolute -top-1 -right-1 bg-red-500 w-2 h-2 rounded-full animate-ping"></span>

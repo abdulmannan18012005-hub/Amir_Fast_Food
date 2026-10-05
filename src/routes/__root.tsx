@@ -162,6 +162,7 @@ function RootComponent() {
 
         {/* Main Content */}
         <main className="flex-grow flex flex-col pb-16 md:pb-0">
+            <h1 className="sr-only">Amir Fast Food</h1>
           <Outlet />
         </main>
 

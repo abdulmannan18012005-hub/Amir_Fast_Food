@@ -111,7 +111,7 @@ function AdminMenuEditor() {
         </div>
       </header>
 
-      <main className="p-6 max-w-6xl mx-auto">
+      <div className="p-6 max-w-6xl mx-auto">
         {activeTab === 'items' && (
           <div className="space-y-6 animate-in fade-in">
             <div className="flex flex-wrap gap-2 mb-6">
@@ -263,7 +263,7 @@ function AdminMenuEditor() {
             </div>
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 }
