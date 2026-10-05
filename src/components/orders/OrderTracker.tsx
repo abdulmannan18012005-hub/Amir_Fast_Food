@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useLiveOrder } from '../../hooks/useLiveOrder';
 import { usePushSetup } from '../../hooks/usePushSetup';
-import { getActiveOrders, consumeJustOrdered, removeActiveOrder } from '../../lib/activeOrders';
+import { getActiveOrders, consumeJustOrdered, removeActiveOrder, addActiveOrder } from '../../lib/activeOrders';
 import { OrderStatusView } from './OrderStatusView';
 import { ChevronUp, ChevronDown, Package, X } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
@@ -11,35 +11,34 @@ export function OrderTracker() {
   const [isExpanded, setIsExpanded] = useState(false);
   const { enableOrderNotifications, silentlyAttach } = usePushSetup();
   
+  const attachRef = useRef(silentlyAttach);
+  attachRef.current = silentlyAttach;
+
   useEffect(() => {
-    const checkOrder = () => {
+    const sync = () => {
       const justOrdered = consumeJustOrdered();
-      const actives = getActiveOrders();
       if (justOrdered) {
+        addActiveOrder(justOrdered);          // safety net: never lose it
         setOrderId(justOrdered);
-        setIsExpanded(true); // auto open once
-        silentlyAttach(justOrdered);
-      } else if (actives.length > 0) {
-        if (!orderId || !actives.find(o => o.id === orderId)) {
-          setOrderId(actives[0].id);
-        }
-      } else {
-        setOrderId(null);
-        setIsExpanded(false);
+        setIsExpanded(true);                  // auto-open once
+        attachRef.current(justOrdered);
+        return;
       }
+      const actives = getActiveOrders();
+      setOrderId(prev =>
+        prev && actives.some(o => o.id === prev) ? prev : (actives[0]?.id ?? null)
+      );
     };
-    
-    checkOrder();
-    
-    const handleOrderPlaced = () => checkOrder();
-    window.addEventListener('orderPlaced', handleOrderPlaced);
-    window.addEventListener('focus', handleOrderPlaced); // Catch up if changed in other tab
-    
+    sync();
+    window.addEventListener('orderPlaced', sync);
+    window.addEventListener('focus', sync);
+    window.addEventListener('storage', sync);
     return () => {
-      window.removeEventListener('orderPlaced', handleOrderPlaced);
-      window.removeEventListener('focus', handleOrderPlaced);
+      window.removeEventListener('orderPlaced', sync);
+      window.removeEventListener('focus', sync);
+      window.removeEventListener('storage', sync);
     };
-  }, [orderId, silentlyAttach]);
+  }, []); // <- empty on purpose
 
   const { order, loading } = useLiveOrder(orderId, (newStatus, oldStatus, currentOrder) => {
     // Sound + vibration on status change

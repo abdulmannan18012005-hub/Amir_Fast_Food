@@ -5,7 +5,7 @@ export const quoteDeliveryFn = createServerFn({ method: "POST" })
   .validator((d: { lat?: number | null, lng?: number | null, subtotal: number, paymentMethod: 'cod' | 'online_transfer' }) => d)
   .handler(async ({ data }) => {
     let distanceKm = 0;
-    if (data.lat && data.lng) {
+    if (typeof data.lat === 'number' && Number.isFinite(data.lat) && typeof data.lng === 'number' && Number.isFinite(data.lng)) {
       distanceKm = calculateDistanceKm(data.lat, data.lng);
     }
     

@@ -4,7 +4,8 @@ import { getSupabaseServer } from '../lib/supabase';
 import { sendOrderReceiptEmail } from './email';
 import { verifyAdminPin, getClientIp } from './auth';
 import { checkRateLimit } from './rateLimit';
-import { isValidTransition, OrderStatus } from '../lib/orderStatus';
+import { isValidTransition, OrderStatus, ORDER_STATUSES } from '../lib/orderStatus';
+import { sendOrderPush } from './push';
 
 export interface CreateOrderPayload {
   website?: string; // honeypot
@@ -81,37 +82,37 @@ export const createOrder = createServerFn({ method: "POST" })
     const itemIds = payload.items.map(i => i.menu_item_id);
     const { data: menuData, error: menuErr } = await supabase
       .from('menu_items')
-      .select('id, price, is_available')
+      .select('id, name, price, is_available, variants')
       .in('id', itemIds);
+    if (menuErr || !menuData) throw new Error('Failed to verify menu items.');
+    const menuMap = new Map(menuData.map((m: any) => [m.id, m]));
 
-    if (menuErr || !menuData) throw new Error("Failed to verify menu items.");
-
-    const priceMap = new Map(menuData.map(m => [m.id, m]));
     let computedSubtotal = 0;
-    const dbItems = [];
-
+    const dbItems: any[] = [];
+    const itemNames: string[] = [];
     for (const item of payload.items) {
-      if (!item.quantity || item.quantity < 1 || item.quantity > 20) throw new Error(`Invalid quantity for item ${item.menu_item_id}`);
-      const dbItem = priceMap.get(item.menu_item_id);
-      if (!dbItem || !dbItem.is_available) {
-        throw new Error("One or more items are unavailable.");
+      const qty = Number(item.quantity);
+      if (!Number.isInteger(qty) || qty < 1 || qty > 20) throw new Error('Invalid quantity.');
+      const dbItem: any = menuMap.get(item.menu_item_id);
+      if (!dbItem || !dbItem.is_available) throw new Error('One or more items are unavailable.');
+
+      const dbVariants: { name: string; price: number }[] = Array.isArray(dbItem.variants) ? dbItem.variants : [];
+      const chosen: { name: string; price: number }[] = [];
+      for (const v of Array.isArray(item.variants) ? item.variants : []) {
+        const match = dbVariants.find(dv => dv.name === v?.name);
+        if (!match) throw new Error(`Option "${String(v?.name ?? '').slice(0, 40)}" is no longer available.`);
+        chosen.push({ name: match.name, price: Number(match.price) || 0 });   // DB price only
       }
-      
-      let itemTotal = dbItem.price;
-      // Variants
-      if (item.variants && Array.isArray(item.variants)) {
-        for (const v of item.variants) {
-          if (v.price && typeof v.price === 'number') {
-            itemTotal += v.price;
-          }
-        }
-      }
-      computedSubtotal += (itemTotal * item.quantity);
+      const unit = Number(dbItem.price) + chosen.reduce((s, v) => s + v.price, 0);
+      computedSubtotal += unit * qty;
+      itemNames.push(String(dbItem.name));
       dbItems.push({
         menu_item_id: item.menu_item_id,
-        quantity: item.quantity,
-        unit_price: itemTotal,
-        selected_variants: item.variants || []
+        quantity: qty,
+        price: unit,               // what process_order reads
+        variants: chosen,          // what process_order reads
+        unit_price: unit,          // harmless duplicates in case the DB function was changed
+        selected_variants: chosen
       });
     }
 
@@ -192,11 +193,11 @@ export const createOrder = createServerFn({ method: "POST" })
     // 6. Send email (fire and forget with timeout)
     if (p_email) {
       Promise.race([
-        sendOrderReceiptEmail({
+          sendOrderReceiptEmail({
           orderId,
           customerName: nameStr,
           customerEmail: p_email,
-          items: dbItems.map((i, idx) => ({ ...i, name: payload.items[idx].name || 'Item' })),
+          items: dbItems.map((i, idx) => ({ ...i, name: itemNames[idx] })),
           subtotal: computedSubtotal,
           deliveryFee: finalDeliveryFee,
           total: computedSubtotal + finalDeliveryFee
@@ -212,54 +213,64 @@ export const createOrder = createServerFn({ method: "POST" })
 });
 
 // Update Order Status (Admin)
-export const updateOrderStatus = createServerFn({ method: "POST" })
-  .validator((d: { 
-    orderId: string, 
-    status: OrderStatus, 
-    pin: string,
-    reason?: string,
-    riderName?: string,
-    riderPhone?: string,
-    expectedFrom?: OrderStatus
+export const updateOrderStatus = createServerFn({ method: 'POST' })
+  .validator((d: {
+    orderId: string; status: OrderStatus; pin: string;
+    expectedFrom: OrderStatus; reason?: string; riderName?: string; riderPhone?: string;
   }) => d)
   .handler(async ({ data }) => {
     verifyAdminPin(data.pin);
-    
-    if (data.status === 'canceled' && (!data.reason || data.reason.trim().length < 5)) {
-      throw new Error("Cancellation reason is required (at least 5 characters).");
+
+    if (!ORDER_STATUSES.includes(data.status)) throw new Error('Invalid status.');
+    if (!data.expectedFrom || !isValidTransition(data.expectedFrom, data.status)) {
+      throw new Error('That status change is not allowed.');
+    }
+
+    const updates: Record<string, any> = { status: data.status };
+    let cancelReason = '';
+    let riderName = '';
+
+    if (data.status === 'canceled') {
+      cancelReason = String(data.reason ?? '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+      if (cancelReason.length < 5 || cancelReason.length > 200) {
+        throw new Error('Cancellation reason must be 5 to 200 characters.');
+      }
+      updates.cancel_reason = cancelReason;
+    }
+    if (data.status === 'out_for_delivery') {
+      riderName = String(data.riderName ?? '').replace(/<[^>]*>/g, '').trim().slice(0, 40);
+      const phone = String(data.riderPhone ?? '').replace(/[\s-]/g, '');
+      if (phone && !/^(\+92|0)3\d{9}$/.test(phone)) throw new Error('Invalid rider phone number.');
+      if (riderName) updates.rider_name = riderName;
+      if (phone) updates.rider_phone = phone;
     }
 
     const supabase = getSupabaseServer();
-    
-    const updates: any = {
-      status: data.status,
-    };
-    if (data.status === 'canceled') updates.cancel_reason = data.reason?.trim();
-    if (data.status === 'out_for_delivery') {
-      if (data.riderName) updates.rider_name = data.riderName.trim();
-      if (data.riderPhone) updates.rider_phone = data.riderPhone.trim();
-    }
-    
-    let query = supabase.from('orders').update(updates).eq('id', data.orderId);
-    if (data.expectedFrom) {
-      query = query.eq('status', data.expectedFrom);
-    }
-    
-    // Ask for exactly 1 row back to confirm
-    const { data: updatedRows, error } = await query.select('id').maybeSingle();
-    
+    const { data: row, error } = await supabase
+      .from('orders').update(updates)
+      .eq('id', data.orderId).eq('status', data.expectedFrom)
+      .select('id').maybeSingle();
+
     if (error) {
-      if (error.code === 'PGRST116') {
-        throw new Error("This order was already updated by someone else, or does not exist.");
+      if (/cancel_reason|rider_name|rider_phone|status_changed_at/.test(error.message)) {
+        throw new Error('Database update needed: run supabase/migrations/20261005_webapp_v3.sql in Supabase.');
       }
       throw new Error(error.message);
     }
-    if (!updatedRows) {
-       throw new Error("This order was already updated by someone else.");
-    }
-    
-    // trigger push here
-    // Promise.allSettled([ sendOrderPush(data.orderId, data.status) ])
+    if (!row) throw new Error('This order was already updated by someone else.');
+
+    const code = data.orderId.slice(0, 8).toUpperCase();
+    const bodies: Record<string, string> = {
+      preparing: '👨‍🍳 Your food is being prepared',
+      out_for_delivery: `🛵 On the way!${riderName ? ' Rider: ' + riderName : ''}`,
+      delivered: '🎉 Delivered. Enjoy your meal!',
+      canceled: `❌ Order #${code} was canceled — ${cancelReason}`
+    };
+    // A failed or slow push must never fail the status change
+    await Promise.race([
+      sendOrderPush(data.orderId, data.status, 'Amir Fast Food', bodies[data.status]),
+      new Promise(r => setTimeout(r, 4000))
+    ]).catch(() => {});
 
     return { success: true };
   });

@@ -127,7 +127,7 @@ export function AmirBotDrawer() {
     try {
       const cart = getCart();
       const cartSummary = cart.length > 0 ? `${cart.length} items, subtotal PKR ${getCartSubtotal(cart)}` : 'Empty';
-      const activeOrderId = getActiveOrders()[0]?.id || safeJson('just_ordered', '');
+      const activeOrderId = getActiveOrders()[0]?.id || null;
 
       // Send to backend
       const res = await chatWithAmirBot({ data: { 

@@ -62,8 +62,12 @@ export function usePushSetup() {
 
   // If already granted, silently attach to new orders
   const silentlyAttach = async (orderId: string) => {
-    if (isSupported && Notification.permission === 'granted') {
-       enableOrderNotifications(orderId);
+    try {
+      if (isSupported && Notification.permission === 'granted') {
+         await enableOrderNotifications(orderId);
+      }
+    } catch (err) {
+      console.warn('Silent attach failed:', err);
     }
   };
 

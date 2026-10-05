@@ -5,6 +5,7 @@ import { reverseGeocodeFn } from '../server/location';
 import { quoteDeliveryFn } from '../server/pricingApi';
 import { playSuccessChime } from '../lib/sound';
 import { safeJson } from '../lib/storage';
+import { addActiveOrder, markJustOrdered } from '../lib/activeOrders';
 import type { CartItem } from '../types';
 
 export const Route = createFileRoute('/checkout')({
@@ -163,14 +164,19 @@ function CheckoutPage() {
         throw new Error(res.error);
       }
       
+      const NIL_UUID = '00000000-0000-0000-0000-000000000000';
+      const newOrderId = res.orderId && res.orderId !== NIL_UUID ? res.orderId : '';
       playSuccessChime();
       localStorage.removeItem('cart');
       localStorage.setItem('user_profile', JSON.stringify({ name, phone, email, address }));
-      sessionStorage.setItem('just_ordered', res.orderId || ''); 
+      if (newOrderId) {
+        addActiveOrder(newOrderId);
+        markJustOrdered(newOrderId);
+      }
       window.dispatchEvent(new Event('cartUpdated'));
+      window.dispatchEvent(new Event('orderPlaced'));
       
-      // Navigate to order page? No, show success inline
-      setSuccessOrderId(res.orderId || '');
+      setSuccessOrderId(newOrderId);
       setStep(3);
     } catch (err: any) {
       setError(err.message || 'Failed to place order.');
@@ -225,7 +231,7 @@ function CheckoutPage() {
               <section className="animate-in fade-in slide-in-from-bottom-4">
                 <h2 className="text-xl font-bold mb-6">Delivery Details</h2>
                 
-                <input type="text" id="website_honeypot" style={{display:'none'}} tabIndex={-1} autoComplete="off" />
+                <input type="text" id="website_honeypot" name="website_url_hp" style={{position: 'absolute', left: '-9999px'}} tabIndex={-1} autoComplete="off" aria-hidden="true" />
                 
                 <div className="space-y-4">
                   <div>
@@ -334,7 +340,9 @@ function CheckoutPage() {
                     />
                     <div>
                       <p className="font-bold text-slate-900">Bank Transfer / EasyPaisa</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">Send to contact us on WhatsApp for account details and upload TID</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Send the total amount by EasyPaisa / JazzCash to 0301 4265785, then enter your Transaction ID (TID) below. Questions? <a href="https://wa.me/923014265785" target="_blank" rel="noopener noreferrer" aria-label="Chat with us on WhatsApp" className="text-primary hover:underline">WhatsApp us on the same number.</a>
+                      </p>
                     </div>
                   </label>
 
