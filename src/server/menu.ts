@@ -13,14 +13,6 @@ export const getCategories = createServerFn({ method: "GET" }).handler(async ():
     console.error('Error fetching categories:', error);
   }
 
-  if (false) {
-    return [
-      { id: 'cat_burgers', name: 'Burgers', slug: 'burgers', sort_order: 1 },
-      { id: 'cat_deals', name: 'Deals & Combos', slug: 'deals', sort_order: 2 },
-      { id: 'cat_shawarma', name: 'Shawarma', slug: 'shawarma', sort_order: 3 }
-    ];
-  }
-
   return data as Category[];
 });
 
