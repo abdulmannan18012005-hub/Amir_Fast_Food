@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import React from 'react';
 
 export const Route = createFileRoute('/cart')({
+  head: () => ({ meta: [{ title: 'Cart - Amir Fast Food' }] }),
   component: CartPage,
 });
 

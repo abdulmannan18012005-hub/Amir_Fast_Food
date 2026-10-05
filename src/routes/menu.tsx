@@ -6,6 +6,9 @@ import { playSuccessChime } from '../lib/sound';
 import type { Category, MenuItem, CartItem } from '../types';
 
 export const Route = createFileRoute('/menu')({
+  head: () => ({
+    meta: [{ title: 'Menu - Amir Fast Food' }]
+  }),
   loader: async () => {
     const categories = await getCategories();
     const items = await getMenuItems({ data: 'all' });

@@ -39,7 +39,7 @@ export const chatWithAmirBot = createServerFn({ method: 'POST' })
   const inputLower = trimmedText.toLowerCase();
   // Ensure we don't hijack simple sentences. Use exact matches or start/end
   if (inputLower === 'where are you' || inputLower === 'location' || inputLower === 'where is the shop') {
-    return { reply: "We are located at Anwar Market, Peco Road, Lahore. 📍 Drop by or order online! [ACTION:OPEN_MENU:burgers]" };
+    return { reply: "We are located at Post Office Mansoora, Anwar Market, Peco Road, Kakazai, Lahore. 📍 Drop by or order online! [ACTION:OPEN_MENU:burgers]" };
   }
   if (inputLower === 'delivery fee' || inputLower === 'delivery charges' || inputLower === 'kitna delivery charge?') {
     return { reply: "Delivery itself has NO base fee! However, for Cash on Delivery orders under PKR 1000, there is a PKR 100 COD fee. We deliver within a 5 KM radius for free. Beyond 5 KM, it's +PKR 100 per extra KM." };
@@ -104,7 +104,7 @@ SHOP KNOWLEDGE:
 - Hours: 4:05 PM – 2:00 AM. Currently: ${isOpen ? 'OPEN' : 'CLOSED'}.
 - Delivery: 5 km free area. +100 PKR per extra km. No base fee.
 - COD Fee: PKR 100 applies ONLY if subtotal < 1000 and payment is Cash On Delivery. Online payment has 0 COD fee.
-- Address: Anwar Market, Peco Road, Lahore.
+  - Address: Post Office Mansoora, Anwar Market, Peco Road, Kakazai, Lahore, 54000.
 
 LIVE MENU:
 ${cachedMenuStr}

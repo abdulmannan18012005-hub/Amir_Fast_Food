@@ -3,6 +3,7 @@ import React from 'react';
 import { AmirBotDrawer } from '../components/chat/AmirBotDrawer';
 
 export const Route = createFileRoute('/chat')({
+  head: () => ({ meta: [{ title: 'Chat - Amir Fast Food' }] }),
   component: ChatPage,
 });
 

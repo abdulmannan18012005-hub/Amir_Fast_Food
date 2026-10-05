@@ -5,7 +5,7 @@ export const ORDER_STATUSES: OrderStatus[] = ['received', 'preparing', 'out_for_
 export const ORDER_STATUS_CONFIG: Record<OrderStatus, { label: string; emoji: string; customerText: string; isFinal: boolean }> = {
   received: {
     label: 'Received',
-    emoji: '📝',
+    emoji: '✅',
     customerText: 'We have received your order.',
     isFinal: false,
   },

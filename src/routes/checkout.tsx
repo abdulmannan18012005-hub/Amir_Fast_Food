@@ -9,6 +9,7 @@ import { addActiveOrder, markJustOrdered } from '../lib/activeOrders';
 import type { CartItem } from '../types';
 
 export const Route = createFileRoute('/checkout')({
+  head: () => ({ meta: [{ title: 'Checkout - Amir Fast Food' }] }),
   component: CheckoutPage,
 });
 
