@@ -8,6 +8,7 @@ import { safeJson } from '../../lib/storage';
 import type { MenuItem } from '../../types';
 
 export const Route = createFileRoute('/admin/menu')({
+  head: () => ({ meta: [{ name: 'robots', content: 'noindex' }, { title: 'Menu Editor - Admin' }] }),
   component: AdminMenuRoute,
 });
 

@@ -9,7 +9,6 @@ export const Route = createFileRoute('/orders/$orderId')({
   component: OrderPage,
   head: () => ({
     meta: [
-      { name: 'robots', content: 'noindex' },
       { title: 'Track Order | AMR Fast Food' }
     ]
   })

@@ -6,6 +6,7 @@ import { PinGate } from '../../components/admin/PinGate';
 import { safeJson } from '../../lib/storage';
 
 export const Route = createFileRoute('/admin/history')({
+  head: () => ({ meta: [{ name: 'robots', content: 'noindex' }, { title: 'History - Admin' }] }),
   component: AdminHistoryRoute,
 });
 
