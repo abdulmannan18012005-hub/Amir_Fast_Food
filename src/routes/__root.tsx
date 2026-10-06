@@ -82,12 +82,15 @@ function RootComponent() {
 
 
   return (
-    <html lang="en" className="dark" style={{ scrollBehavior: 'smooth' }}>
+    <html lang="en"  style={{ scrollBehavior: 'smooth' }}>
       <head>
         <HeadContent />
         <meta charSet="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
         <link rel="manifest" href="/manifest.json" />
+          <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+          <meta name="apple-mobile-web-app-capable" content="yes" />
+          <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
           <title>Amir Fast Food - Shawarma, Burgers & Combos</title>
         <meta name="theme-color" content="#e8590c" />
           <meta name="description" content="Order the best Shawarma and Burgers in Lahore from Amir Fast Food." />
