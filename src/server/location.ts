@@ -32,7 +32,7 @@ export const reverseGeocodeFn = createServerFn({ method: "POST" })
       const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&addressdetails=1&zoom=18&accept-language=en`;
       const res = await fetch(url, {
         headers: {
-          'User-Agent': 'AMR Fast Food / amirkhan@example.com' // Replace with shop email if known
+          'User-Agent': `AMR Fast Food / ${process.env.SHOP_EMAIL || 'support@amirfastfood.com'}`
         },
         signal: AbortSignal.timeout(6000)
       });
@@ -54,3 +54,24 @@ export const reverseGeocodeFn = createServerFn({ method: "POST" })
       return null;
     }
   });
+
+export async function forwardGeocode(address: string): Promise<{ lat: number, lng: number } | null> {
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1&countrycodes=pk`;
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': `AMR Fast Food / ${process.env.SHOP_EMAIL || 'support@amirfastfood.com'}`
+      },
+      signal: AbortSignal.timeout(6000)
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data && data.length > 0) {
+      return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+    }
+    return null;
+  } catch (err) {
+    console.warn("Forward geocode error:", err);
+    return null;
+  }
+}

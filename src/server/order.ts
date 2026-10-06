@@ -122,14 +122,26 @@ export const createOrder = createServerFn({ method: "POST" })
     let codFee = 0;
     let distanceFee = 0;
     
-    if (typeof payload.deliveryLat === 'number' && typeof payload.deliveryLng === 'number') {
-      distanceKm = calculateDistanceKm(payload.deliveryLat, payload.deliveryLng);
-      if (distanceKm > 15) {
-        throw new Error("Sorry, your address is beyond our 15 KM delivery area.");
+    let lat = typeof payload.deliveryLat === 'number' ? payload.deliveryLat : null;
+    let lng = typeof payload.deliveryLng === 'number' ? payload.deliveryLng : null;
+
+    if (lat === null || lng === null || !isFinite(lat) || !isFinite(lng)) {
+      const { forwardGeocode } = await import('./location');
+      const coords = await forwardGeocode(payload.deliveryAddress);
+      if (coords) {
+        lat = coords.lat;
+        lng = coords.lng;
+      } else {
+        throw new Error("We couldn't locate your address. Please tap 'Use my current location' or WhatsApp us on 0301 4265785.");
       }
     }
     
-    const pricing = calculateDeliveryFee(computedSubtotal, distanceKm || 0, payload.paymentMethod);
+    distanceKm = calculateDistanceKm(lat, lng);
+    if (distanceKm > 15) {
+      throw new Error("Sorry, your address is beyond our 15 KM delivery area.");
+    }
+    
+    const pricing = calculateDeliveryFee(computedSubtotal, distanceKm, payload.paymentMethod);
     finalDeliveryFee = pricing.totalDeliveryFee;
     codFee = pricing.codFee;
     distanceFee = pricing.distanceFee;
@@ -171,8 +183,8 @@ export const createOrder = createServerFn({ method: "POST" })
     // 5. Update extra fields missing from RPC safely
     const extraFields: any = {
       payment_trx_id: payload.paymentMethod === 'online_transfer' ? trxId : null,
-      delivery_lat: payload.deliveryLat ?? null,
-      delivery_lng: payload.deliveryLng ?? null,
+      delivery_lat: lat,
+      delivery_lng: lng,
       distance_km: distanceKm,
       distance_fee: distanceFee,
       cod_fee: codFee

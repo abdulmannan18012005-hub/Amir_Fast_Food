@@ -2,11 +2,24 @@ import { createServerFn } from '@tanstack/react-start';
 import { calculateDeliveryFee, calculateDistanceKm } from '../lib/pricing';
 
 export const quoteDeliveryFn = createServerFn({ method: "POST" })
-  .validator((d: { lat?: number | null, lng?: number | null, subtotal: number, paymentMethod: 'cod' | 'online_transfer' }) => d)
+  .validator((d: { lat?: number | null, lng?: number | null, address?: string, subtotal: number, paymentMethod: 'cod' | 'online_transfer' }) => d)
   .handler(async ({ data }) => {
     let distanceKm = 0;
-    if (typeof data.lat === 'number' && Number.isFinite(data.lat) && typeof data.lng === 'number' && Number.isFinite(data.lng)) {
-      distanceKm = calculateDistanceKm(data.lat, data.lng);
+    
+    let lat = data.lat;
+    let lng = data.lng;
+
+    if ((lat === undefined || lat === null || !Number.isFinite(lat)) && data.address && data.address.trim().length > 5) {
+      const { forwardGeocode } = await import('./location');
+      const coords = await forwardGeocode(data.address);
+      if (coords) {
+        lat = coords.lat;
+        lng = coords.lng;
+      }
+    }
+
+    if (typeof lat === 'number' && Number.isFinite(lat) && typeof lng === 'number' && Number.isFinite(lng)) {
+      distanceKm = calculateDistanceKm(lat, lng);
     }
     
     if (distanceKm > 15) {

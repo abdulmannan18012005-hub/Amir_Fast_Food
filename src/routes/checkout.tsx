@@ -57,7 +57,7 @@ function CheckoutPage() {
   useEffect(() => {
     if (cartItems.length === 0) return;
     
-    quoteDeliveryFn({ data: { lat, lng, subtotal, paymentMethod } })
+    quoteDeliveryFn({ data: { lat, lng, address, subtotal, paymentMethod } })
       .then(res => {
         if (!res.ok) {
           setDistanceError(res.error || 'Delivery unavailable.');
@@ -70,7 +70,7 @@ function CheckoutPage() {
           setTotalDeliveryFee(res.totalDeliveryFee || 0);
         }
       });
-  }, [lat, lng, subtotal, paymentMethod, cartItems.length]);
+  }, [lat, lng, address, subtotal, paymentMethod, cartItems.length]);
 
   const handleGetLocation = () => {
     if (!navigator.geolocation) {
