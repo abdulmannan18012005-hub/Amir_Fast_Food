@@ -128,7 +128,8 @@ STRICT RULES (Zero Hallucination):
       const id = setTimeout(() => controller.abort(), 15000);
       try {
         const res = await openai.chat.completions.create({
-          model: 'llama3-8b-8192', 
+          model: process.env.GROQ_MODEL || 'openai/gpt-oss-20b',
+            max_tokens: 500, 
           temperature: 0.2,
           messages: [
             { role: 'system', content: systemPrompt },
@@ -158,6 +159,6 @@ STRICT RULES (Zero Hallucination):
   } catch (error: any) {
     console.error('Groq API Error:', error);
     // Safe failure behavior
-    return { reply: "I'm having a little trouble connecting right now. Please call us at 0300 1234567 to order!" };
+    return { reply: "I'm having trouble right now, please use the menu or WhatsApp +92 301 4265785" };
   }
 });
