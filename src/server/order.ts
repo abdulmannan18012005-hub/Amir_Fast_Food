@@ -150,14 +150,20 @@ export const createOrder = createServerFn({ method: "POST" })
     const sixtySecsAgo = new Date(Date.now() - 60000).toISOString();
     const { data: recentOrders } = await supabase
       .from('orders')
-      .select('id, total_amount')
+      .select('id, total_amount, order_items(menu_item_id, quantity, variants)')
       .eq('customer_phone', phoneNormal)
       .gte('created_at', sixtySecsAgo)
       .order('created_at', { ascending: false })
       .limit(1);
       
     if (recentOrders && recentOrders.length > 0 && Number(recentOrders[0].total_amount) === computedSubtotal) {
-      return { success: true, orderId: recentOrders[0].id };
+      const recentItems = recentOrders[0].order_items || [];
+      const currentItemsStr = [...dbItems].sort((a,b) => a.menu_item_id.localeCompare(b.menu_item_id)).map(i => `${i.menu_item_id}:${i.quantity}:${JSON.stringify(i.variants)}`).join('|');
+      const recentItemsStr = [...recentItems].sort((a,b) => a.menu_item_id.localeCompare(b.menu_item_id)).map(i => `${i.menu_item_id}:${i.quantity}:${JSON.stringify(i.variants)}`).join('|');
+      
+      if (currentItemsStr === recentItemsStr) {
+        return { success: true, orderId: recentOrders[0].id };
+      }
     }
 
     // 4. Call RPC
@@ -197,6 +203,11 @@ export const createOrder = createServerFn({ method: "POST" })
       
     if (updateErr) {
       console.warn("Failed to save extra order fields:", updateErr);
+      if (payload.paymentMethod === 'online_transfer') {
+        // Must reject if we can't save TID
+        await supabase.from('orders').update({ status: 'canceled', cancel_reason: 'System Error: Failed to save TID' }).eq('id', orderId);
+        throw new Error("We couldn't save your transaction ID securely. Your order was not placed. Please try again.");
+      }
     }
     
     // Trigger push via dynamic import / internal API call (will implement next)
