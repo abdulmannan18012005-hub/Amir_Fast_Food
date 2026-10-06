@@ -25,6 +25,7 @@ function AdminMenuEditor() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPrice, setEditPrice] = useState('');
   const [editImage, setEditImage] = useState('');
+  const [editIsAvailable, setEditIsAvailable] = useState(true);
   const [activeTab, setActiveTab] = useState<'items' | 'categories' | 'highlights'>('items');
   const [highlightImages, setHighlightImages] = useState<Record<string, string>>({});
   const [categoryImages, setCategoryImages] = useState<Record<string, string>>({});
@@ -86,9 +87,9 @@ function AdminMenuEditor() {
       const price = parseFloat(editPrice);
       if (isNaN(price)) return alert('Invalid price');
 
-      await updateMenuItemFn({ data: { id, price, image_url: editImage, pin } });
+      await updateMenuItemFn({ data: { id, price, image_url: editImage, is_available: editIsAvailable, pin } });
       
-      setItems(prev => prev.map(item => item.id === id ? { ...item, price, image_url: editImage } : item));
+      setItems(prev => prev.map(item => item.id === id ? { ...item, price, image_url: editImage, is_available: editIsAvailable } : item));
       setEditingId(null);
     } catch (e: any) {
       alert(e.message || 'Failed to update item!');
@@ -148,6 +149,12 @@ function AdminMenuEditor() {
                           <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1"><ImageIcon size={14}/> Image URL</label>
                           <input type="text" value={editImage} onChange={e => setEditImage(e.target.value)} className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-primary text-sm" />
                         </div>
+                        <div>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" checked={editIsAvailable} onChange={e => setEditIsAvailable(e.target.checked)} className="w-5 h-5 rounded border-slate-300 text-primary focus:ring-primary" />
+                            <span className="text-sm font-bold text-slate-700">In Stock</span>
+                          </label>
+                        </div>
                       </div>
                       <div className="flex gap-2 mt-6">
                         <button onClick={() => setEditingId(null)} className="flex-1 bg-slate-100 text-slate-700 font-bold py-2 rounded-lg flex items-center justify-center gap-1"><X size={16}/> Cancel</button>
@@ -184,6 +191,7 @@ function AdminMenuEditor() {
                              setEditingId(item.id);
                              setEditPrice(item.price.toString());
                              setEditImage(item.image_url || '');
+                             setEditIsAvailable(item.is_available);
                            }}
                            className="mt-auto w-full border border-slate-200 hover:border-primary hover:text-primary text-slate-600 font-bold py-2 rounded-xl flex items-center justify-center gap-2 transition-colors"
                          >

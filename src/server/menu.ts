@@ -1,4 +1,5 @@
 import { createServerFn } from '@tanstack/react-start';
+import { verifyAdminPin } from './auth';
 import { supabaseBrowser, getSupabaseServer } from '../lib/supabase';
 import type { Category, MenuItem } from '../types';
 
@@ -69,13 +70,16 @@ export const searchMenuItems = createServerFn({ method: "GET" }).validator((d: s
   return (data || []) as MenuItem[];
 });
 
-export const updateMenuItemFn = createServerFn({ method: "POST" }).validator((d: { id: string, price: number, image_url: string, pin?: string }) => d).handler(async ({ data }) => {
-  const EXPECTED_PIN = process.env.ADMIN_PIN || '7864';
-  if (data.pin !== EXPECTED_PIN) throw new Error("Unauthorized");
+export const updateMenuItemFn = createServerFn({ method: "POST" }).validator((d: { id: string, price: number, image_url: string, is_available?: boolean, pin?: string }) => d).handler(async ({ data }) => {
+  verifyAdminPin(data.pin);
   const supabase = getSupabaseServer();
+  const updateData: any = { price: data.price, image_url: data.image_url };
+  if (data.is_available !== undefined) {
+    updateData.is_available = data.is_available;
+  }
   const { error } = await supabase
     .from('menu_items')
-    .update({ price: data.price, image_url: data.image_url })
+    .update(updateData)
     .eq('id', data.id);
   if (error) {
     console.error('Error updating menu item:', error);
