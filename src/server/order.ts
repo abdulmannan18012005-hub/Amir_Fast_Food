@@ -320,15 +320,10 @@ export const getCompletedOrdersFn = createServerFn({ method: "POST" })
     
     // Date filter in PKT (UTC+5) day bounds
     if (data.date) {
-      // data.date is "YYYY-MM-DD". We want 4am to 4am PKT next day.
-      // PKT is UTC+5, so 4am PKT = 11pm UTC previous day. Let's just use midnight to midnight PKT for simplicity
-      // 00:00 PKT = 19:00 UTC previous day.
-      // The prompt asks: "Pakistan time (Asia/Karachi, UTC+5, no DST) day boundaries" and "A 'day' for the shop should also have a switch 'Business day (4 AM - 4 AM)'"
-      const t = new Date(`${data.date}T00:00:00Z`); // treat as UTC midnight
-      // to PKT 00:00 is `T-05:00`
-      const pktMidnightStr = `${data.date}T00:00:00+05:00`;
-      const pktNextStr = new Date(new Date(pktMidnightStr).getTime() + 86400000).toISOString();
-      query = query.gte('created_at', pktMidnightStr).lt('created_at', pktNextStr);
+      // Business day: 4 AM PKT (UTC+5) to 4 AM PKT next day
+      const startIso = new Date(`${data.date}T04:00:00+05:00`).toISOString();
+      const endIso = new Date(new Date(`${data.date}T04:00:00+05:00`).getTime() + 86400000).toISOString();
+      query = query.gte('created_at', startIso).lt('created_at', endIso);
     }
 
     if (data.search) {
