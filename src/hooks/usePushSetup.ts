@@ -61,10 +61,16 @@ export function usePushSetup() {
   };
 
   // If already granted, silently attach to new orders
-  const silentlyAttach = async (orderId: string) => {
+  const silentlyAttach = async (orderId: string, retry = 1) => {
     try {
-      if (isSupported && Notification.permission === 'granted') {
-         await enableOrderNotifications(orderId);
+      if ('Notification' in window && Notification.permission === 'granted') {
+         const success = await enableOrderNotifications(orderId);
+         if (!success && retry > 0) {
+           setTimeout(() => silentlyAttach(orderId, retry - 1), 3000);
+         }
+      } else if ('Notification' in window && Notification.permission === 'default' && retry > 0) {
+         // Maybe the user is still thinking about the prompt. Retry in 3s.
+         setTimeout(() => silentlyAttach(orderId, retry - 1), 3000);
       }
     } catch (err) {
       console.warn('Silent attach failed:', err);

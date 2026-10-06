@@ -86,32 +86,20 @@ function KitchenKDS() {
 
   useEffect(() => {
     fetchOrders();
-
-    const channel = supabaseBrowser.channel('kitchen_orders')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-        fetchOrders();
-        if (payload.eventType === 'INSERT' && soundEnabled) {
-          playKitchenDing();
-        }
-      })
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') setConnState('Live');
-        else if (status === 'TIMED_OUT' || status === 'CLOSED') setConnState('Offline');
-      });
+    setConnState('Live (Polling)');
 
     // Network status
-    const onOnline = () => setConnState('Reconnecting...');
+    const onOnline = () => { setConnState('Live (Polling)'); fetchOrders(); };
     const onOffline = () => setConnState('Offline');
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
 
-    // Fallback polling
+    // Primary polling (5s)
     const poll = setInterval(() => {
        if (document.visibilityState === 'visible') fetchOrders();
-    }, 15000);
+    }, 5000);
 
     return () => {
-      supabaseBrowser.removeChannel(channel);
       clearInterval(poll);
       window.removeEventListener('online', onOnline);
       window.removeEventListener('offline', onOffline);

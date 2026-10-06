@@ -96,16 +96,11 @@ export function useLiveOrder(
       scheduleNext();
     }
 
-    const channel = supabaseBrowser.channel(`order_${orderId}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${orderId}` }, () => {
-        fetchOrder();
-      })
-      .subscribe();
-
-    const handleRefetch = () => fetchOrder();
-    document.addEventListener('visibilitychange', () => {
+    const handleRefetch = () => {
        if (document.visibilityState === 'visible') fetchOrder();
-    });
+    };
+    
+    document.addEventListener('visibilitychange', handleRefetch);
     window.addEventListener('focus', handleRefetch);
     window.addEventListener('online', handleRefetch);
     window.addEventListener('pageshow', handleRefetch);
@@ -120,12 +115,11 @@ export function useLiveOrder(
     return () => {
       isSubscribed = false;
       clearTimeout(fetchTimeout);
-      supabaseBrowser.removeChannel(channel);
+      document.removeEventListener('visibilitychange', handleRefetch);
       window.removeEventListener('focus', handleRefetch);
       window.removeEventListener('online', handleRefetch);
       window.removeEventListener('pageshow', handleRefetch);
       navigator.serviceWorker?.removeEventListener('message', handleMessage);
-      // Not removing visibilitychange because it's inline anonymous, but it's fine for this scale
     };
   }, [orderId]);
 

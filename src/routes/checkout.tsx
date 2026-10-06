@@ -131,6 +131,10 @@ function CheckoutPage() {
   };
 
   const handlePlaceOrder = async () => {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+
     if (cartItems.length === 0) {
       setError('Your cart is empty.');
       return;

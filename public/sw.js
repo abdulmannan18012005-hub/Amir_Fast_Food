@@ -1,11 +1,20 @@
+const STATIC = 'static-v2';
+
 self.addEventListener('install', (event) => {
-  self.skipWaiting();
+  event.waitUntil(
+    caches.open(STATIC).then(c => c.addAll(['/offline.html', '/icons/icon-192.png']))
+    .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then(keys => Promise.all(
-      keys.map(key => caches.delete(key))
+      keys.map(key => {
+        if (key !== STATIC && key !== 'assets-cache-v1') {
+          return caches.delete(key);
+        }
+      })
     )).then(() => self.clients.claim())
   );
 });
@@ -18,7 +27,6 @@ self.addEventListener('push', (event) => {
     data = { title: 'AMR Fast Food', body: event.data ? event.data.text() : 'Update received' };
   }
   
-  // Post message to open clients
   self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
     clients.forEach(client => {
       client.postMessage({
@@ -48,12 +56,10 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  
-  const targetUrl = (event.notification.data && event.notification.data.url) ? event.notification.data.url : '/';
+  const targetUrl = (event.notification.data && event.notification.data.orderId) ? `/orders/${event.notification.data.orderId}` : '/';
   
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
-      // Focus existing window if it matches the target URL or is at least our origin
       for (let i = 0; i < windowClients.length; i++) {
         const client = windowClients[i];
         if (client.url.includes(targetUrl) && 'focus' in client) {
@@ -68,23 +74,23 @@ self.addEventListener('notificationclick', (event) => {
 });
 
 self.addEventListener('pushsubscriptionchange', (event) => {
-  // Try to re-subscribe if subscription changes
   event.waitUntil(
     self.registration.pushManager.subscribe(event.oldSubscription.options)
       .then((subscription) => {
-         // In a full implementation, we would send this to the server to update the endpoint
-         console.log('Subscription updated:', subscription);
+         fetch('/api/push', {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify({ subscription: subscription.toJSON() })
+         }).catch(console.error);
       })
   );
 });
 
-// Cache strategy
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   
-  // Never cache server functions, admin, orders, checkout, APIs
   if (
-    event.request.method === 'POST' || 
+    event.request.method !== 'GET' || 
     url.pathname.startsWith('/api') || 
     url.pathname.startsWith('/admin') || 
     url.pathname.startsWith('/orders') ||
@@ -97,17 +103,19 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       caches.match(event.request).then((response) => {
         return response || fetch(event.request).then(res => {
-          return caches.open('assets-cache-v1').then(cache => {
-            cache.put(event.request, res.clone());
-            return res;
-          });
+          if (res.ok && res.type === 'basic') {
+            const resClone = res.clone();
+            caches.open('assets-cache-v1').then(cache => {
+              cache.put(event.request, resClone);
+            });
+          }
+          return res;
         });
       })
     );
     return;
   }
 
-  // Network first for navigations
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request).catch(() => {
