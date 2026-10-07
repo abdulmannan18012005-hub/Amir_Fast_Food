@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { seo } from '../../lib/seo';
 import React, { useState, useEffect } from 'react';
 import { getCompletedOrdersFn } from '../../server/order';
 import { ChefHat, Search, Calendar, RefreshCcw } from 'lucide-react';
@@ -6,7 +7,7 @@ import { PinGate } from '../../components/admin/PinGate';
 import { safeJson } from '../../lib/storage';
 
 export const Route = createFileRoute('/admin/history')({
-  head: () => ({ meta: [{ name: 'robots', content: 'noindex' }, { title: 'History - Admin' }] }),
+  head: () => seo({ title: 'Admin - Amir Fast Food', description: 'Admin Panel', path: '/admin', noindex: true }),
   component: AdminHistoryRoute,
 });
 

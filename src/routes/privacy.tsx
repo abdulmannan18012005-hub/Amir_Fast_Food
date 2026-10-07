@@ -1,7 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { seo } from '../lib/seo';
 import React from 'react';
 
 export const Route = createFileRoute('/privacy')({
+  head: () => seo({ title: 'Privacy Policy - Amir Fast Food', description: 'Privacy Policy for Amir Fast Food.', path: '/privacy' }),
   component: PrivacyPage,
 });
 

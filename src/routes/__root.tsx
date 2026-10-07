@@ -87,39 +87,35 @@ function RootComponent() {
         <HeadContent />
         <meta charSet="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+        <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="manifest" href="/manifest.json" />
-          <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-          <meta name="apple-mobile-web-app-capable" content="yes" />
-          <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-          <title>Amir Fast Food - Shawarma, Burgers & Combos</title>
-        <meta name="theme-color" content="#e8590c" />
-          <meta name="description" content="Order the best Shawarma and Burgers in Lahore from Amir Fast Food." />
-          <meta name="robots" content="index, follow" />
-          <link rel="canonical" href="https://amir-fast-food.vercel.app" />
-          <meta property="og:title" content="Amir Fast Food - Shawarma & Burgers" />
-          <meta property="og:description" content="Order the best Shawarma and Burgers in Lahore from Amir Fast Food." />
-          <meta property="og:type" content="restaurant" />
-          <meta property="og:url" content="https://amir-fast-food.vercel.app" />
-          <script type="application/ld+json" dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "Restaurant",
-              "name": "Amir Fast Food",
-              "image": "https://amir-fast-food.vercel.app/vite.svg",
-              "address": {
-                "@type": "PostalAddress",
-                "streetAddress": "Post Office Mansoora, Anwar Market, Peco Road, Kakazai",
-                "addressLocality": "Lahore",
-                "addressCountry": "PK"
-              },
-              "servesCuisine": "Fast Food, Shawarma, Burgers",
-              "priceRange": "PKR",
-              "telephone": "+923014265785"
-            })
-          }} />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="theme-color" content="#f97415" />
         
-        
-        
+        <script type="application/ld+json" dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Restaurant",
+            "name": "Amir Fast Food",
+            "image": "https://amir-fast-food.vercel.app/icons/icon-512.png",
+            "address": {
+              "@type": "PostalAddress",
+              "streetAddress": "Post Office Mansoora, Anwar Market, Peco Road, Kakazai",
+              "addressLocality": "Lahore",
+              "addressCountry": "PK"
+            },
+            "geo": {
+              "@type": "GeoCoordinates",
+              "latitude": 31.492160,
+              "longitude": 74.290800
+            },
+            "servesCuisine": "Fast Food, Shawarma, Burgers",
+            "priceRange": "PKR",
+            "telephone": "+923014265785"
+          })
+        }} />
       </head>
       <body className="min-h-screen flex flex-col font-sans overflow-x-hidden">
         {/* Navigation */}

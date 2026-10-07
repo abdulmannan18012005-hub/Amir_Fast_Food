@@ -15,3 +15,9 @@ CREATE POLICY "Public read access for menu_items" ON menu_items FOR SELECT USING
 ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Public read access for categories" ON categories;
 CREATE POLICY "Public read access for categories" ON categories FOR SELECT USING (true);
+
+/* ROLLBACK:
+ALTER TABLE orders DISABLE ROW LEVEL SECURITY;
+ALTER TABLE order_items DISABLE ROW LEVEL SECURITY;
+ALTER TABLE push_subscriptions DISABLE ROW LEVEL SECURITY;
+*/

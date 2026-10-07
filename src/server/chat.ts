@@ -129,8 +129,9 @@ STRICT RULES (Zero Hallucination):
       try {
         const res = await openai.chat.completions.create({
           model: process.env.GROQ_MODEL || 'openai/gpt-oss-20b',
-            max_tokens: 500, 
-          temperature: 0.2,
+            max_completion_tokens: 1024,
+            ...( (process.env.GROQ_MODEL || 'openai/gpt-oss-20b').startsWith('openai/gpt-oss') ? { reasoning_effort: 'low' } : {} ), 
+          temperature: 0.4,
           messages: [
             { role: 'system', content: systemPrompt },
             ...safeHistory,
@@ -153,9 +154,9 @@ STRICT RULES (Zero Hallucination):
       completion = await fetchCompletion();
     }
     
-    return {
-      reply: completion.choices[0]?.message?.content || "I couldn't process that. Try asking about our Crispy Zinger!"
-    };
+    const text = completion.choices?.[0]?.message?.content?.trim();
+    if (!text) throw new Error('Empty model reply');
+    return { reply: text };
   } catch (error: any) {
     console.error('Groq API Error:', error);
     // Safe failure behavior

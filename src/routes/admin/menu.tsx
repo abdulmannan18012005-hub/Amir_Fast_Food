@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { seo } from '../../lib/seo';
 import React, { useEffect, useState } from 'react';
 import { supabaseBrowser } from '../../lib/supabase';
 import { updateMenuItemFn, getCategoryImagesFn, updateCategoryImagesFn, getHighlightImagesFn, updateHighlightImagesFn } from '../../server/menu';
@@ -8,7 +9,7 @@ import { safeJson } from '../../lib/storage';
 import type { MenuItem } from '../../types';
 
 export const Route = createFileRoute('/admin/menu')({
-  head: () => ({ meta: [{ name: 'robots', content: 'noindex' }, { title: 'Menu Editor - Admin' }] }),
+  head: () => seo({ title: 'Admin - Amir Fast Food', description: 'Admin Panel', path: '/admin', noindex: true }),
   component: AdminMenuRoute,
 });
 

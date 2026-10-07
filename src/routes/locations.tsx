@@ -1,7 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { seo } from '../lib/seo';
 import React from 'react';
 
 export const Route = createFileRoute('/locations')({
+  head: () => seo({ title: 'Our Locations - Amir Fast Food', description: 'Find Amir Fast Food in Lahore.', path: '/locations' }),
   component: LocationsPage,
 });
 

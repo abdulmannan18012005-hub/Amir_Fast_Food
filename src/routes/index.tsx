@@ -1,15 +1,20 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { seo } from '../lib/seo';
 import React from 'react';
 import { getCategoryImagesFn, getHighlightImagesFn } from '../server/menu';
 
 export const Route = createFileRoute('/')({
   component: Index,
-  head: () => ({
-    meta: [{ title: 'Amir Fast Food - Shawarma & Burgers' }],
-    links: [
-      { rel: 'preload', as: 'image', href: 'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=1200&q=80', fetchPriority: 'high' }
-    ]
-  }),
+  head: () => {
+    const s = seo({ title: 'Amir Fast Food - Shawarma, Burgers & Combos', description: 'Order the best Shawarma and Burgers in Lahore from Amir Fast Food.', path: '/' });
+    return {
+      meta: s.meta,
+      links: [
+        ...s.links,
+        { rel: 'preload', as: 'image', href: 'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=1200&q=80', fetchPriority: 'high' }
+      ]
+    };
+},
   loader: async () => {
     const categoryImages = await getCategoryImagesFn();
     const highlightImages = await getHighlightImagesFn();

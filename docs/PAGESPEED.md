@@ -1,28 +1,22 @@
-# PageSpeed Insights Tracking
-
-**Instructions:**
-1. Deploy the current `main` branch to Vercel (or trigger a Preview deployment).
-2. Visit [PageSpeed Insights](https://pagespeed.web.dev).
-3. Paste your Vercel URL and run the audit.
-4. Record your scores below.
-
-## Goals
-- **Mobile:** 90+
-- **Desktop:** 100
-
-## Results (DD-MM-YYYY)
-
-| Metric | Mobile | Desktop | Notes |
-| :--- | :--- | :--- | :--- |
-| **Performance** | TBD | TBD | |
-| **Accessibility**| TBD | TBD | |
-| **Best Practices**| TBD | TBD | |
-| **SEO** | TBD | TBD | |
-
-**Largest Contentful Paint (LCP):** TBD
-**Cumulative Layout Shift (CLS):** TBD
-**First Contentful Paint (FCP):** TBD
-
-## Known Bottlenecks
-- External image hosting (Unsplash) adds minor DNS resolution time.
-- React/Vite client hydration cost.
+| URL | Device | Perf | A11y | BP | SEO | LCP | CLS | TBT | FCP | SI | TTFB |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| / | mobile | 67 | 79 | 75 | 100 | 4.11s | 0.000 | 258ms | 2.89s | 11.90s | 155ms |
+| / | desktop | 69 | 79 | 74 | 100 | 2.30s | 0.000 | 122ms | 2.30s | 4.69s | 104ms |
+| /menu | mobile | 60 | 82 | 96 | 92 | 3.84s | 0.000 | 575ms | 3.47s | 7.86s | 95ms |
+| /menu | desktop | 39 | 82 | 96 | 92 | 3.69s | 0.000 | 510ms | 2.94s | 7.55s | 206ms |
+| /cart | mobile | 87 | 77 | 96 | 91 | 2.22s | 0.000 | 329ms | 2.20s | 3.95s | 117ms |
+| /cart | desktop | 59 | 77 | 96 | 91 | 2.06s | 0.000 | 345ms | 2.03s | 3.52s | 113ms |
+| /checkout | mobile | 87 | 77 | 96 | 91 | 2.03s | 0.000 | 397ms | 2.01s | 3.32s | 116ms |
+| /checkout | desktop | 58 | 77 | 96 | 91 | 2.06s | 0.000 | 389ms | 2.01s | 3.41s | 190ms |
+| /chat | mobile | 86 | 79 | 96 | 91 | 2.18s | 0.000 | 370ms | 2.18s | 4.13s | 102ms |
+| /chat | desktop | 56 | 79 | 96 | 91 | 2.13s | 0.000 | 376ms | 2.13s | 3.93s | 102ms |
+| /locations | mobile | 82 | 79 | 96 | 91 | 3.06s | 0.000 | 220ms | 3.06s | 4.56s | 207ms |
+| /locations | desktop | 55 | 79 | 96 | 91 | 3.29s | 0.000 | 222ms | 3.29s | 4.16s | 111ms |
+| /privacy | mobile | 87 | 77 | 96 | 91 | 2.16s | 0.000 | 334ms | 2.16s | 3.87s | 118ms |
+| /privacy | desktop | 58 | 77 | 96 | 91 | 2.21s | 0.000 | 348ms | 2.21s | 3.52s | 106ms |
+| /terms | mobile | 82 | 77 | 96 | 91 | 2.26s | 0.000 | 491ms | 2.26s | 3.79s | 214ms |
+| /terms | desktop | 59 | 77 | 96 | 91 | 2.22s | 0.000 | 327ms | 2.22s | 3.35s | 113ms |
+| /orders/123e4567-e89b-12d3-a456-426614174000 | mobile | 83 | 77 | 96 | 54 | 2.11s | 0.007 | 520ms | 2.11s | 3.67s | 130ms |
+| /orders/123e4567-e89b-12d3-a456-426614174000 | desktop | 48 | 77 | 96 | 54 | 2.41s | 0.024 | 511ms | 2.41s | 3.90s | 120ms |
+| /this-page-does-not-exist | mobile | Fail | Fail | Fail | Fail | - | - | - | - | - | - |
+| /this-page-does-not-exist | desktop | Fail | Fail | Fail | Fail | - | - | - | - | - | - |

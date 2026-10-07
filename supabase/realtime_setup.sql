@@ -1,2 +1,0 @@
--- THIS FILE IS DANGEROUS AND DEPRECATED.
--- Please use supabase/migrations/20261005_webapp_v3.sql instead.

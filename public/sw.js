@@ -1,10 +1,11 @@
 const STATIC = 'static-v2';
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(STATIC).then(c => c.addAll(['/offline.html', '/icons/icon-192.png']))
-    .then(() => self.skipWaiting())
-  );
+  event.waitUntil((async () => {
+    const cache = await caches.open(STATIC);
+    await Promise.allSettled(['/offline.html', '/icons/icon-192.png'].map((u) => cache.add(u)));
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener('activate', (event) => {

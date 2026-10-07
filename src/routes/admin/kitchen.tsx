@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { seo } from '../../lib/seo';
 import React, { useEffect, useState } from 'react';
 import { supabaseBrowser } from '../../lib/supabase';
 import { updateOrderStatus, getKitchenOrders } from '../../server/order';
@@ -15,8 +16,21 @@ export const Route = createFileRoute('/admin/kitchen')({
 });
 
 function KitchenKDSRoute() {
+  
+  if (!audioInitialized) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900 text-white cursor-pointer" onClick={() => { initAudio(); setAudioInitialized(true); }}>
+         <div className="text-center">
+            <Volume2 size={64} className="mx-auto mb-4 text-primary animate-pulse" />
+            <h1 className="text-3xl font-black">Tap to enable kitchen sound</h1>
+         </div>
+      </div>
+    );
+  }
+
+
   return (
-    <PinGate>
+    <PinGate onUnlock={() => { initAudio(); setAudioInitialized(true); }}>
       <KitchenKDS />
     </PinGate>
   );
@@ -26,6 +40,7 @@ function KitchenKDS() {
   const [orders, setOrders] = useState<any[]>([]);
   const [connState, setConnState] = useState<'Live' | 'Reconnecting...' | 'Offline'>('Live');
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [audioInitialized, setAudioInitialized] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [wakeLockEnabled, setWakeLockEnabled] = useState(false);
 

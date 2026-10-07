@@ -1,8 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { seo } from '../lib/seo';
 import React from 'react';
 
 export const Route = createFileRoute('/cart')({
-  head: () => ({ meta: [{ title: 'Cart - Amir Fast Food' }] }),
+  head: () => seo({ title: 'Your Cart - Amir Fast Food', description: 'Review your cart at Amir Fast Food.', path: '/cart' }),
   component: CartPage,
 });
 
