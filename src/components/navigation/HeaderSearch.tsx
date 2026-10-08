@@ -78,7 +78,7 @@ export function HeaderSearch() {
             <div className="space-y-1">
               {results.map(item => (
                 <a key={item.id} href={`/menu?q=${item.name}`} className="flex items-center gap-3 p-2 hover:bg-accent rounded-lg group transition-colors">
-                  <img src={item.image_url || "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=100&q=80"} alt={item.name} onError={(e) => { e.currentTarget.src = "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=100&q=80"; }} className="w-12 h-12 object-cover rounded-md bg-muted" />
+                  <img src={item.image_url || "/placeholder.webp"} alt={item.name} onError={(e) => { e.currentTarget.src = "/placeholder.webp"; }} className="w-12 h-12 object-cover rounded-md bg-muted" />
                   <div className="flex-1 overflow-hidden">
                     <p className="text-sm font-bold text-foreground truncate">{item.name}</p>
                     <p className="text-xs text-primary font-bold">PKR {item.price}</p>

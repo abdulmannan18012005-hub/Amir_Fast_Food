@@ -216,14 +216,14 @@ export const createOrder = createServerFn({ method: "POST" })
     
     // Admin Push Alert
     const adminSummary = `New order #${orderId.slice(0, 8).toUpperCase()} · PKR ${computedSubtotal + finalDeliveryFee} · ${payload.paymentMethod === 'cod' ? 'COD' : 'PAID'}`;
-    Promise.race([
+    await Promise.race([
       sendAdminOrderPush(orderId, adminSummary),
       new Promise(r => setTimeout(r, 4000))
     ]).catch(() => {});
 
     // 6. Send email (fire and forget with timeout)
     if (p_email) {
-      Promise.race([
+      await Promise.race([
           sendOrderReceiptEmail(
             { id: orderId, customer_name: nameStr, customer_phone: phoneNormal, customer_email: p_email, delivery_address: addrStr, payment_method: payload.paymentMethod, delivery_fee: finalDeliveryFee, total_amount: computedSubtotal + finalDeliveryFee } as any,
             dbItems.map((i, idx) => ({ ...i, name: itemNames[idx] })) as any
@@ -293,7 +293,7 @@ export const updateOrderStatus = createServerFn({ method: 'POST' })
       canceled: `❌ Order #${code} was canceled — ${cancelReason}`
     };
     // A failed or slow push must never fail the status change
-    await Promise.race([
+    await await Promise.race([
       sendOrderPush(data.orderId, data.status, 'Amir Fast Food', bodies[data.status]),
       new Promise(r => setTimeout(r, 4000))
     ]).catch(() => {});

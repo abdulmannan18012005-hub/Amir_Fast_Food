@@ -52,7 +52,7 @@
       ]
     },
     {
-      "source": "/(sw\\.js|manifest\\.json)",
+      "source": "/(sw\\.js|manifest\\.json|admin\\.webmanifest)",
       "headers": [
         {
           "key": "Cache-Control",

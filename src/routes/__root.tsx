@@ -21,6 +21,7 @@ function RootComponent() {
   const [cartCount, setCartCount] = React.useState(0);
   const [cartTotal, setCartTotal] = React.useState(0);
   const [isCartOpen, setIsCartOpen] = React.useState(false);
+  const [botLoaded, setBotLoaded] = React.useState(false);
   const [cartItems, setCartItems] = React.useState([]);
 
   
@@ -50,11 +51,14 @@ function RootComponent() {
     window.addEventListener('storage', handleStorage);
     window.addEventListener('cartUpdated', handleStorage);
     const handleOpenCart = () => setIsCartOpen(true);
+    const handleToggleBot = () => setBotLoaded(true);
+    window.addEventListener('toggleAmirBot', handleToggleBot);
     window.addEventListener('openCart', handleOpenCart);
     return () => {
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('cartUpdated', handleStorage);
       window.removeEventListener('openCart', handleOpenCart);
+      window.removeEventListener('toggleAmirBot', handleToggleBot);
     };
   }, []);
 
@@ -162,7 +166,7 @@ function RootComponent() {
 
         {/* Main Content */}
         <main className="flex-grow flex flex-col pb-16 md:pb-0">
-            <h1 className="sr-only">Amir Fast Food</h1>
+            <span className="sr-only">Amir Fast Food</span>
           <Outlet />
         </main>
 
@@ -230,7 +234,7 @@ function RootComponent() {
         <MobileBottomNav onOpenCart={() => setIsCartOpen(true)} onOpenBot={() => {
           window.dispatchEvent(new Event('toggleAmirBot'));
         }} />
-        <React.Suspense fallback={null}><AmirBotDrawer /></React.Suspense>
+        {botLoaded && <React.Suspense fallback={null}><AmirBotDrawer /></React.Suspense>}
         <OrderTracker />
         <React.Suspense fallback={null}><CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} items={cartItems} onUpdateQuantity={handleUpdateQuantity} onRemoveItem={handleRemoveItem} onClearCart={handleClearCart} /></React.Suspense>
         <ScrollRestoration />

@@ -1,7 +1,7 @@
 # System Architecture & Directory Structure — Amir Fast Food AI
 
 ## 1. App Flow
-Client Interaction (3D Menu) -> Cart Configuration -> Atomic Server Function (`createServerFn`) -> PostgreSQL Transaction (Wallet Debit / Order Row Created) -> Supabase Realtime (CDC WebSocket) -> Admin KDS Screen Chimes -> Async Background Webhook (Email Receipt + WhatsApp Dispatch) -> Client Delivery Simulator.
+Client Interaction -> Cart Configuration -> Atomic Server Function (`createServerFn`) -> PostgreSQL Transaction (Wallet Debit / Order Row Created) -> Supabase Realtime (CDC WebSocket) -> Admin KDS Screen Chimes -> Async Background Webhook (Email Receipt + WhatsApp Dispatch) -> Client Order Tracker.
 
 ## 2. Directory Structure
 amir-fast-food/
@@ -11,10 +11,10 @@ amir-fast-food/
 │   │   ├── cart/             # Slide-Out Drawer & Modifier Selectors
 │   │   ├── common/           # Header, Footer, Modals, Buttons
 │   │   ├── kds/              # Kitchen Display Kanban Tickets
-│   │   ├── menu/             # 3D Tilt Cards & Filter Bars
+│   │   ├── menu/             # Menu Cards & Filter Bars
 │   │   └── tracking/         # Delivery Road Map & Progress Steppers
 │   ├── routes/
-│   │   ├── index.tsx         # Landing Page with 3D Hero
+│   │   ├── index.tsx         # Landing Page
 │   │   ├── menu.tsx          # Catalog & Filtering
 │   │   ├── checkout.tsx      # Multi-Step Checkout Form
 │   │   ├── profile.tsx       # Wallet Ledger & Past Orders
@@ -27,9 +27,9 @@ amir-fast-food/
 │   │   ├── auth.ts           # Login/Signup Handlers
 │   │   ├── order.ts          # Atomic Checkout Logic
 │   │   ├── notify.ts         # WhatsApp & Email Senders
-│   │   └── chat.ts           # AmirBot pgvector Semantic Search
+│   │   └── chat.ts           # AmirBot Logic
 │   └── styles/
-│       └── globals.css       # Tailwind Directives & 3D CSS Perspectives
-├── public/                   # 3D GLTF Assets, Audio Chimes, Icons
+│       └── globals.css       # Tailwind Directives
+├── public/                   # Webmanifest, Audio Chimes, Icons
 ├── schema.sql                # Complete Supabase PostgreSQL DDL
 └── package.json

@@ -11,7 +11,7 @@ export const Route = createFileRoute('/')({
       meta: s.meta,
       links: [
         ...s.links,
-        { rel: 'preload', as: 'image', href: 'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=1200&q=80', fetchPriority: 'high' }
+        { rel: 'preload', as: 'image', href: '/hero.webp', fetchPriority: 'high' }
       ]
     };
 },
@@ -32,7 +32,7 @@ function Index() {
 
         {/* Right side image - full bleed on desktop */}
         <div className="absolute top-0 right-0 w-full lg:w-1/2 h-full z-0 hidden lg:block">
-          <img src="https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=1200&q=80" alt="Amir Fast Food - Shawarma & Burgers" className="w-full h-full object-cover object-center" fetchPriority="high" />
+          <img src="/hero.webp" alt="Amir Fast Food - Shawarma & Burgers" className="w-full h-full object-cover object-center" fetchPriority="high" />
           <div className="absolute inset-0 bg-gradient-to-r from-background via-background/40 to-transparent"></div>
         </div>
 
@@ -74,7 +74,7 @@ function Index() {
           
           {/* Mobile Image */}
           <div className="mt-12 w-full lg:hidden rounded-2xl overflow-hidden aspect-[4/3] relative">
-            <img src="https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=1200&q=80" alt="Amir Fast Food - Shawarma & Burgers" className="w-full h-full object-cover" fetchPriority="high" />
+            <img src="/hero.webp" alt="Amir Fast Food - Shawarma & Burgers" className="w-full h-full object-cover" fetchPriority="high" />
           </div>
         </div>
       </section>

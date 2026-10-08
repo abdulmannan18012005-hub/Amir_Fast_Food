@@ -11,10 +11,7 @@ interface Props {
 }
 
 export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveItem, onClearCart }: Props) {
-  const subtotal = items.reduce((sum, item) => {
-    const varsTotal = item.variants?.reduce((vSum, v) => vSum + (v.price || 0), 0) || 0;
-    return sum + ((item.price || 0) + varsTotal) * item.quantity;
-  }, 0);
+  const subtotal = getCartSubtotal(items);
   
   
   const [fulfillment, setFulfillment] = React.useState('delivery');

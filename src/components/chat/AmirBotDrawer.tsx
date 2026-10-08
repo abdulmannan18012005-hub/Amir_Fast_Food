@@ -14,7 +14,7 @@ export function AmirBotDrawer() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<{ role: 'user' | 'bot' | 'system', text: string }[]>(() => {
     const saved = safeJson('amirbot_chat', [{ role: 'bot', text: 'Hi! I am AmirBot. How can I help you today?' }]);
-    return saved;
+    return saved as { role: 'user' | 'bot' | 'system', text: string }[];
   });
 
   const [input, setInput] = useState('');

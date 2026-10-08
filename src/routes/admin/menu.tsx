@@ -232,7 +232,7 @@ function AdminMenuEditor() {
                           value={categoryImages[cat] || ''} 
                           onChange={(e) => setCategoryImages({...categoryImages, [cat]: e.target.value})}
                           className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-primary text-sm"
-                          placeholder="https://images.unsplash.com/..."
+                          placeholder="/placeholder.webp"
                         />
                       </div>
                    </div>
@@ -265,7 +265,7 @@ function AdminMenuEditor() {
                           value={highlightImages[`slide${num}`] || ''} 
                           onChange={(e) => setHighlightImages({...highlightImages, [`slide${num}`]: e.target.value})}
                           className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-primary text-sm"
-                          placeholder="https://images.unsplash.com/..."
+                          placeholder="/placeholder.webp"
                         />
                       </div>
                    </div>

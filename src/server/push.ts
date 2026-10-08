@@ -85,13 +85,14 @@ export async function sendOrderPush(orderId: string, status: string, title?: str
            keys: { p256dh: sub.p256dh, auth: sub.auth }
          }, payload, { TTL: 3600, urgency: 'high' });
       } catch (err: any) {
-         if (err.statusCode === 410 || err.statusCode === 404) {
+        console.error('Push delivery failed for endpoint ' + sub.endpoint, err);
+        if (err.statusCode === 410 || err.statusCode === 404) {
            await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
          }
       }
     }
   } catch (e) {
-    console.warn("Error sending push:", e);
+    console.error('Push Notification Error (Customer):', e instanceof Error ? e.stack : e);
   }
 }
 
@@ -149,7 +150,7 @@ export async function sendAdminOrderPush(orderId: string, summary: string) {
       }
     }
   } catch (e) {
-    console.warn('Admin push error:', e);
+    console.error('Push Notification Error (Admin):', e instanceof Error ? e.stack : e);
   }
 }
 

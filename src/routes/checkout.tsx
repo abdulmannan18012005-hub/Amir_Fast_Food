@@ -43,7 +43,7 @@ function CheckoutPage() {
 
   // Real Cart State
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+  const subtotal = getCartSubtotal(cartItems);
   const total = subtotal + totalDeliveryFee;
 
   useEffect(() => {

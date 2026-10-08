@@ -11,7 +11,7 @@ export function buildCartItem(menuItem: MenuItem, selectedVariants: ItemVariant[
     name: menuItem.name,
     image_url: menuItem.image_url || '/placeholder.png',
     quantity,
-    price: basePrice + variantsPrice,
+    price: basePrice,
     variants: selectedVariants,
   };
 }
