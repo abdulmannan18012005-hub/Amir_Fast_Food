@@ -4,16 +4,18 @@ import React, { useState, useEffect } from 'react';
 import { getCompletedOrdersFn } from '../../server/order';
 import { ChefHat, Search, Calendar, RefreshCcw } from 'lucide-react';
 import { PinGate } from '../../components/admin/PinGate';
+import { AdminNav } from '../../components/admin/AdminNav';
 import { safeJson, getRawSession } from '../../lib/storage';
 
 export const Route = createFileRoute('/admin/history')({
-  head: () => seo({ title: 'Admin - Amir Fast Food', description: 'Admin Panel', path: '/admin', noindex: true }),
+  head: () => Object.assign(seo({ title: 'Admin - Amir Fast Food', description: 'Admin Panel', path: '/admin', noindex: true }), { links: [{ rel: 'manifest', href: '/admin.webmanifest' }] }),
   component: AdminHistoryRoute,
 });
 
 function AdminHistoryRoute() {
   return (
     <PinGate>
+      <AdminNav />
       <AdminHistoryPage />
     </PinGate>
   );
@@ -48,6 +50,20 @@ function AdminHistoryPage() {
   useEffect(() => {
     fetchOrders();
   }, [dateFilter, statusFilter, page]);
+
+  useEffect(() => {
+    const poll = setInterval(() => {
+      if (document.visibilityState === 'visible' && page === 1) fetchOrders();
+    }, 15000);
+    const onVis = () => {
+      if (document.visibilityState === 'visible' && page === 1) fetchOrders();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      clearInterval(poll);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [dateFilter, statusFilter, page, searchQuery]);
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
@@ -100,6 +116,12 @@ function AdminHistoryPage() {
           </button>
         </div>
       </header>
+        <div className="bg-white border-b border-slate-200 px-6 py-3 flex justify-between items-center text-sm">
+          <span className="font-bold text-slate-700">Daily Summary (Page {page})</span>
+          <span className="bg-green-100 text-green-800 font-bold px-3 py-1 rounded-full">
+            Revenue: PKR {orders.filter(o => o.status === 'delivered').reduce((sum, o) => sum + Number(o.total_amount) + Number(o.delivery_fee), 0)}
+          </span>
+        </div>
 
       <div className="p-6 max-w-7xl mx-auto">
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">

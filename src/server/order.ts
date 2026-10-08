@@ -5,7 +5,7 @@ import { sendOrderReceiptEmail } from './email';
 import { verifyAdminPin, getClientIp } from './auth';
 import { checkRateLimit } from './rateLimit';
 import { isValidTransition, OrderStatus, ORDER_STATUSES } from '../lib/orderStatus';
-import { sendOrderPush } from './push';
+import { sendOrderPush, sendAdminOrderPush } from './push';
 
 export interface CreateOrderPayload {
   website?: string; // honeypot
@@ -213,18 +213,21 @@ export const createOrder = createServerFn({ method: "POST" })
     // Trigger push via dynamic import / internal API call (will implement next)
     
 
+    
+    // Admin Push Alert
+    const adminSummary = `New order #${orderId.slice(0, 8).toUpperCase()} · PKR ${computedSubtotal + finalDeliveryFee} · ${payload.paymentMethod === 'cod' ? 'COD' : 'PAID'}`;
+    Promise.race([
+      sendAdminOrderPush(orderId, adminSummary),
+      new Promise(r => setTimeout(r, 4000))
+    ]).catch(() => {});
+
     // 6. Send email (fire and forget with timeout)
     if (p_email) {
       Promise.race([
-          sendOrderReceiptEmail({
-          orderId,
-          customerName: nameStr,
-          customerEmail: p_email,
-          items: dbItems.map((i, idx) => ({ ...i, name: itemNames[idx] })),
-          subtotal: computedSubtotal,
-          deliveryFee: finalDeliveryFee,
-          total: computedSubtotal + finalDeliveryFee
-        }),
+          sendOrderReceiptEmail(
+            { id: orderId, customer_name: nameStr, customer_phone: phoneNormal, customer_email: p_email, delivery_address: addrStr, payment_method: payload.paymentMethod, delivery_fee: finalDeliveryFee, total_amount: computedSubtotal + finalDeliveryFee } as any,
+            dbItems.map((i, idx) => ({ ...i, name: itemNames[idx] })) as any
+          ),
         new Promise(r => setTimeout(r, 5000)) // 5s timeout
       ]).catch(e => console.warn("Email error:", e));
     }

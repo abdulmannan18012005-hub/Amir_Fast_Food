@@ -5,35 +5,41 @@ import { supabaseBrowser } from '../../lib/supabase';
 import { updateOrderStatus, getKitchenOrders } from '../../server/order';
 import { playKitchenDing, initAudio } from '../../lib/sound';
 import { PinGate } from '../../components/admin/PinGate';
+import { AdminNav } from '../../components/admin/AdminNav';
 import { Clock, CheckCircle, ChefHat, Truck, XCircle, Volume2, VolumeX, BellRing, Printer, AlertTriangle } from 'lucide-react';
+import { subscribeAdminPushFn, sendTestAdminPushFn, getVapidPublicKeyFn } from '../../server/push';
 import { safeJson, getRawSession } from '../../lib/storage';
 
 export const Route = createFileRoute('/admin/kitchen')({
   component: KitchenKDSRoute,
-  head: () => ({
-    meta: [{ name: 'robots', content: 'noindex' }]
-  })
+  head: () => ({ meta: [{ name: 'robots', content: 'noindex' }], links: [{ rel: 'manifest', href: '/admin.webmanifest' }] })
 });
 
 function KitchenKDSRoute() {
-  
-  if (!audioInitialized) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900 text-white cursor-pointer" onClick={() => { initAudio(); setAudioInitialized(true); }}>
-         <div className="text-center">
-            <Volume2 size={64} className="mx-auto mb-4 text-primary animate-pulse" />
-            <h1 className="text-3xl font-black">Tap to enable kitchen sound</h1>
-         </div>
-      </div>
-    );
-  }
-
-
   return (
-    <PinGate onUnlock={() => { initAudio(); setAudioInitialized(true); }}>
-      <KitchenKDS />
+    <PinGate>
+      <AdminNav />
+      <KitchenSoundGate>
+        <KitchenKDS />
+      </KitchenSoundGate>
     </PinGate>
   );
+}
+
+function KitchenSoundGate({ children }: { children: React.ReactNode }) {
+  const [ready, setReady] = React.useState(false);
+  if (!ready) {
+    return (
+      <button type="button" onClick={() => { initAudio(); setReady(true); }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900 text-white w-full">
+        <span className="text-center">
+          <Volume2 size={64} className="mx-auto mb-4 text-primary animate-pulse" aria-hidden="true" />
+          <span className="block text-3xl font-black">Tap to enable kitchen sound</span>
+        </span>
+      </button>
+    );
+  }
+  return <>{children}</>;
 }
 
 function KitchenKDS() {
@@ -43,6 +49,66 @@ function KitchenKDS() {
   const [audioInitialized, setAudioInitialized] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [wakeLockEnabled, setWakeLockEnabled] = useState(false);
+  const [pushStatus, setPushStatus] = useState<'Checking...' | 'Enabled' | 'Blocked' | 'Not Supported' | 'Alerts not configured'>('Checking...');
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      setPushStatus('Not Supported');
+      return;
+    }
+    navigator.permissions.query({ name: 'notifications' }).then(status => {
+      if (status.state === 'denied') setPushStatus('Blocked');
+      else if (status.state === 'granted') setPushStatus('Enabled');
+      else setPushStatus('Checking...'); // Actually means 'Promptable'
+    });
+  }, []);
+
+  const handleEnablePush = async () => {
+    if (pushStatus === 'Not Supported' || pushStatus === 'Blocked') return;
+    try {
+      const { publicKey } = await getVapidPublicKeyFn();
+      if (!publicKey) {
+        setPushStatus('Alerts not configured');
+        return;
+      }
+      
+      const permission = await Notification.requestPermission();
+      if (permission === 'denied') {
+        setPushStatus('Blocked');
+        return;
+      }
+
+      const swRegistration = await navigator.serviceWorker.ready;
+      let subscription = await swRegistration.pushManager.getSubscription();
+      
+      if (!subscription) {
+        subscription = await swRegistration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: publicKey
+        });
+      }
+
+      const savedPin = getRawSession('admin_pin') || '';
+      const res = await subscribeAdminPushFn({ data: { subscription: JSON.parse(JSON.stringify(subscription)), pin: savedPin } });
+      if (res.success) {
+        setPushStatus('Enabled');
+      } else {
+        alert('Failed to subscribe on server: ' + res.error);
+      }
+    } catch (e: any) {
+      alert('Failed to enable push: ' + e.message);
+    }
+  };
+
+  const handleTestPush = async () => {
+    try {
+      const savedPin = getRawSession('admin_pin') || '';
+      await sendTestAdminPushFn({ data: { pin: savedPin } });
+    } catch (e: any) {
+      alert('Test push failed: ' + e.message);
+    }
+  };
+
 
   // Modals
   const [cancelModalOpen, setCancelModalOpen] = useState<{ id: string, expected: any } | null>(null);

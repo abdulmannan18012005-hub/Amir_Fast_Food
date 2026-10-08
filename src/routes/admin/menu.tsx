@@ -5,17 +5,19 @@ import { supabaseBrowser } from '../../lib/supabase';
 import { updateMenuItemFn, getCategoryImagesFn, updateCategoryImagesFn, getHighlightImagesFn, updateHighlightImagesFn } from '../../server/menu';
 import { ChefHat, Pencil, Check, X, Image as ImageIcon, Save } from 'lucide-react';
 import { PinGate } from '../../components/admin/PinGate';
+import { AdminNav } from '../../components/admin/AdminNav';
 import { safeJson, getRawSession } from '../../lib/storage';
 import type { MenuItem } from '../../types';
 
 export const Route = createFileRoute('/admin/menu')({
-  head: () => seo({ title: 'Admin - Amir Fast Food', description: 'Admin Panel', path: '/admin', noindex: true }),
+  head: () => Object.assign(seo({ title: 'Admin - Amir Fast Food', description: 'Admin Panel', path: '/admin', noindex: true }), { links: [{ rel: 'manifest', href: '/admin.webmanifest' }] }),
   component: AdminMenuRoute,
 });
 
 function AdminMenuRoute() {
   return (
     <PinGate>
+      <AdminNav />
       <AdminMenuEditor />
     </PinGate>
   );
