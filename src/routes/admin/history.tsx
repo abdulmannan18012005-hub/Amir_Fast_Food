@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { getCompletedOrdersFn } from '../../server/order';
 import { ChefHat, Search, Calendar, RefreshCcw } from 'lucide-react';
 import { PinGate } from '../../components/admin/PinGate';
-import { safeJson } from '../../lib/storage';
+import { safeJson, getRawSession } from '../../lib/storage';
 
 export const Route = createFileRoute('/admin/history')({
   head: () => seo({ title: 'Admin - Amir Fast Food', description: 'Admin Panel', path: '/admin', noindex: true }),

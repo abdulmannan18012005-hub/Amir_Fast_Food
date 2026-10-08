@@ -10,7 +10,17 @@ if (!supabaseUrl || !anonKey) {
   process.exit(1);
 }
 
-const supabase = createClient(supabaseUrl, anonKey);
+class DummyWS {
+  constructor() {}
+  close() {}
+  send() {}
+  addEventListener() {}
+  removeEventListener() {}
+}
+
+const supabase = createClient(supabaseUrl, anonKey, {
+  realtime: { transport: DummyWS }
+});
 
 async function test() {
   console.log('Testing anon access...');
@@ -24,7 +34,7 @@ async function test() {
   console.log('Orders read error:', err2?.message || 'None (VULNERABLE!)');
   
   // 3. Should NOT be able to update restaurant_knowledge
-  const { error: err3 } = await supabase.from('restaurant_knowledge').update({ content: '{}' }).eq('title', 'category_images');
+  const { error: err3 } = await supabase.from('restaurant_knowledge').update({ content: '{}' }).eq('id', '00000000-0000-0000-0000-000000000000');
   console.log('Knowledge update error:', err3?.message || 'None (VULNERABLE!)');
 }
 

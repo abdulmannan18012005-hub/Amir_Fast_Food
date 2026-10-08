@@ -5,7 +5,7 @@ import { supabaseBrowser } from '../../lib/supabase';
 import { updateMenuItemFn, getCategoryImagesFn, updateCategoryImagesFn, getHighlightImagesFn, updateHighlightImagesFn } from '../../server/menu';
 import { ChefHat, Pencil, Check, X, Image as ImageIcon, Save } from 'lucide-react';
 import { PinGate } from '../../components/admin/PinGate';
-import { safeJson } from '../../lib/storage';
+import { safeJson, getRawSession } from '../../lib/storage';
 import type { MenuItem } from '../../types';
 
 export const Route = createFileRoute('/admin/menu')({

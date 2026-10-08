@@ -6,7 +6,7 @@ import { updateOrderStatus, getKitchenOrders } from '../../server/order';
 import { playKitchenDing, initAudio } from '../../lib/sound';
 import { PinGate } from '../../components/admin/PinGate';
 import { Clock, CheckCircle, ChefHat, Truck, XCircle, Volume2, VolumeX, BellRing, Printer, AlertTriangle } from 'lucide-react';
-import { safeJson } from '../../lib/storage';
+import { safeJson, getRawSession } from '../../lib/storage';
 
 export const Route = createFileRoute('/admin/kitchen')({
   component: KitchenKDSRoute,
@@ -38,7 +38,7 @@ function KitchenKDSRoute() {
 
 function KitchenKDS() {
   const [orders, setOrders] = useState<any[]>([]);
-  const [connState, setConnState] = useState<'Live' | 'Reconnecting...' | 'Offline'>('Live');
+  const [connState, setConnState] = useState<'Live' | 'Reconnecting...' | 'Offline' | 'Live (Polling)'>('Live');
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [audioInitialized, setAudioInitialized] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -153,6 +153,8 @@ function KitchenKDS() {
   };
 
   const handlePrint = (order: any) => {
+    const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c] as string));
+
     const printWindow = window.open('', '_blank', 'width=400,height=600');
     if (!printWindow) return;
     
@@ -180,9 +182,9 @@ function KitchenKDS() {
           <p>Order #${order.id.slice(0,8).toUpperCase()}</p>
           <p>${new Date(order.created_at).toLocaleString()}</p>
         </div>
-        <p><b>Customer:</b> ${order.customer_name}</p>
-        <p><b>Phone:</b> ${order.customer_phone}</p>
-        <p><b>Address:</b> ${order.delivery_address}</p>
+        <p><b>Customer:</b> ${esc(order.customer_name)}</p>
+        <p><b>Phone:</b> ${esc(order.customer_phone)}</p>
+        <p><b>Address:</b> ${esc(order.delivery_address)}</p>
         ${order.distance_km ? `<p><b>Distance:</b> ${order.distance_km.toFixed(1)} km</p>` : ''}
         <br/>
         ${itemsHtml}
