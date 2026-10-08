@@ -15,6 +15,7 @@ export const Route = createRootRoute({
 
 function RootComponent() {
   const location = useLocation();
+  const isAdmin = location.pathname.startsWith('/admin');
   const path = location.pathname;
   
   const [cartCount, setCartCount] = React.useState(0);
