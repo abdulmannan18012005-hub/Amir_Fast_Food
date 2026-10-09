@@ -1,15 +1,15 @@
+import { SHOP_LAT, SHOP_LNG } from './shop';
+
 export function calculateDeliveryFee(
   subtotal: number,
   distanceKm: number = 0,
   method: 'cod' | 'online_transfer' = 'cod'
 ): { baseFee: number; distanceFee: number; codFee: number; totalDeliveryFee: number } {
-  // COD fee rule
+  // COD fee rule: PKR 100 only if COD and subtotal < 1000
   const codFee = (method === 'cod' && subtotal < 1000) ? 100 : 0;
   
-  // Base delivery fee (free under 5km?) Wait, the prompt says "Distance fee is 0 up to 5km, then +100 PKR per extra km"
-  // Let's assume base delivery fee is 0. If there was a base fee, we'd add it.
+  // 5 km free radius, then +100 PKR per extra km
   const distanceFee = distanceKm > 5 ? Math.ceil(distanceKm - 5) * 100 : 0;
-  
   const totalDeliveryFee = codFee + distanceFee;
   
   return {
@@ -20,9 +20,10 @@ export function calculateDeliveryFee(
   };
 }
 
-import { SHOP_LAT, SHOP_LNG } from './shop';
-
 export function calculateDistanceKm(lat: number, lng: number): number {
+  if (typeof lat !== 'number' || typeof lng !== 'number' || !isFinite(lat) || !isFinite(lng)) {
+    return 0;
+  }
   const R = 6371; // Earth's radius in km
   const dLat = (lat - SHOP_LAT) * Math.PI / 180;
   const dLng = (lng - SHOP_LNG) * Math.PI / 180;

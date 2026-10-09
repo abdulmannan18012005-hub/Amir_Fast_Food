@@ -5,7 +5,7 @@ import { getCompletedOrdersFn } from '../../server/order';
 import { ChefHat, Search, Calendar, RefreshCcw } from 'lucide-react';
 import { PinGate } from '../../components/admin/PinGate';
 import { AdminNav } from '../../components/admin/AdminNav';
-import { safeJson, getRawSession } from '../../lib/storage';
+import { getRawSession } from '../../lib/storage';
 
 export const Route = createFileRoute('/admin/history')({
   head: () => Object.assign(seo({ title: 'Admin - Amir Fast Food', description: 'Admin Panel', path: '/admin', noindex: true }), { links: [{ rel: 'manifest', href: '/admin.webmanifest' }] }),

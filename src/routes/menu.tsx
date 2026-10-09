@@ -1,5 +1,5 @@
 import { createFileRoute, useLoaderData } from '@tanstack/react-router';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ThreeDMenuCard } from '../components/menu/ThreeDMenuCard';
 import { getCategories, getMenuItems } from '../server/menu';
 import { playSuccessChime } from '../lib/sound';

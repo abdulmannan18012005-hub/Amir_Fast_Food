@@ -1,14 +1,13 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { seo } from '../../lib/seo';
 import React, { useEffect, useState } from 'react';
-import { supabaseBrowser } from '../../lib/supabase';
 import { updateOrderStatus, getKitchenOrders } from '../../server/order';
 import { playKitchenDing, initAudio } from '../../lib/sound';
 import { PinGate } from '../../components/admin/PinGate';
 import { AdminNav } from '../../components/admin/AdminNav';
 import { Clock, CheckCircle, ChefHat, Truck, XCircle, Volume2, VolumeX, BellRing, Printer, AlertTriangle } from 'lucide-react';
 import { subscribeAdminPushFn, sendTestAdminPushFn, getVapidPublicKeyFn } from '../../server/push';
-import { safeJson, getRawSession } from '../../lib/storage';
+import { getRawSession } from '../../lib/storage';
 
 export const Route = createFileRoute('/admin/kitchen')({
   component: KitchenKDSRoute,
@@ -46,8 +45,12 @@ function KitchenKDS() {
   const [orders, setOrders] = useState<any[]>([]);
   const [connState, setConnState] = useState<'Live' | 'Reconnecting...' | 'Offline' | 'Live (Polling)'>('Live');
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [audioInitialized, setAudioInitialized] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [kitchenToast, setKitchenToast] = useState<{ msg: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setKitchenToast({ msg, type });
+    setTimeout(() => setKitchenToast(null), 4000);
+  };
   const [wakeLockEnabled, setWakeLockEnabled] = useState(false);
   const [pushStatus, setPushStatus] = useState<'Checking...' | 'Enabled' | 'Blocked' | 'Not Supported' | 'Alerts not configured'>('Checking...');
 
@@ -93,10 +96,10 @@ function KitchenKDS() {
       if (res.success) {
         setPushStatus('Enabled');
       } else {
-        alert('Failed to subscribe on server: ' + res.error);
+        showToast('Failed to subscribe on server: ' + (res.error || 'Unknown error'), 'error');
       }
     } catch (e: any) {
-      alert('Failed to enable push: ' + e.message);
+      showToast('Failed to enable push: ' + (e.message || 'Unknown error'), 'error');
     }
   };
 
@@ -105,7 +108,7 @@ function KitchenKDS() {
       const savedPin = getRawSession('admin_pin') || '';
       await sendTestAdminPushFn({ data: { pin: savedPin } });
     } catch (e: any) {
-      alert('Test push failed: ' + e.message);
+      showToast('Test push failed: ' + (e.message || 'Unknown error'), 'error');
     }
   };
 
@@ -213,7 +216,7 @@ function KitchenKDS() {
       }});
       fetchOrders();
     } catch (e: any) {
-      alert(e.message || 'Failed to update order');
+      showToast(e.message || 'Failed to update order', 'error');
       fetchOrders();
     }
   };
@@ -475,7 +478,7 @@ function KitchenKDS() {
                <button onClick={() => { setCancelModalOpen(null); setCancelReason(''); }} className="flex-1 bg-slate-700 text-white font-bold py-2 rounded-xl">Back</button>
                <button 
                  onClick={() => {
-                   if (cancelReason.trim().length < 5) return alert("Please enter a valid reason.");
+                   if (cancelReason.trim().length < 5) return showToast("Please enter a valid reason (at least 5 characters).", "error");
                    handleStatusUpdate(cancelModalOpen.id, 'canceled', cancelReason, undefined, undefined, cancelModalOpen.expected);
                    setCancelModalOpen(null);
                    setCancelReason('');

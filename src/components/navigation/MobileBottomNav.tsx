@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router';
-import { Home, Menu, Tag, ShoppingCart, MessageSquare } from 'lucide-react';
+import { Home, Menu, ShoppingCart, MessageSquare } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 export function MobileBottomNav({ 

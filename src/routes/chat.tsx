@@ -1,7 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { seo } from '../lib/seo';
 import React from 'react';
-import { AmirBotDrawer } from '../components/chat/AmirBotDrawer';
 
 export const Route = createFileRoute('/chat')({
   head: () => seo({ title: 'Chat with AmirBot', description: 'Order via our AI assistant AmirBot.', path: '/chat' }),

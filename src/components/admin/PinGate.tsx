@@ -1,19 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { ChefHat } from 'lucide-react';
 import { verifyAdminPinFn } from '../../server/adminAuthApi';
-import { safeJson } from '../../lib/storage';
 
 export function PinGate({ children, onUnlock }: { children: React.ReactNode, onUnlock?: () => void }) {
   const [pin, setPin] = useState('');
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return typeof window !== 'undefined' && sessionStorage.getItem('admin_pin') !== null;
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    // Hydrate authentication state on client mount only to prevent SSR mismatch
+    const stored = sessionStorage.getItem('admin_pin');
+    if (stored) {
+      setIsAuthenticated(true);
+    }
+    setIsReady(true);
+  }, []);
+
+  useEffect(() => {
     if (isAuthenticated && onUnlock) onUnlock();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, onUnlock]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,14 +32,22 @@ export function PinGate({ children, onUnlock }: { children: React.ReactNode, onU
         sessionStorage.setItem('admin_pin', pin);
         setIsAuthenticated(true);
       } else {
-        setError(res.error || 'Invalid PIN');
+        setError(res.error || 'Incorrect PIN. Please try again.');
       }
-    } catch (err: any) {
-      setError(err.message || 'Invalid PIN');
+    } catch {
+      setError('Incorrect PIN. Please try again.');
     } finally {
       setLoading(false);
     }
   };
+
+  if (!isReady) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return (
@@ -73,7 +88,7 @@ class AdminErrorBoundary extends React.Component<{children: React.ReactNode}, {h
     return { hasError: true, error };
   }
   componentDidCatch(error: Error, info: any) {
-    console.error("AdminErrorBoundary caught an error", error, info);
+    console.error("AdminErrorBoundary caught an error:", error, info);
     if (error.message.includes('Unauthorized') || error.message.includes('Invalid PIN')) {
       sessionStorage.removeItem('admin_pin');
       window.location.reload();
@@ -86,10 +101,10 @@ class AdminErrorBoundary extends React.Component<{children: React.ReactNode}, {h
       }
       return (
         <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4">
-          <div className="bg-slate-800 p-8 rounded-xl max-w-md text-center shadow-xl">
+          <div className="bg-slate-800 p-8 rounded-xl max-w-md text-center shadow-xl border border-slate-700">
             <h2 className="text-xl font-bold mb-4 text-red-400">Admin Panel Error</h2>
-            <p className="mb-6 text-sm text-slate-300">{this.state.error?.message || 'Something went wrong.'}</p>
-            <button onClick={() => window.location.reload()} className="bg-primary text-primary-foreground px-6 py-2 rounded-lg font-bold">Reload</button>
+            <p className="mb-6 text-sm text-slate-300">An unexpected error occurred in the admin panel. Please reload the page.</p>
+            <button onClick={() => window.location.reload()} className="bg-primary text-primary-foreground px-6 py-2 rounded-lg font-bold hover:bg-primary/90">Reload</button>
           </div>
         </div>
       );

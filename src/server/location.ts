@@ -2,7 +2,7 @@ import { createServerFn } from '@tanstack/react-start';
 import { checkRateLimit } from './rateLimit';
 import { getClientIp } from './auth';
 
-// In-memory cache for reverse geocode
+// In-memory cache for reverse geocode with bounded size (max 200 entries)
 const geoCache = new Map<string, string>();
 
 export const reverseGeocodeFn = createServerFn({ method: "POST" })
@@ -12,21 +12,18 @@ export const reverseGeocodeFn = createServerFn({ method: "POST" })
     
     // Rate limit: 30 / 10 min
     if (!checkRateLimit(ip, 'reverse_geocode', 30, 600000)) {
-      throw new Error("Rate limit exceeded for location services.");
+      return null;
     }
     
     // Sane bounding box for Pakistan/Lahore (Roughly)
     if (lat < 23 || lat > 37 || lng < 60 || lng > 78) {
-      throw new Error("Location is outside our supported country (Pakistan).");
+      return null;
     }
 
     const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
     if (geoCache.has(cacheKey)) {
       return geoCache.get(cacheKey);
     }
-    
-    // Throttle / Respect Nominatim 1 request per second
-    // (We rely on low volume here, or we'd need a queue. Simple timeout for demonstration.)
     
     try {
       const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&addressdetails=1&zoom=18&accept-language=en`;
@@ -36,7 +33,7 @@ export const reverseGeocodeFn = createServerFn({ method: "POST" })
         },
         signal: AbortSignal.timeout(6000)
       });
-      if (!res.ok) throw new Error("Geocoding failed");
+      if (!res.ok) return null;
       const data = await res.json();
       
       if (!data || !data.address) return null;
@@ -46,6 +43,10 @@ export const reverseGeocodeFn = createServerFn({ method: "POST" })
       const addressString = parts.join(', ');
       
       if (addressString) {
+        if (geoCache.size > 200) {
+          const firstKey = geoCache.keys().next().value;
+          if (firstKey) geoCache.delete(firstKey);
+        }
         geoCache.set(cacheKey, addressString);
       }
       return addressString;

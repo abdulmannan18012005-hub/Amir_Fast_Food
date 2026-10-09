@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { searchMenuItems } from '../../server/menu';
-import type { MenuItem } from '../types';
+import type { MenuItem } from '../../types';
 
 export function HeaderSearch() {
   const [isOpen, setIsOpen] = useState(false);

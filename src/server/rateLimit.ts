@@ -22,11 +22,15 @@ export function checkRateLimit(ip: string, action: string, limit: number, window
 }
 
 // Global cleanup every minute to prevent memory leaks
-setInterval(() => {
+const cleanupTimer = setInterval(() => {
   const now = Date.now();
   for (const [key, record] of store.entries()) {
     if (record.expiresAt < now) {
       store.delete(key);
     }
   }
-}, 60000).unref();
+}, 60000);
+
+if (cleanupTimer && typeof (cleanupTimer as any).unref === 'function') {
+  (cleanupTimer as any).unref();
+}

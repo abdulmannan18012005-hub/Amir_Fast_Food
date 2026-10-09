@@ -1,3 +1,4 @@
+import { toSafeError } from './errors';
 import { calculateDeliveryFee, calculateDistanceKm } from '../lib/pricing';
 import { createServerFn } from '@tanstack/react-start';
 import { getSupabaseServer } from '../lib/supabase';
@@ -57,7 +58,7 @@ export const createOrder = createServerFn({ method: "POST" })
     if (payload.items.length > 30) {
       throw new Error("Too many items in one order.");
     }
-    const nameStr = payload.customerName?.trim() || '';
+    const nameStr = (payload.customerName?.trim() || '').replace(/[\x00-\x1F\x7F]/g, '').slice(0, 60);
     if (nameStr.length < 2 || nameStr.length > 60) {
       throw new Error("Invalid name.");
     }
@@ -65,7 +66,7 @@ export const createOrder = createServerFn({ method: "POST" })
     if (!phoneRegex.test(phoneNormal)) {
       throw new Error("Invalid phone number. Must be a valid Pakistani mobile number.");
     }
-    const addrStr = payload.deliveryAddress?.trim() || '';
+    const addrStr = (payload.deliveryAddress?.trim() || '').replace(/[\x00-\x1F\x7F]/g, '').slice(0, 300);
     if (addrStr.length < 10 || addrStr.length > 300) {
       throw new Error("Delivery address must be between 10 and 300 characters.");
     }
@@ -73,7 +74,7 @@ export const createOrder = createServerFn({ method: "POST" })
       throw new Error("Invalid payment method.");
     }
     
-    const trxId = payload.paymentTrxId?.trim() || '';
+    const trxId = (payload.paymentTrxId?.trim() || '').replace(/[\x00-\x1F\x7F]/g, '').slice(0, 60);
     if (payload.paymentMethod === 'online_transfer' && !trxId) {
       throw new Error("Transaction ID is required for online transfer.");
     }
@@ -234,7 +235,7 @@ export const createOrder = createServerFn({ method: "POST" })
 
     return { success: true, orderId };
   } catch (err: any) {
-    return { success: false, error: err.message || 'Failed to place order.' };
+    return { success: false, error: toSafeError(err) };
   }
 });
 
@@ -293,7 +294,7 @@ export const updateOrderStatus = createServerFn({ method: 'POST' })
       canceled: `❌ Order #${code} was canceled — ${cancelReason}`
     };
     // A failed or slow push must never fail the status change
-    await await Promise.race([
+    await Promise.race([
       sendOrderPush(data.orderId, data.status, 'Amir Fast Food', bodies[data.status]),
       new Promise(r => setTimeout(r, 4000))
     ]).catch(() => {});

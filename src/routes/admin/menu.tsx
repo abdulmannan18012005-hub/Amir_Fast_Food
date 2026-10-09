@@ -6,7 +6,7 @@ import { updateMenuItemFn, getCategoryImagesFn, updateCategoryImagesFn, getHighl
 import { ChefHat, Pencil, Check, X, Image as ImageIcon, Save } from 'lucide-react';
 import { PinGate } from '../../components/admin/PinGate';
 import { AdminNav } from '../../components/admin/AdminNav';
-import { safeJson, getRawSession } from '../../lib/storage';
+import { getRawSession } from '../../lib/storage';
 import type { MenuItem } from '../../types';
 
 export const Route = createFileRoute('/admin/menu')({
@@ -26,6 +26,11 @@ function AdminMenuRoute() {
 function AdminMenuEditor() {
   const [items, setItems] = useState<MenuItem[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
   const [editPrice, setEditPrice] = useState('');
   const [editImage, setEditImage] = useState('');
   const [editIsAvailable, setEditIsAvailable] = useState(true);
@@ -68,9 +73,9 @@ function AdminMenuEditor() {
     try {
       const pin = getRawSession('admin_pin') || '';
       await updateHighlightImagesFn({ data: { data: highlightImages, pin } });
-      alert('Highlight images updated successfully!');
+      showToast('Highlight images updated successfully!');
     } catch (e: any) {
-      alert(e.message || 'Failed to update highlight images');
+      showToast(e.message || 'Failed to update highlight images', 'error');
     }
   };
 
@@ -78,9 +83,9 @@ function AdminMenuEditor() {
     try {
       const pin = getRawSession('admin_pin') || '';
       await updateCategoryImagesFn({ data: { data: categoryImages, pin } });
-      alert('Category images updated successfully!');
+      showToast('Category images updated successfully!');
     } catch (e: any) {
-      alert(e.message || 'Failed to update category images');
+      showToast(e.message || 'Failed to update category images', 'error');
     }
   };
 
@@ -88,14 +93,14 @@ function AdminMenuEditor() {
     try {
       const pin = getRawSession('admin_pin') || '';
       const price = parseFloat(editPrice);
-      if (isNaN(price)) return alert('Invalid price');
+      if (isNaN(price)) return showToast('Invalid price', 'error');
 
       await updateMenuItemFn({ data: { id, price, image_url: editImage, is_available: editIsAvailable, pin } });
       
       setItems(prev => prev.map(item => item.id === id ? { ...item, price, image_url: editImage, is_available: editIsAvailable } : item));
       setEditingId(null);
     } catch (e: any) {
-      alert(e.message || 'Failed to update item!');
+      showToast(e.message || 'Failed to update item!', 'error');
     }
   };
 

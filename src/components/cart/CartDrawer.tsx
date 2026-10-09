@@ -1,5 +1,6 @@
 import React from 'react';
 import type { CartItem } from '../../types';
+import { getCartSubtotal, lineTotal } from '../../lib/cart';
 
 interface Props {
   isOpen: boolean;
@@ -22,9 +23,8 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
     return () => window.removeEventListener('fulfillmentUpdated', updateF);
   }, []);
 
-  const deliveryFee = fulfillment === 'takeaway' ? 0 : (subtotal < 1000 && subtotal > 0 ? 100 : 0);
-
-  const total = subtotal + deliveryFee;
+  // Delivery/COD fees are calculated at checkout (depend on distance + payment method)
+  const total = subtotal;
 
   return (
     <>
@@ -114,13 +114,9 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
               <span>Subtotal</span>
               <span>PKR {subtotal}</span>
             </div>
-            <div className="flex justify-between text-muted-foreground items-center">
-              <span>Delivery Fee</span>
-              {deliveryFee === 0 ? (
-                <span className="bg-emerald-500/20 text-emerald-400 text-xs font-bold px-2 py-1 rounded">FREE Delivery</span>
-              ) : (
-                <span>PKR {deliveryFee}</span>
-              )}
+            <div className="flex justify-between text-muted-foreground items-center text-sm">
+              <span>Delivery &amp; fees</span>
+              <span className="text-xs text-muted-foreground">Calculated at checkout</span>
             </div>
             <div className="flex justify-between text-foreground text-xl font-bold pt-4 border-t border-border">
               <span>Total</span>

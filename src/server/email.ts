@@ -1,35 +1,49 @@
 import nodemailer from 'nodemailer';
 import type { Order, OrderItem } from '../types';
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD,
-  },
-});
+function escapeHtml(str: unknown): string {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 export async function sendOrderReceiptEmail(order: Order, items: (OrderItem & { name: string })[]) {
   if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-    console.error('Email credentials not configured. Skipping email dispatch.');
+    console.warn('Email credentials not configured. Skipping email dispatch.');
     return;
   }
 
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+
   const itemsHtml = items.map(item => {
-    const variantsText = item.selected_variants.length 
-      ? `<br><small style="color: #666;">Modifiers: ${item.selected_variants.map(v => v.name).join(', ')}</small>`
+    const variants = item.selected_variants || [];
+    const variantsText = variants.length 
+      ? `<br><small style="color: #666;">Modifiers: ${variants.map(v => escapeHtml(v.name)).join(', ')}</small>`
       : '';
+    const itemTotal = (Number(item.unit_price) || 0) * (Number(item.quantity) || 1);
     return `
       <tr>
         <td style="padding: 12px; border-bottom: 1px solid #eee;">
-          <strong>${item.name}</strong> x${item.quantity}${variantsText}
+          <strong>${escapeHtml(item.name)}</strong> x${Number(item.quantity) || 1}${variantsText}
         </td>
         <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right;">
-          PKR ${(item.unit_price * item.quantity).toFixed(2)}
+          PKR ${itemTotal.toFixed(2)}
         </td>
       </tr>
     `;
   }).join('');
+
+  const deliveryFeeNum = Number(order.delivery_fee) || 0;
+  const totalAmountNum = Number(order.total_amount) || 0;
 
   const html = `
     <div style="font-family: 'Inter', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
@@ -39,11 +53,11 @@ export async function sendOrderReceiptEmail(order: Order, items: (OrderItem & { 
       </div>
 
       <div style="background: #F8FAFC; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
-        <h3 style="margin-top: 0;">Order #${order.id.slice(0, 8).toUpperCase()}</h3>
-        <p><strong>Name:</strong> ${order.customer_name}</p>
-        <p><strong>Phone:</strong> ${order.customer_phone}</p>
-        <p><strong>Address:</strong> ${order.delivery_address}</p>
-        <p><strong>Payment Method:</strong> ${order.payment_method.toUpperCase()}</p>
+        <h3 style="margin-top: 0;">Order #${escapeHtml(order.id.slice(0, 8).toUpperCase())}</h3>
+        <p><strong>Name:</strong> ${escapeHtml(order.customer_name)}</p>
+        <p><strong>Phone:</strong> ${escapeHtml(order.customer_phone)}</p>
+        <p><strong>Address:</strong> ${escapeHtml(order.delivery_address)}</p>
+        <p><strong>Payment Method:</strong> ${escapeHtml(order.payment_method?.toUpperCase())}</p>
       </div>
 
       <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
@@ -57,11 +71,11 @@ export async function sendOrderReceiptEmail(order: Order, items: (OrderItem & { 
           ${itemsHtml}
           <tr>
             <td style="padding: 12px; text-align: right; font-weight: bold;">Delivery Fee</td>
-            <td style="padding: 12px; text-align: right;">PKR ${order.delivery_fee.toFixed(2)}</td>
+            <td style="padding: 12px; text-align: right;">PKR ${deliveryFeeNum.toFixed(2)}</td>
           </tr>
           <tr style="font-size: 18px; color: #DC2626;">
             <td style="padding: 12px; text-align: right; font-weight: 800;">Total</td>
-            <td style="padding: 12px; text-align: right; font-weight: 800;">PKR ${order.total_amount.toFixed(2)}</td>
+            <td style="padding: 12px; text-align: right; font-weight: 800;">PKR ${totalAmountNum.toFixed(2)}</td>
           </tr>
         </tbody>
       </table>

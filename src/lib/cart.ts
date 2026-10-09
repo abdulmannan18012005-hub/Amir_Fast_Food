@@ -82,6 +82,12 @@ export function clearCart() {
   saveCart([]);
 }
 
+/** Total for a single cart line: (base price + variant prices) * quantity */
+export function lineTotal(item: CartItem): number {
+  const varsPrice = item.variants?.reduce((s, v) => s + (Number(v.price) || 0), 0) || 0;
+  return (Number(item.price) + varsPrice) * item.quantity;
+}
+
 export function getCartSubtotal(cart: CartItem[]): number {
-  return cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+  return cart.reduce((acc, item) => acc + lineTotal(item), 0);
 }

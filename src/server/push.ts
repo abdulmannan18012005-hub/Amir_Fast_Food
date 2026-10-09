@@ -49,7 +49,7 @@ export async function sendOrderPush(orderId: string, status: string, title?: str
     
     const VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY;
     const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY;
-    const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:admin@amirfastfood.com';
+    const VAPID_SUBJECT = process.env.VAPID_SUBJECT || (process.env.SHOP_EMAIL ? `mailto:${process.env.SHOP_EMAIL}` : 'https://amir-fast-food.vercel.app');
     
     if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
       console.warn("Skipping push: VAPID keys missing.");
@@ -122,7 +122,7 @@ export async function sendAdminOrderPush(orderId: string, summary: string) {
     const webpush = (await import('web-push')).default;
     const VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY;
     const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY;
-    const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:admin@amirfastfood.com';
+    const VAPID_SUBJECT = process.env.VAPID_SUBJECT || (process.env.SHOP_EMAIL ? `mailto:${process.env.SHOP_EMAIL}` : 'https://amir-fast-food.vercel.app');
     
     if (!VAPID_PUBLIC || !VAPID_PRIVATE) return;
     webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);

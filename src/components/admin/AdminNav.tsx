@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from '@tanstack/react-router';
-import { ChefHat, ClipboardList, Clock, Lock, Download } from 'lucide-react';
+import { ChefHat, Lock, Download } from 'lucide-react';
 
 export function AdminNav() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);

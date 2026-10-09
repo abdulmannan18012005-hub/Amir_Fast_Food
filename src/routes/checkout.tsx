@@ -5,6 +5,8 @@ import { reverseGeocodeFn } from '../server/location';
 import { quoteDeliveryFn } from '../server/pricingApi';
 import { playSuccessChime } from '../lib/sound';
 import { safeJson } from '../lib/storage';
+import { seo } from '../lib/seo';
+import { getCartSubtotal } from '../lib/cart';
 import { addActiveOrder, markJustOrdered } from '../lib/activeOrders';
 import type { CartItem } from '../types';
 
@@ -96,13 +98,8 @@ function CheckoutPage() {
         try {
           const addr = await reverseGeocodeFn({ data: { lat: coords.latitude, lng: coords.longitude } });
           if (addr) {
-            if (address && address.trim().length > 0) {
-              if (window.confirm("Replace your address with this location?")) {
-                setAddress(addr);
-              }
-            } else {
-              setAddress(addr);
-            }
+            setAddress(addr);
+            setLocMsg('Address updated with pinned location.');
           } else {
              // Fallback
              const fallback = `GPS location (${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)})`;

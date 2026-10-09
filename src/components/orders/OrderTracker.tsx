@@ -3,7 +3,7 @@ import { useLiveOrder } from '../../hooks/useLiveOrder';
 import { usePushSetup } from '../../hooks/usePushSetup';
 import { getActiveOrders, consumeJustOrdered, removeActiveOrder, addActiveOrder } from '../../lib/activeOrders';
 import { OrderStatusView } from './OrderStatusView';
-import { ChevronUp, ChevronDown, Package, X } from 'lucide-react';
+import { ChevronUp, Package, X } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
 
 export function OrderTracker() {
@@ -30,13 +30,16 @@ export function OrderTracker() {
       );
     };
     sync();
+    const handleOpen = () => setIsExpanded(true);
     window.addEventListener('orderPlaced', sync);
     window.addEventListener('focus', sync);
     window.addEventListener('storage', sync);
+    window.addEventListener('openTracker', handleOpen);
     return () => {
       window.removeEventListener('orderPlaced', sync);
       window.removeEventListener('focus', sync);
       window.removeEventListener('storage', sync);
+      window.removeEventListener('openTracker', handleOpen);
     };
   }, []); // <- empty on purpose
 
