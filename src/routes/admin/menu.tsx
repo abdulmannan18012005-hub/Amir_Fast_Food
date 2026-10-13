@@ -126,7 +126,7 @@ function AdminMenuEditor() {
             <div className="flex flex-wrap gap-2 mb-6">
                <button 
                  onClick={() => setActiveAdminCategory('all')}
-                 className={`px-4 py-2 rounded-full text-sm font-bold transition-colors border ${activeAdminCategory === 'all' ? 'bg-primary text-white border-primary' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
+                 className={`px-4 py-2 rounded-full text-sm font-bold transition-colors border ${activeAdminCategory === 'all' ? 'bg-primary text-primary-foreground border-primary' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
                >
                  All Items
                </button>
@@ -134,7 +134,7 @@ function AdminMenuEditor() {
                  <button 
                    key={cat}
                    onClick={() => setActiveAdminCategory(cat)}
-                   className={`px-4 py-2 rounded-full text-sm font-bold transition-colors border ${activeAdminCategory === cat ? 'bg-primary text-white border-primary' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
+                   className={`px-4 py-2 rounded-full text-sm font-bold transition-colors border ${activeAdminCategory === cat ? 'bg-primary text-primary-foreground border-primary' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
                  >
                    {cat.replace('cat_', '').replace(/_/g, ' ').toUpperCase()}
                  </button>
@@ -189,7 +189,7 @@ function AdminMenuEditor() {
                       <div className="p-4 flex flex-col flex-1">
                          <div className="flex justify-between items-start mb-2">
                            <div>
-                             <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">{item.category_id.replace('cat_', '')}</p>
+                             <p className="text-xs font-black uppercase tracking-widest text-primary mb-1">{item.category_id.replace('cat_', '')}</p>
                              <h3 className="font-bold text-slate-900 leading-tight">{item.name}</h3>
                            </div>
                            <p className="font-black text-slate-900 bg-slate-100 px-2 py-1 rounded-lg">Rs {item.price}</p>

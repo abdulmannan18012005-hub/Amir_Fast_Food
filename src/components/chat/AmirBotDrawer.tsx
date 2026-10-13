@@ -208,7 +208,7 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => setMessages(DEFAULT_MSG)} className="p-2 hover:bg-white/20 rounded-full transition-colors" title="Clear Chat">
+            <button onClick={() => setMessages(DEFAULT_MSG)} aria-label="Clear chat" className="p-2 hover:bg-white/20 rounded-full transition-colors" title="Clear Chat">
               <Trash2 size={20} />
             </button>
             <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full transition-colors" aria-label="Close chat">
@@ -246,6 +246,7 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
           <form onSubmit={e => { e.preventDefault(); handleSend(); }} className="flex gap-2">
             <input
               type="text"
+              aria-label="Chat message"
               value={input}
               onChange={e => setInput(e.target.value)}
               placeholder="Ask anything or add items..."
@@ -255,13 +256,14 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
             />
             <button
               type="submit"
+              aria-label="Send message"
               disabled={!input.trim() || isTyping}
               className="w-12 h-12 bg-primary text-primary-foreground rounded-full flex items-center justify-center hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm flex-shrink-0"
             >
               <Send size={20} className={input.trim() && !isTyping ? "translate-x-0.5" : ""} />
             </button>
           </form>
-          <div className="text-right mt-1 px-2 text-[10px] text-slate-400">
+          <div className="text-right mt-1 px-2 text-xs text-slate-400">
             {input.length}/500
           </div>
         </div>

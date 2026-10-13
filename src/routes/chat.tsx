@@ -10,7 +10,7 @@ export const Route = createFileRoute('/chat')({
 function ChatPage() {
   React.useEffect(() => {
     // Dispatch event to open the drawer
-    window.dispatchEvent(new Event('toggleAmirBot'));
+    window.dispatchEvent(new Event('openAmirBot'));
   }, []);
   
   return (
@@ -23,7 +23,7 @@ function ChatPage() {
         <p className="text-muted-foreground">
           I'm here to help you find the perfect meal, check delivery areas, and answer any questions about our menu!
         </p>
-        <button onClick={() => window.dispatchEvent(new Event('toggleAmirBot'))} className="bg-primary text-primary-foreground px-8 py-3 rounded-full font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-colors mt-4">
+        <button onClick={() => window.dispatchEvent(new Event('openAmirBot'))} className="bg-primary text-primary-foreground px-8 py-3 rounded-full font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-colors mt-4">
           Open Chat
         </button>
       </div>

@@ -1,5 +1,6 @@
 import { createServerFn } from '@tanstack/react-start';
 import { verifyAdminPin } from './auth';
+import { toSafeError } from './errors';
 
 export const verifyAdminPinFn = createServerFn({ method: "POST" })
   .validator((d: { pin?: string }) => d)
@@ -8,6 +9,6 @@ export const verifyAdminPinFn = createServerFn({ method: "POST" })
       const isValid = verifyAdminPin(data.pin);
       return { success: isValid };
     } catch (e: any) {
-      return { success: false, error: e.message };
+      return { success: false, error: toSafeError(e) };
     }
   });

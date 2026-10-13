@@ -15,13 +15,7 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
   const subtotal = getCartSubtotal(items);
   
   
-  const [fulfillment, setFulfillment] = React.useState('delivery');
-  React.useEffect(() => {
-    const updateF = () => setFulfillment(localStorage.getItem('fulfillment') || 'delivery');
-    updateF();
-    window.addEventListener('fulfillmentUpdated', updateF);
-    return () => window.removeEventListener('fulfillmentUpdated', updateF);
-  }, []);
+  
 
   // Delivery/COD fees are calculated at checkout (depend on distance + payment method)
   const total = subtotal;
@@ -46,7 +40,7 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
             {items.length > 0 && (
               <button onClick={onClearCart} className="text-sm text-destructive hover:text-destructive/80 font-bold">Clear Cart</button>
             )}
-            <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <button onClick={onClose} aria-label="Close cart drawer" className="text-muted-foreground hover:text-foreground">
               <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
           </div>
@@ -78,11 +72,11 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                     <div className="flex justify-between items-end mt-2">
                       <div className="flex gap-4 items-center">
                         <div className="flex items-center bg-accent rounded">
-                          <button onClick={() => onUpdateQuantity(item.menu_item_id, -1)} className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground">-</button>
+                          <button onClick={() => onUpdateQuantity(item.menu_item_id, -1)} aria-label="Decrease quantity" className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground">-</button>
                           <span className="w-8 text-center text-foreground text-sm">{item.quantity}</span>
-                          <button onClick={() => onUpdateQuantity(item.menu_item_id, 1)} className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground">+</button>
+                          <button onClick={() => onUpdateQuantity(item.menu_item_id, 1)} aria-label="Increase quantity" className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground">+</button>
                         </div>
-                        <button onClick={() => onRemoveItem(item.menu_item_id)} className="text-xs text-destructive font-bold hover:underline">Remove</button>
+                        <button onClick={() => onRemoveItem(item.menu_item_id)} aria-label="Remove item" className="text-xs text-destructive font-bold hover:underline">Remove</button>
                       </div>
                       <span className="font-bold text-emerald-400">PKR {lineTotal}</span>
                     </div>

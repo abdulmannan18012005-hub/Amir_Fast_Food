@@ -23,10 +23,10 @@ function CheckoutPage() {
   const [error, setError] = useState('');
   
   // Form State - Cached
-  const [name, setName] = useState(() => safeJson('user_profile', {}).name || '');
-  const [phone, setPhone] = useState(() => safeJson('user_profile', {}).phone || '');
-  const [email, setEmail] = useState(() => safeJson('user_profile', {}).email || '');
-  const [address, setAddress] = useState(() => safeJson('user_profile', {}).address || '');
+  const [name, setName] = useState(() => (safeJson<Record<string, any>>('user_profile', {})).name || '');
+  const [phone, setPhone] = useState(() => (safeJson<Record<string, any>>('user_profile', {})).phone || '');
+  const [email, setEmail] = useState(() => (safeJson<Record<string, any>>('user_profile', {})).email || '');
+  const [address, setAddress] = useState(() => (safeJson<Record<string, any>>('user_profile', {})).address || '');
   const [paymentMethod, setPaymentMethod] = useState<'cod' | 'online_transfer'>('online_transfer');
   const [trxId, setTrxId] = useState('');
   const [consent, setConsent] = useState(false);
@@ -237,28 +237,36 @@ function CheckoutPage() {
                 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-semibold mb-2">Full Name *</label>
+                    <label htmlFor="checkout-name" className="block text-sm font-semibold mb-2">Full Name *</label>
                     <input 
+                      id="checkout-name"
+                      name="name"
                       type="text" 
                       value={name} onChange={e => setName(e.target.value)}
                       className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                       placeholder="Amir Khan"
+                      required
                     />
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-semibold mb-2">Phone Number *</label>
+                    <label htmlFor="checkout-phone" className="block text-sm font-semibold mb-2">Phone Number *</label>
                     <input 
+                      id="checkout-phone"
+                      name="phone"
                       type="tel" 
                       value={phone} onChange={e => setPhone(e.target.value)}
                       className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                       placeholder="0300 1234567"
+                      required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold mb-2">Email (Optional)</label>
+                    <label htmlFor="checkout-email" className="block text-sm font-semibold mb-2">Email (Optional)</label>
                     <input 
+                      id="checkout-email"
+                      name="email"
                       type="email" 
                       value={email} onChange={e => setEmail(e.target.value)}
                       className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
@@ -267,12 +275,15 @@ function CheckoutPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold mb-2">Complete Address *</label>
+                    <label htmlFor="checkout-address" className="block text-sm font-semibold mb-2">Complete Address *</label>
                     <textarea 
+                      id="checkout-address"
+                      name="address"
                       value={address} onChange={e => setAddress(e.target.value)}
                       rows={3}
                       className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none"
                       placeholder="House, Street, Area, Lahore"
+                      required
                     />
                     <button type="button" onClick={handleGetLocation} disabled={gettingLocation} className="mt-2 text-sm text-primary font-semibold flex items-center gap-1 hover:underline">
                       📍 {gettingLocation ? 'Finding...' : 'Use my current location'}
@@ -366,8 +377,10 @@ function CheckoutPage() {
 
                 {paymentMethod === 'online_transfer' && (
                   <div className="mb-8 animate-in fade-in zoom-in-95">
-                    <label className="block text-sm font-semibold mb-2">Transaction ID (TID) *</label>
+                    <label htmlFor="checkout-trxid" className="block text-sm font-semibold mb-2">Transaction ID (TID) *</label>
                     <input 
+                      id="checkout-trxid"
+                      name="trxId"
                       type="text" 
                       value={trxId} onChange={e => setTrxId(e.target.value)}
                       className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
@@ -377,7 +390,7 @@ function CheckoutPage() {
                 )}
 
                 <label className="flex items-start gap-3 mb-6 p-4 bg-red-50 text-red-900 border border-red-200 rounded-xl cursor-pointer">
-                  <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1 w-5 h-5 accent-red-600 rounded flex-shrink-0" />
+                  <input type="checkbox" aria-label="I agree that orders cannot be cancelled once confirmed" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1 w-5 h-5 accent-red-600 rounded flex-shrink-0" />
                   <span className="text-sm font-medium leading-tight">Orders once confirmed cannot be cancelled as preparation begins immediately. I agree and wish to place my order.</span>
                 </label>
 

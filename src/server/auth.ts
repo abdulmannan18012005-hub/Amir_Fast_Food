@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { getRequestIP, getRequestHeaders } from '@tanstack/react-start/server';
 import { checkRateLimit } from './rateLimit';
+import { UserFacingError } from './errors';
 
 const attempts = new Map<string, { count: number, lockUntil: number }>();
 
@@ -43,7 +44,7 @@ export function getClientIp(): string {
 
 export function verifyAdminPin(providedPin?: string): boolean {
   if (!providedPin) {
-    const err = new Error('PIN is required. Please enter your admin PIN.');
+    const err = new UserFacingError('PIN is required. Please enter your admin PIN.');
     (err as any).code = 'auth';
     throw err;
   }
@@ -53,11 +54,14 @@ export function verifyAdminPin(providedPin?: string): boolean {
   const record = attempts.get(ip) || { count: 0, lockUntil: 0 };
 
   if (record.lockUntil > now) {
-    const err = new Error('Too many attempts. Please wait one minute and try again.');
+    const err = new UserFacingError('Too many attempts. Please wait one minute and try again.');
     (err as any).code = 'rate_limited';
     throw err;
   }
 
+  if (!process.env.ADMIN_PIN) {
+    console.warn('[AUTH] ADMIN_PIN environment variable is unset. Using default PIN.');
+  }
   const expectedPin = process.env.ADMIN_PIN || '7864';
 
   let isMatch = false;
@@ -81,7 +85,7 @@ export function verifyAdminPin(providedPin?: string): boolean {
       record.count = 0;
     }
     attempts.set(ip, record);
-    const err = new Error('Incorrect PIN. Please try again.');
+    const err = new UserFacingError('Incorrect PIN. Please try again.');
     (err as any).code = 'auth';
     throw err;
   }

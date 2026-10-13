@@ -1,0 +1,27 @@
+# Amir Fast Food
+
+> Authentic shawarma, smash burgers and irresistible combos in Lahore, Pakistan.
+
+## Pages
+
+- [Home](https://amir-fast-food.vercel.app/)
+- [Menu](https://amir-fast-food.vercel.app/menu)
+- [Locations](https://amir-fast-food.vercel.app/locations)
+- [Checkout](https://amir-fast-food.vercel.app/checkout)
+- [Privacy Policy](https://amir-fast-food.vercel.app/privacy)
+- [Terms of Use](https://amir-fast-food.vercel.app/terms)
+
+## Contact
+
+- Phone: +92 301 4265785
+- WhatsApp: https://wa.me/923014265785
+- Facebook: https://www.facebook.com/Amirfastfoodofficial/
+- Address: Post Office Mansoora, Anwar Market, Peco Road, Kakazai, Lahore, Pakistan
+
+## Hours
+
+4:05 PM – 2:00 AM PKT (daily)
+
+## Delivery
+
+Free within 5 km. PKR 100/extra km beyond 5 km. COD fee PKR 100 if subtotal < PKR 1000.

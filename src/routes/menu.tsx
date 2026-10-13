@@ -1,3 +1,4 @@
+import { seo } from '../lib/seo';
 import { createFileRoute, useLoaderData } from '@tanstack/react-router';
 import React, { useState, useEffect } from 'react';
 import { ThreeDMenuCard } from '../components/menu/ThreeDMenuCard';
@@ -6,8 +7,10 @@ import { playSuccessChime } from '../lib/sound';
 import type { Category, MenuItem, CartItem } from '../types';
 
 export const Route = createFileRoute('/menu')({
-  head: () => ({
-    meta: [{ title: 'Menu - Amir Fast Food' }]
+  head: () => seo({
+    title: 'Menu - Amir Fast Food',
+    description: 'Explore the full Amir Fast Food menu: authentic shawarma, handcrafted smash burgers, crispy chicken, and combo deals in Lahore.',
+    path: '/menu'
   }),
   loader: async () => {
     const categories = await getCategories();
@@ -118,7 +121,7 @@ function ItemModal({ item, onClose, onAdd }: { item: MenuItem; onClose: () => vo
           )}
         </div>
         
-        <button onClick={onClose} className="absolute top-4 right-4 bg-black/50 text-white p-2 rounded-full hover:bg-black/80 backdrop-blur-md z-50">
+        <button onClick={onClose} aria-label="Close modal" className="absolute top-4 right-4 bg-black/50 text-white p-2 rounded-full hover:bg-black/80 backdrop-blur-md z-50">
           <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
         </button>
       </div>

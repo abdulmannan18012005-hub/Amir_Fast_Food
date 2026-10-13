@@ -3,4 +3,4 @@ Allow: /
 Disallow: /admin/
 Disallow: /api/
 
-Sitemap: https://amirfastfood.vercel.app/sitemap.xml
+Sitemap: https://amir-fast-food.vercel.app/sitemap.xml

@@ -11,7 +11,7 @@ import { getRawSession } from '../../lib/storage';
 
 export const Route = createFileRoute('/admin/kitchen')({
   component: KitchenKDSRoute,
-  head: () => ({ meta: [{ name: 'robots', content: 'noindex' }], links: [{ rel: 'manifest', href: '/admin.webmanifest' }] })
+  head: () => ({ meta: [{ title: 'Kitchen KDS - Amir Fast Food Admin' }, { name: 'robots', content: 'noindex' }], links: [{ rel: 'manifest', href: '/admin.webmanifest' }] })
 });
 
 function KitchenKDSRoute() {
@@ -287,7 +287,7 @@ function KitchenKDS() {
             <div className="flex items-center gap-2">
               <span className="font-mono text-xs text-slate-400 bg-slate-900 px-2 py-0.5 rounded">#{order.id.slice(0, 8)}</span>
               {order.payment_method !== 'cod' && (
-                <span className="text-[10px] bg-green-900/50 text-green-400 font-bold px-1.5 py-0.5 rounded uppercase">Paid</span>
+                <span className="text-xs bg-green-900/50 text-green-400 font-bold px-1.5 py-0.5 rounded uppercase">Paid</span>
               )}
             </div>
             <h3 className="font-bold text-white mt-1">{order.customer_name}</h3>
@@ -390,7 +390,7 @@ function KitchenKDS() {
             {connState}
           </div>
           {wakeLockEnabled && (
-            <span className="text-[10px] bg-slate-700 px-2 py-0.5 rounded text-slate-300 hidden sm:block">
+            <span className="text-xs bg-slate-700 px-2 py-0.5 rounded text-slate-300 hidden sm:block">
               Screen Awake
             </span>
           )}

@@ -42,7 +42,7 @@ function OrderPage() {
   }
 
   return (
-    <div className="container mx-auto max-w-2xl h-screen flex flex-col bg-slate-50 relative pb-[env(safe-area-inset-bottom)]">
+    <div className="container mx-auto max-w-2xl min-h-[100dvh] flex flex-col bg-slate-50 relative pb-[env(safe-area-inset-bottom)]">
       <div className="bg-white px-4 py-3 flex items-center gap-3 border-b border-slate-200">
         <Link to="/" className="p-2 -ml-2 rounded-full hover:bg-slate-100 text-slate-600 transition-colors">
           <ChevronLeft size={24} />

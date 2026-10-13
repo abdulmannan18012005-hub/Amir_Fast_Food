@@ -10,8 +10,7 @@ import { getCartSubtotal } from '../lib/cart';
 import '../index.css';
 
 export const Route = createRootRoute({
-  component: RootComponent,
-  links: () => []
+  component: RootComponent
 });
 
 function RootComponent() {
@@ -24,17 +23,7 @@ function RootComponent() {
   const [chatOpen, setChatOpen] = useState(false);
   const [cartItems, setCartItems] = useState<any[]>([]);
 
-  useEffect(() => {
-    const updateLabel = () => {
-      const label = document.getElementById('fulfillmentLabel');
-      if (label) {
-        label.innerText = (localStorage.getItem('fulfillment') || 'delivery') === 'takeaway' ? 'Takeaway' : 'Delivery';
-      }
-    };
-    updateLabel();
-    window.addEventListener('fulfillmentUpdated', updateLabel);
-    return () => window.removeEventListener('fulfillmentUpdated', updateLabel);
-  }, []);
+
 
   useEffect(() => {
     const handleStorage = () => {
@@ -57,16 +46,13 @@ function RootComponent() {
 
     // AmirBot: open and toggle events
     const handleOpenBot = () => setChatOpen(true);
-    const handleToggleBot = () => setChatOpen(prev => !prev);
     window.addEventListener('openAmirBot', handleOpenBot);
-    window.addEventListener('toggleAmirBot', handleToggleBot);
 
     return () => {
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('cartUpdated', handleStorage);
       window.removeEventListener('openCart', handleOpenCart);
       window.removeEventListener('openAmirBot', handleOpenBot);
-      window.removeEventListener('toggleAmirBot', handleToggleBot);
     };
   }, []);
 
@@ -133,10 +119,11 @@ function RootComponent() {
         }} />
       </head>
       <body className="min-h-screen flex flex-col font-sans overflow-x-hidden">
+        <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:bg-primary focus:text-primary-foreground focus:px-4 focus:py-2 focus:rounded-lg focus:font-bold">Skip to main content</a>
 
         {/* Public shell: hidden on admin routes */}
         {!isAdmin && (
-          <nav className="sticky top-0 z-50 backdrop-blur-md bg-background/80 border-b border-border/40">
+          <nav aria-label="Main navigation" className="sticky top-0 z-50 backdrop-blur-md bg-background/80 border-b border-border/40">
             <div className="container flex h-16 items-center justify-between">
               <a className="flex items-center gap-2.5" href="/">
                 <div className="h-10 w-10 rounded-xl gradient-primary flex items-center justify-center">
@@ -144,7 +131,7 @@ function RootComponent() {
                 </div>
                 <div className="flex flex-col">
                   <span className="font-display text-lg font-bold tracking-tight leading-tight">Amir</span>
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary leading-none">Fast Food</span>
+                  <span className="text-xs font-semibold uppercase tracking-[0.2em] text-primary leading-none">Fast Food</span>
                 </div>
               </a>
               <div className="flex items-center gap-2 sm:gap-4">
@@ -175,14 +162,13 @@ function RootComponent() {
         )}
 
         {/* Main Content */}
-        <main className={`flex-grow flex flex-col ${isAdmin ? '' : 'pb-16 md:pb-0'}`}>
-          <span className="sr-only">Amir Fast Food</span>
+        <main id="main-content" className={`flex-grow flex flex-col ${isAdmin ? '' : 'pb-16 md:pb-0'}`}>
           <Outlet />
         </main>
 
         {/* Footer: hidden on admin routes */}
         {!isAdmin && (
-          <footer className="border-t border-border/30 bg-card/30">
+          <footer aria-label="Site footer" className="border-t border-border/30 bg-card/30">
             <div className="container py-10 sm:py-14">
               <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="space-y-3">
@@ -192,7 +178,7 @@ function RootComponent() {
                     </div>
                     <div>
                       <span className="font-display text-lg font-bold">Amir</span>
-                      <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary block leading-none">Fast Food</span>
+                      <span className="text-xs font-semibold uppercase tracking-[0.2em] text-primary block leading-none">Fast Food</span>
                     </div>
                   </div>
                   <p className="text-sm text-muted-foreground mt-4">Authentic shawarma, handcrafted burgers, and irresistible combos.</p>
