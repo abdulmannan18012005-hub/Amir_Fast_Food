@@ -162,7 +162,7 @@ function RootComponent() {
         )}
 
         {/* Main Content */}
-        <main id="main-content" className={`flex-grow flex flex-col ${isAdmin ? '' : 'pb-16 md:pb-0'}`}>
+        <main id="main-content" className={`flex-grow flex flex-col ${isAdmin ? '' : 'pb-[calc(4rem+var(--tracker-h,0px))] md:pb-[var(--tracker-h,0px)]'}`}>
           <Outlet />
         </main>
 

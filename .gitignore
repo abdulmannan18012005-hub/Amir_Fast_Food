@@ -21,6 +21,11 @@ lighthouse-*.json
 V10_PROGRESS.md
 FINAL_REPORT_V10.md
 
+# V11 workspace (temporary)
+.v11/
+V11_PROGRESS.md
+FINAL_REPORT_V11.md
+
 # Tool folders (GSD, planning)
 .agent/
 .planning/

@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { getPublicOrders } from '../server/order';
-import { supabaseBrowser } from '../lib/supabase';
 import { OrderStatus } from '../lib/orderStatus';
 import { getLocal, setLocal } from '../lib/storage';
 
@@ -34,6 +33,8 @@ export function useLiveOrder(
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  const notFoundCountRef = useRef(0);
   const statusRef = useRef<OrderStatus | null>(order?.status || null);
   const onStatusChangeRef = useRef(onStatusChange);
 
@@ -45,6 +46,8 @@ export function useLiveOrder(
     if (!orderId) {
       setOrder(null);
       setLoading(false);
+      setError(false);
+      setIsReconnecting(false);
       return;
     }
 
@@ -57,8 +60,10 @@ export function useLiveOrder(
         if (!isSubscribed) return;
         
         if (dataArray && dataArray.length > 0) {
+          notFoundCountRef.current = 0;
           const data = dataArray[0] as LiveOrder;
           setError(false);
+          setIsReconnecting(false);
           setOrder(data);
           setLocal(`order_cache_${orderId}`, data);
           
@@ -67,10 +72,16 @@ export function useLiveOrder(
           }
           statusRef.current = data.status;
         } else {
-          setError(true);
+          // Server returned empty list: not found
+          notFoundCountRef.current += 1;
+          if (notFoundCountRef.current >= 2) {
+            setError(true);
+            setIsReconnecting(false);
+          }
         }
       } catch (err) {
-        if (!order) setError(true);
+        if (!isSubscribed) return;
+        setIsReconnecting(true);
       } finally {
         if (isSubscribed) setLoading(false);
       }
@@ -123,5 +134,5 @@ export function useLiveOrder(
     };
   }, [orderId]);
 
-  return { order, loading, error };
+  return { order, loading, error, isReconnecting };
 }
