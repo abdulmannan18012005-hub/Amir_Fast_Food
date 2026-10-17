@@ -39,11 +39,18 @@
   }
 }
 
-.glass {
-  border-bottom-width: 1px;
-  border-color: hsl(var(--border) / 0.5);
-  background-color: hsl(var(--background) / 0.8);
-  backdrop-filter: blur(24px);
+@media (max-height: 520px) {
+  .menu-fixed-wrapper {
+    position: static !important;
+    border-bottom: none !important;
+  }
+  .menu-chip-bar {
+    position: sticky !important;
+    top: 4rem !important;
+    z-index: 40 !important;
+    background-color: hsl(var(--background)) !important;
+    border-bottom: 1px solid hsl(var(--border)) !important;
+  }
 }
 
 @layer utilities {

@@ -28,9 +28,18 @@ function MenuPage() {
   const [modalItem, setModalItem] = useState<MenuItem | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Measured height of fixed header block (fallback 118px avoids CLS)
+  const [fixedHeaderHeight, setFixedHeaderHeight] = useState<number>(118);
+  const fixedHeaderRef = useRef<HTMLDivElement>(null);
+  const fixedHeaderHeightRef = useRef<number>(118);
+  fixedHeaderHeightRef.current = fixedHeaderHeight;
+
   const chipsContainerRef = useRef<HTMLDivElement>(null);
   const isProgrammaticScrollRef = useRef(false);
   const scrollLockTimerRef = useRef<any>(null);
+  const activeCategoryRef = useRef<string>('all');
+  activeCategoryRef.current = activeCategory;
+  const rafIdRef = useRef<number | null>(null);
 
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -50,6 +59,43 @@ function MenuPage() {
     return a.name.localeCompare(b.name);
   });
 
+  // Measure fixed block height with ResizeObserver
+  useEffect(() => {
+    const el = fixedHeaderRef.current;
+    if (!el) return;
+
+    const measure = () => {
+      const isShort = window.innerHeight <= 520;
+      let h = el.offsetHeight;
+      if (isShort) {
+        const chipBar = el.querySelector('.menu-chip-bar') as HTMLElement | null;
+        h = chipBar ? chipBar.offsetHeight : 56;
+      }
+      setFixedHeaderHeight(h);
+      fixedHeaderHeightRef.current = h;
+      document.documentElement.style.setProperty('--menu-fixed-h', `${h}px`);
+    };
+
+    measure();
+
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => {
+        measure();
+      });
+      ro.observe(el);
+    }
+
+    window.addEventListener('resize', measure);
+    window.addEventListener('orientationchange', measure);
+
+    return () => {
+      if (ro) ro.disconnect();
+      window.removeEventListener('resize', measure);
+      window.removeEventListener('orientationchange', measure);
+    };
+  }, []);
+
   // Deep links check on initial mount
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -62,98 +108,126 @@ function MenuPage() {
     }
   }, []);
 
+  // Center chip inside chip scroller container only
+  const centerChip = (catId: string, smooth = true) => {
+    if (!chipsContainerRef.current) return;
+    const chipEl = chipsContainerRef.current.querySelector(`[data-chip="${catId}"]`) as HTMLElement | null;
+    if (chipEl) {
+      const container = chipsContainerRef.current;
+      const left = chipEl.offsetLeft - (container.clientWidth / 2) + (chipEl.clientWidth / 2);
+      container.scrollTo({ left, behavior: smooth ? 'smooth' : 'auto' });
+    }
+  };
+
   // Programmatic smooth scroll to a category
   const scrollToSection = (catId: string, smooth = true) => {
+    const prefersReduced = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const shouldSmooth = smooth && !prefersReduced;
+
     isProgrammaticScrollRef.current = true;
     setActiveCategory(catId);
+    activeCategoryRef.current = catId;
     history.replaceState(null, '', catId === 'all' ? '#all' : `#${catId}`);
+    centerChip(catId, shouldSmooth);
 
-    // Center active chip in chips container
-    if (chipsContainerRef.current) {
-      const chipEl = chipsContainerRef.current.querySelector(`[data-chip="${catId}"]`) as HTMLElement | null;
-      if (chipEl) {
-        const container = chipsContainerRef.current;
-        const left = chipEl.offsetLeft - (container.clientWidth / 2) + (chipEl.clientWidth / 2);
-        container.scrollTo({ left, behavior: smooth ? 'smooth' : 'auto' });
-      }
-    }
+    const headerH = 64; // 4rem
+    const fixedH = fixedHeaderHeightRef.current;
+    const targetOffset = headerH + fixedH + 12;
 
     if (catId === 'all') {
-      window.scrollTo({ top: 0, behavior: smooth ? 'smooth' : 'auto' });
+      window.scrollTo({ top: 0, behavior: shouldSmooth ? 'smooth' : 'auto' });
     } else {
       const section = document.getElementById(catId);
       if (section) {
-        section.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
+        const rect = section.getBoundingClientRect();
+        const targetTop = window.scrollY + rect.top - targetOffset;
+        window.scrollTo({ top: Math.max(0, targetTop), behavior: shouldSmooth ? 'smooth' : 'auto' });
       }
     }
 
     clearTimeout(scrollLockTimerRef.current);
-    scrollLockTimerRef.current = setTimeout(() => {
+    const unlock = () => {
       isProgrammaticScrollRef.current = false;
-    }, 700);
+      window.removeEventListener('scrollend', unlock);
+    };
+    window.addEventListener('scrollend', unlock, { once: true });
+    scrollLockTimerRef.current = setTimeout(unlock, 700);
   };
 
-  // Scroll-spy: highlight chip following scroll
+  // Scroll-spy: highlight chip following scroll (rAF-throttled, single subscription)
   useEffect(() => {
     const handleScroll = () => {
       if (isProgrammaticScrollRef.current) return;
+      if (rafIdRef.current !== null) return;
 
-      const scrollY = window.scrollY;
-      // If user scrolled near the top: highlight 'All'
-      if (scrollY < 120) {
-        if (activeCategory !== 'all') {
-          setActiveCategory('all');
-          centerChip('all');
+      rafIdRef.current = requestAnimationFrame(() => {
+        rafIdRef.current = null;
+        if (isProgrammaticScrollRef.current) return;
+
+        const scrollY = window.scrollY;
+        const headerH = 64;
+        const fixedH = fixedHeaderHeightRef.current;
+        const triggerThreshold = headerH + fixedH + 8;
+
+        // At page bottom: last section active
+        const scrollBottom = window.innerHeight + scrollY;
+        const docHeight = document.documentElement.scrollHeight;
+        if (scrollBottom >= docHeight - 30) {
+          const lastCat = sortedCategories[sortedCategories.length - 1];
+          if (lastCat && activeCategoryRef.current !== lastCat.id) {
+            setActiveCategory(lastCat.id);
+            activeCategoryRef.current = lastCat.id;
+            centerChip(lastCat.id, true);
+          }
+          return;
         }
-        return;
-      }
 
-      // If scrolled to bottom of page: highlight last category
-      const scrollBottom = window.innerHeight + scrollY;
-      const docHeight = document.documentElement.scrollHeight;
-      if (scrollBottom >= docHeight - 40) {
-        const lastCat = sortedCategories[sortedCategories.length - 1];
-        if (lastCat && activeCategory !== lastCat.id) {
-          setActiveCategory(lastCat.id);
-          centerChip(lastCat.id);
-        }
-        return;
-      }
-
-      // Determine category just below sticky header (header 64px + catbar 56px + offset 16px = ~136px)
-      const offset = 140;
-      let matchedCat = 'all';
-      for (const cat of sortedCategories) {
-        const el = document.getElementById(cat.id);
-        if (el) {
-          const rect = el.getBoundingClientRect();
-          if (rect.top <= offset) {
-            matchedCat = cat.id;
-          } else {
-            break;
+        // If top section is still below fixed block, 'all' is active
+        const firstCat = sortedCategories[0];
+        const firstEl = firstCat ? document.getElementById(firstCat.id) : null;
+        if (firstEl) {
+          const firstRect = firstEl.getBoundingClientRect();
+          if (firstRect.top > triggerThreshold) {
+            if (activeCategoryRef.current !== 'all') {
+              setActiveCategory('all');
+              activeCategoryRef.current = 'all';
+              centerChip('all', true);
+            }
+            return;
           }
         }
-      }
 
-      if (matchedCat !== activeCategory) {
-        setActiveCategory(matchedCat);
-        centerChip(matchedCat);
-      }
-    };
+        // Section whose top is the last one <= triggerThreshold is active
+        let matchedCat = 'all';
+        for (const cat of sortedCategories) {
+          const el = document.getElementById(cat.id);
+          if (el) {
+            const rect = el.getBoundingClientRect();
+            if (rect.top <= triggerThreshold) {
+              matchedCat = cat.id;
+            } else {
+              break;
+            }
+          }
+        }
 
-    const centerChip = (catId: string) => {
-      if (!chipsContainerRef.current) return;
-      const chipEl = chipsContainerRef.current.querySelector(`[data-chip="${catId}"]`) as HTMLElement | null;
-      if (chipEl) {
-        const container = chipsContainerRef.current;
-        const left = chipEl.offsetLeft - (container.clientWidth / 2) + (chipEl.clientWidth / 2);
-        container.scrollTo({ left, behavior: 'smooth' });
-      }
+        if (matchedCat !== activeCategoryRef.current) {
+          setActiveCategory(matchedCat);
+          activeCategoryRef.current = matchedCat;
+          centerChip(matchedCat, true);
+        }
+      });
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [sortedCategories, activeCategory]);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
+    };
+  }, [sortedCategories]);
 
   const handleAddToCart = (item: MenuItem) => {
     if (item.category_id === 'cat_deals') {
@@ -174,7 +248,10 @@ function MenuPage() {
   };
 
   return (
-    <div className="w-full relative">
+    <div 
+      className="w-full relative"
+      style={{ '--menu-fixed-h': `${fixedHeaderHeight}px` } as React.CSSProperties}
+    >
       <ItemModal 
         item={modalItem} 
         isOpen={Boolean(modalItem)} 
@@ -182,19 +259,23 @@ function MenuPage() {
         onAddToCart={handleModalAdd} 
       />
       
-      {/* Page Title Block (scrolls away normally) */}
-      <div className="w-full bg-background pt-6 pb-2">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Fixed Header Section: Title + Subtitle + Category Chips all in ONE sticky container */}
+      <div 
+        ref={fixedHeaderRef}
+        className="menu-fixed-wrapper sticky top-16 z-40 w-full bg-background border-b border-border shadow-sm"
+      >
+        {/* Title and Subtitle */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 sm:pt-4 pb-1">
           <header>
-            <h1 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">Our Menu</h1>
-            <p className="text-muted-foreground mt-1 text-sm sm:text-base">Crispy Broast, Gourmet Smash Burgers & Loaded Deals.</p>
+            <h1 className="text-2xl sm:text-4xl font-extrabold text-foreground tracking-tight">Our Menu</h1>
+            <p className="text-muted-foreground mt-0.5 sm:mt-1 text-xs sm:text-base truncate max-sm:max-w-[90vw]">
+              Crispy Broast, Gourmet Smash Burgers &amp; Loaded Deals.
+            </p>
           </header>
         </div>
-      </div>
 
-      {/* Sticky Category Bar: sticks directly below 4rem site header (top-16) */}
-      <div className="sticky top-16 z-40 w-full bg-background/95 backdrop-blur-md border-b border-border shadow-sm">
-        <nav aria-label="Menu categories" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 relative">
+        {/* Compact Chip Row */}
+        <nav aria-label="Menu categories" className="menu-chip-bar max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 relative">
           <div 
             ref={chipsContainerRef}
             className="flex items-center gap-2 overflow-x-auto overscroll-x-contain snap-x py-1"
@@ -233,7 +314,7 @@ function MenuPage() {
         </nav>
       </div>
 
-      {/* All Sections Rendered in Order (Scroll-margin-top 132px for sticky header & bar) */}
+      {/* All Sections Rendered in Order with Dynamic Measured Scroll-Margin-Top */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-16">
         {sortedCategories.map((cat, catIdx) => {
           const catItems = sortedItems.filter(i => i.category_id === cat.id);
@@ -243,8 +324,10 @@ function MenuPage() {
               key={cat.id} 
               id={cat.id} 
               aria-labelledby={`h-${cat.id}`}
-              className="scroll-mt-[132px] space-y-6"
-              style={catIdx >= 2 ? { contentVisibility: 'auto', containIntrinsicSize: '0 500px' } : undefined}
+              className="space-y-6"
+              style={{
+                scrollMarginTop: `calc(4rem + var(--menu-fixed-h, 118px) + 0.75rem)`
+              }}
             >
               <div className="flex items-baseline gap-4">
                 <h2 id={`h-${cat.id}`} className="text-2xl sm:text-3xl font-bold text-foreground">{cat.name}</h2>
