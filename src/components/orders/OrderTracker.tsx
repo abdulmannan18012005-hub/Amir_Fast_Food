@@ -153,7 +153,7 @@ export function OrderTracker() {
       {isExpanded && (
         <>
           <div 
-             className="fixed inset-0 bg-black/60 z-[65] backdrop-blur-sm animate-in fade-in md:bg-black/30"
+             className="fixed inset-0 bg-black/60 z-[65] animate-in fade-in"
              onClick={() => setIsExpanded(false)}
              aria-hidden="true"
           />
@@ -224,7 +224,7 @@ export function OrderTracker() {
       {!isExpanded && (
         <div 
           ref={barRef}
-          className="fixed inset-x-2 bottom-[calc(4rem+env(safe-area-inset-bottom)+0.5rem)] md:inset-x-auto md:bottom-6 md:right-6 md:w-[360px] z-[55] bg-card text-card-foreground border border-border shadow-xl rounded-2xl backdrop-blur-md transition-all duration-300"
+          className="fixed inset-x-2 bottom-[calc(4rem+env(safe-area-inset-bottom)+0.5rem)] md:inset-x-auto md:bottom-6 md:right-6 md:w-[360px] z-[55] bg-card text-card-foreground border border-border shadow-xl rounded-2xl transition-all duration-300"
         >
           <div 
             ref={triggerRef}

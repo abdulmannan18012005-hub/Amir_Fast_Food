@@ -42,7 +42,7 @@ export function ThemeSwitcher() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-border/50 bg-card p-3 shadow-xl backdrop-blur-xl z-50 animate-in fade-in zoom-in-95 duration-200">
+        <div className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-border bg-card p-3 shadow-xl z-50 animate-in fade-in zoom-in-95 duration-200">
           <p className="text-sm font-medium text-muted-foreground mb-3 px-1">Theme color</p>
           <div className="flex flex-wrap gap-2">
             {THEMES.map((theme) => (

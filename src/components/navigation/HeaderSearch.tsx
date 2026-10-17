@@ -71,7 +71,7 @@ export function HeaderSearch() {
       )}
 
       {isOpen && query.trim() !== '' && (
-        <div className="absolute right-0 top-full mt-3 w-72 max-h-96 overflow-y-auto rounded-xl border border-border/50 bg-card p-2 shadow-2xl backdrop-blur-xl z-50">
+        <div className="absolute right-0 top-full mt-3 w-72 max-h-96 overflow-y-auto rounded-xl border border-border bg-card p-2 shadow-2xl z-50">
           {isSearching ? (
             <div className="p-4 text-center text-sm text-muted-foreground animate-pulse">Searching...</div>
           ) : results.length > 0 ? (

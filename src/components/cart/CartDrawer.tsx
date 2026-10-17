@@ -25,14 +25,14 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
       {/* Backdrop */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 z-40 backdrop-blur-sm" 
+          className="fixed inset-0 bg-black/60 z-40" 
           onClick={onClose} 
         />
       )}
       
       {/* Drawer */}
       <div className={`fixed top-0 right-0 h-full w-full max-w-md bg-card shadow-2xl z-50 transform transition-transform duration-300 border-l border-border flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-        <div className="p-6 border-b border-border flex justify-between items-center bg-card/90 backdrop-blur">
+        <div className="p-6 border-b border-border flex justify-between items-center bg-card">
           <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
             Your Order <span className="bg-primary text-xs px-2 py-1 rounded-full">{items.length}</span>
           </h2>

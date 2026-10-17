@@ -123,7 +123,7 @@ function RootComponent() {
 
         {/* Public shell: hidden on admin routes */}
         {!isAdmin && (
-          <nav aria-label="Main navigation" className="sticky top-0 z-50 backdrop-blur-md bg-background/80 border-b border-border/40">
+          <nav aria-label="Main navigation" className="sticky top-0 z-50 bg-background border-b border-border">
             <div className="container flex h-16 items-center justify-between">
               <Link to="/" preload="intent" className="flex items-center gap-2.5">
                 <div className="h-10 w-10 rounded-xl gradient-primary flex items-center justify-center">
@@ -171,7 +171,7 @@ function RootComponent() {
 
         {/* Footer: hidden on admin routes */}
         {!isAdmin && (
-          <footer aria-label="Site footer" className="border-t border-border/30 bg-card/30">
+          <footer aria-label="Site footer" className="border-t border-border bg-card">
             <div className="container py-10 sm:py-14">
               <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="space-y-3">

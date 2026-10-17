@@ -181,7 +181,7 @@ function AdminMenuEditor() {
                           </div>
                         )}
                         {!item.is_available && (
-                          <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center">
+                          <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
                             <span className="bg-red-100 text-red-600 px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest border border-red-200">Out of Stock</span>
                           </div>
                         )}

@@ -80,13 +80,13 @@ function Index() {
       </section>
 
       {/* Category Showcase Slider */}
-      <section className="py-16 bg-card/50 border-y border-border/30">
+      <section className="py-16 bg-card border-y border-border">
         <div className="container mx-auto px-4">
           <div className="text-center mb-10 sm:mb-14">
             <span className="text-sm font-medium text-primary uppercase tracking-wider">Explore</span>
             <h2 className="font-display text-2xl sm:text-3xl font-bold mt-2 md:text-5xl">Our <span className="text-gradient">Categories</span></h2>
           </div>
-          <div className="flex overflow-x-auto gap-4 pb-8 scrollbar-hide snap-x">
+          <div className="flex overflow-x-auto overscroll-x-contain gap-4 pb-8 scrollbar-hide snap-x">
             {[
       { id: 'cat_deals', name: 'Deals & Combos', sub: 'Value Packs', img: categoryImages.cat_deals },
       { id: 'cat_specials', name: 'Specials', sub: 'Chef Recommended', img: categoryImages.cat_specials },
@@ -156,7 +156,7 @@ function Index() {
       </section>
 
       {/* How it works Section */}
-      <section className="bg-card/50 border-y border-border/30">
+      <section className="bg-card border-y border-border">
         <div className="container mx-auto px-4 py-16 sm:py-20 md:py-28">
           <div className="text-center mb-10 sm:mb-14">
             <span className="text-sm font-medium text-primary uppercase tracking-wider">Simple</span>

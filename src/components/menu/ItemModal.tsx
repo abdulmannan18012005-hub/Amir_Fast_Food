@@ -65,7 +65,7 @@ export function ItemModal({ item, isOpen, onClose, onAddToCart }: Props) {
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in"
       onClick={onClose}
     >
       <div 
@@ -89,7 +89,7 @@ export function ItemModal({ item, isOpen, onClose, onAddToCart }: Props) {
             ref={closeBtnRef}
             onClick={onClose} 
             aria-label="Close customizer" 
-            className="absolute top-3 right-3 bg-black/60 text-white p-2 rounded-full hover:bg-black/80 backdrop-blur-md transition-colors"
+            className="absolute top-3 right-3 bg-black/60 text-white p-2 rounded-full hover:bg-black/80 transition-colors"
           >
             <X size={20} />
           </button>

@@ -13,7 +13,7 @@ export function MobileBottomNav({
   const cartCount = useCartCount();
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/95 text-card-foreground backdrop-blur border-t border-border pb-[env(safe-area-inset-bottom)]">
+    <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card text-card-foreground border-t border-border pb-[env(safe-area-inset-bottom)]">
       <div className="flex justify-around items-center h-16">
         <Link to="/" className="flex flex-col items-center justify-center w-full h-full text-muted-foreground [&.active]:text-primary">
           <Home size={20} />
