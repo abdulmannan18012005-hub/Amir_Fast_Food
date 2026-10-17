@@ -1,3 +1,4 @@
+import { useCartCount } from '../../lib/cart';
 import { Link } from '@tanstack/react-router';
 import { Home, Menu, ShoppingCart, MessageSquare } from 'lucide-react';
 import { useState, useEffect } from 'react';
@@ -9,24 +10,10 @@ export function MobileBottomNav({
   onOpenCart: () => void; 
   onOpenBot: () => void; 
 }) {
-  const [cartCount, setCartCount] = useState(0);
-
-  useEffect(() => {
-    const handleStorage = () => {
-      const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-      setCartCount(cart.reduce((acc: number, item: any) => acc + item.quantity, 0));
-    };
-    handleStorage();
-    window.addEventListener('storage', handleStorage);
-    window.addEventListener('cartUpdated', handleStorage);
-    return () => {
-      window.removeEventListener('storage', handleStorage);
-      window.removeEventListener('cartUpdated', handleStorage);
-    };
-  }, []);
+  const cartCount = useCartCount();
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/90 backdrop-blur border-t border-border pb-safe">
+    <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/95 text-card-foreground backdrop-blur border-t border-border pb-[env(safe-area-inset-bottom)]">
       <div className="flex justify-around items-center h-16">
         <Link to="/" className="flex flex-col items-center justify-center w-full h-full text-muted-foreground [&.active]:text-primary">
           <Home size={20} />

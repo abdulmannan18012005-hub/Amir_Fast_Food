@@ -184,7 +184,7 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
     <>
       <div className="fixed inset-0 bg-black/40 z-50 backdrop-blur-sm transition-opacity" onClick={onClose} />
 
-      <div className="fixed bottom-0 right-0 w-full md:w-[400px] h-[85vh] md:h-screen md:max-h-[800px] bg-white md:rounded-l-3xl rounded-t-3xl shadow-2xl z-50 flex flex-col transform transition-transform duration-300">
+      <div className="fixed bottom-0 right-0 w-full md:w-[400px] h-[85vh] md:h-[100dvh] md:max-h-[800px] bg-white md:rounded-l-3xl rounded-t-3xl shadow-2xl z-50 flex flex-col transform transition-transform duration-300">
 
         {/* Toasts Stack */}
         <div className="absolute top-0 left-0 right-0 -mt-16 flex flex-col items-center gap-2 pointer-events-none z-50">

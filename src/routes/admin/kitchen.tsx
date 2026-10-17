@@ -375,7 +375,7 @@ function KitchenKDS() {
   const outForDelivery = orders.filter(o => o.status === 'out_for_delivery');
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-200">
+    <div className="min-h-[100dvh] bg-slate-900 text-slate-200">
       <header className="bg-slate-800 border-b border-slate-700 px-6 py-4 flex justify-between items-center sticky top-0 z-10">
         <div className="flex items-center gap-4">
           <ChefHat className="text-primary" size={28} />

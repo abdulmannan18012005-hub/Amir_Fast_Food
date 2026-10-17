@@ -64,11 +64,11 @@ export async function sendOrderPush(orderId: string, status: string, title?: str
     if (!subs || subs.length === 0) return;
     
     const statusMessages: Record<string, string> = {
-      received: "✅ Order confirmed — we've got your order",
-      preparing: "👨‍🍳 Your food is being prepared",
-      out_for_delivery: "🛵 On the way!",
-      delivered: "🎉 Delivered. Enjoy your meal!",
-      canceled: "❌ Order was canceled"
+      received: "Order confirmed - we've got your order",
+      preparing: "Your food is being prepared",
+      out_for_delivery: "On the way to you!",
+      delivered: "Delivered. Enjoy your meal!",
+      canceled: "Order was canceled"
     };
     
     const payload = JSON.stringify({
@@ -158,6 +158,6 @@ export const sendTestAdminPushFn = createServerFn({ method: "POST" })
   .validator((d: { pin: string }) => d)
   .handler(async ({ data }) => {
     verifyAdminPin(data.pin);
-    await sendAdminOrderPush('TEST', 'Test Alert: Notifications are working! 🚀');
+    await sendAdminOrderPush('TEST', 'Test Alert: Notifications are working!');
     return { success: true };
   });

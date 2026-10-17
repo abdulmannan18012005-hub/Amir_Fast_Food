@@ -43,7 +43,7 @@ export function PinGate({ children, onUnlock }: { children: React.ReactNode, onU
 
   if (!isReady) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+      <div className="min-h-[100dvh] bg-slate-900 flex items-center justify-center p-4">
         <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
@@ -51,7 +51,7 @@ export function PinGate({ children, onUnlock }: { children: React.ReactNode, onU
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4">
+      <div className="min-h-[100dvh] bg-slate-900 flex flex-col items-center justify-center p-4">
         <form onSubmit={handleLogin} className="bg-slate-800 p-8 rounded-2xl max-w-sm w-full text-center shadow-xl border border-slate-700">
           <ChefHat className="text-primary w-16 h-16 mx-auto mb-6" />
           <h1 className="text-2xl font-bold text-white mb-2">Admin Access</h1>
@@ -100,7 +100,7 @@ class AdminErrorBoundary extends React.Component<{children: React.ReactNode}, {h
         return null;
       }
       return (
-        <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4">
+        <div className="min-h-[100dvh] bg-slate-900 text-white flex flex-col items-center justify-center p-4">
           <div className="bg-slate-800 p-8 rounded-xl max-w-md text-center shadow-xl border border-slate-700">
             <h2 className="text-xl font-bold mb-4 text-red-400">Admin Panel Error</h2>
             <p className="mb-6 text-sm text-slate-300">An unexpected error occurred in the admin panel. Please reload the page.</p>

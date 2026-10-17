@@ -66,7 +66,7 @@ function AdminHistoryPage() {
   }, [dateFilter, statusFilter, page, searchQuery]);
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20">
+    <div className="min-h-[100dvh] bg-slate-50 pb-20">
       <header className="bg-white border-b border-slate-200 px-6 py-4 flex flex-col md:flex-row gap-4 justify-between items-center sticky top-0 z-10 shadow-sm">
         <div className="flex items-center gap-4">
           <ChefHat className="text-primary" size={28} />

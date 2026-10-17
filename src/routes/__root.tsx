@@ -118,14 +118,14 @@ function RootComponent() {
           })
         }} />
       </head>
-      <body className="min-h-screen flex flex-col font-sans">
+      <body className="min-h-[100dvh] flex flex-col font-sans">
         <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:bg-primary focus:text-primary-foreground focus:px-4 focus:py-2 focus:rounded-lg focus:font-bold">Skip to main content</a>
 
         {/* Public shell: hidden on admin routes */}
         {!isAdmin && (
           <nav aria-label="Main navigation" className="sticky top-0 z-50 backdrop-blur-md bg-background/80 border-b border-border/40">
             <div className="container flex h-16 items-center justify-between">
-              <a className="flex items-center gap-2.5" href="/">
+              <Link to="/" preload="intent" className="flex items-center gap-2.5">
                 <div className="h-10 w-10 rounded-xl gradient-primary flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-primary-foreground"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>
                 </div>
@@ -133,11 +133,11 @@ function RootComponent() {
                   <span className="font-display text-lg font-bold tracking-tight leading-tight">Amir</span>
                   <span className="text-xs font-semibold uppercase tracking-[0.2em] text-primary leading-none">Fast Food</span>
                 </div>
-              </a>
+              </Link>
               <div className="flex items-center gap-2 sm:gap-4">
-                <a href="/" className="hidden sm:block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Home</a>
-                <a href="/menu" className="hidden sm:block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Menu</a>
-                <a href="/locations" className="hidden sm:block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Locations</a>
+                <Link to="/" preload="intent" className="hidden sm:block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors [&.active]:text-primary" activeProps={{ 'aria-current': 'page' }}>Home</Link>
+                <Link to="/menu" preload="intent" className="hidden sm:block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors [&.active]:text-primary" activeProps={{ 'aria-current': 'page' }}>Menu</Link>
+                <Link to="/locations" preload="intent" className="hidden sm:block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors [&.active]:text-primary" activeProps={{ 'aria-current': 'page' }}>Locations</Link>
 
                 <HeaderSearch />
                 <ThemeSwitcher />
@@ -151,11 +151,14 @@ function RootComponent() {
                   <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full animate-pulse border border-background"></span>
                 </button>
 
-                <a href="/checkout" onClick={(e) => { e.preventDefault(); setIsCartOpen(true); }}>
-                  <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none border border-primary bg-primary hover:bg-primary/90 text-primary-foreground h-9 rounded-full px-4 shadow-sm">
-                    Cart ({cartCount})
-                  </button>
-                </a>
+                <button 
+                  type="button"
+                  onClick={() => setIsCartOpen(true)}
+                  aria-label={`Open shopping cart with ${cartCount} items`}
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary border border-primary bg-primary hover:bg-primary/90 text-primary-foreground h-9 rounded-full px-4 shadow-sm"
+                >
+                  Cart ({cartCount})
+                </button>
               </div>
             </div>
           </nav>
@@ -221,8 +224,8 @@ function RootComponent() {
               <div className="mt-8 pt-8 border-t border-border/20 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <p className="text-xs text-muted-foreground">&copy; 2026 Amir Fast Food. All rights reserved.</p>
                 <div className="flex gap-6 text-xs text-muted-foreground">
-                  <a href="/terms" className="hover:text-primary transition-colors">Terms of Use</a>
-                  <a href="/privacy" className="hover:text-primary transition-colors">Privacy Policy</a>
+                  <Link to="/terms" preload="intent" className="hover:text-primary transition-colors">Terms of Use</Link>
+                  <Link to="/privacy" preload="intent" className="hover:text-primary transition-colors">Privacy Policy</Link>
                 </div>
               </div>
             </div>

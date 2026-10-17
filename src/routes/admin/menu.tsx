@@ -107,7 +107,7 @@ function AdminMenuEditor() {
   const categories = Array.from(new Set(items.map(i => i.category_id))).sort();
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-20">
+    <div className="min-h-[100dvh] bg-slate-50 text-slate-900 pb-20">
       <header className="bg-white border-b border-border px-6 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
         <div className="flex items-center gap-4">
           <ChefHat className="text-primary" size={28} />

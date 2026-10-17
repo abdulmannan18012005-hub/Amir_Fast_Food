@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from 'react';
 import { MenuItem, ItemVariant, CartItem } from '../types';
 import { safeJson } from './storage';
 
@@ -95,4 +96,20 @@ export function getCartSubtotal(cart: CartItem[]): number {
 export function getCartCount(cart?: CartItem[]): number {
   const c = cart || getCart();
   return c.reduce((acc, item) => acc + (item.quantity || 0), 0);
+}
+
+export function useCartCount(): number {
+  const [count, setCount] = useState(() => getCartCount());
+
+  useEffect(() => {
+    const update = () => setCount(getCartCount());
+    window.addEventListener('storage', update);
+    window.addEventListener('cartUpdated', update);
+    return () => {
+      window.removeEventListener('storage', update);
+      window.removeEventListener('cartUpdated', update);
+    };
+  }, []);
+
+  return count;
 }

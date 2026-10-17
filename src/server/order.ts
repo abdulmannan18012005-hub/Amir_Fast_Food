@@ -216,7 +216,7 @@ export const createOrder = createServerFn({ method: "POST" })
 
     
     // Admin Push Alert
-    const adminSummary = `New order #${orderId.slice(0, 8).toUpperCase()} · PKR ${computedSubtotal + finalDeliveryFee} · ${payload.paymentMethod === 'cod' ? 'COD' : 'PAID'}`;
+    const adminSummary = `New order #${orderId.slice(0, 8).toUpperCase()} - PKR ${computedSubtotal + finalDeliveryFee} · ${payload.paymentMethod === 'cod' ? 'COD' : 'PAID'}`;
     await Promise.race([
       sendAdminOrderPush(orderId, adminSummary),
       new Promise(r => setTimeout(r, 4000))
@@ -288,10 +288,10 @@ export const updateOrderStatus = createServerFn({ method: 'POST' })
 
     const code = data.orderId.slice(0, 8).toUpperCase();
     const bodies: Record<string, string> = {
-      preparing: '👨‍🍳 Your food is being prepared',
-      out_for_delivery: `🛵 On the way!${riderName ? ' Rider: ' + riderName : ''}`,
-      delivered: '🎉 Delivered. Enjoy your meal!',
-      canceled: `❌ Order #${code} was canceled — ${cancelReason}`
+      preparing: 'Your food is being prepared',
+      out_for_delivery: `On the way!${riderName ? ' Rider: ' + riderName : ''}`,
+      delivered: 'Delivered. Enjoy your meal!',
+      canceled: `Order #${code} was canceled - ${cancelReason}`
     };
     // A failed or slow push must never fail the status change
     await Promise.race([
