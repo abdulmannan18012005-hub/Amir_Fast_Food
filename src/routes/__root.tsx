@@ -1,4 +1,4 @@
-import { createRootRoute, Outlet, useLocation, Scripts, HeadContent, ScrollRestoration } from '@tanstack/react-router';
+import { createRootRoute, Outlet, useLocation, Scripts, HeadContent, ScrollRestoration, Link } from '@tanstack/react-router';
 import React, { useState, useEffect } from 'react';
 const AmirBotDrawer = React.lazy(() => import('../components/chat/AmirBotDrawer').then(m => ({ default: m.AmirBotDrawer })));
 import { OrderTracker } from '../components/orders/OrderTracker';

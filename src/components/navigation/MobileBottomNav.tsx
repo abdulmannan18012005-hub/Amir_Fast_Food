@@ -19,7 +19,7 @@ export function MobileBottomNav({
           <Home size={20} />
           <span className="text-xs mt-1 font-medium">Home</span>
         </Link>
-        <Link to="/menu" search={{}} className="flex flex-col items-center justify-center w-full h-full text-muted-foreground [&.active]:text-primary">
+        <Link to="/menu" className="flex flex-col items-center justify-center w-full h-full text-muted-foreground [&.active]:text-primary">
           <Menu size={20} />
           <span className="text-xs mt-1 font-medium">Menu</span>
         </Link>
