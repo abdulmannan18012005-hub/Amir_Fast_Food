@@ -167,7 +167,7 @@ function MenuPage() {
         const scrollY = window.scrollY;
         const headerH = 64;
         const fixedH = fixedHeaderHeightRef.current;
-        const triggerThreshold = headerH + fixedH + 8;
+        const triggerThreshold = headerH + fixedH + 16;
 
         // At page bottom: last section active
         const scrollBottom = window.innerHeight + scrollY;
