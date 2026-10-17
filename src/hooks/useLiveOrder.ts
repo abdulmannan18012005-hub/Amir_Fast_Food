@@ -51,6 +51,14 @@ export function useLiveOrder(
       return;
     }
 
+    const cached = getLocal<LiveOrder | null>(`order_cache_${orderId}`, null);
+    if (cached) {
+      setOrder(cached);
+      statusRef.current = cached.status;
+    } else {
+      setLoading(true);
+    }
+
     let isSubscribed = true;
     let fetchTimeout: any;
 
