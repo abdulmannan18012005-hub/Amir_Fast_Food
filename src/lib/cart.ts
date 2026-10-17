@@ -91,3 +91,8 @@ export function lineTotal(item: CartItem): number {
 export function getCartSubtotal(cart: CartItem[]): number {
   return cart.reduce((acc, item) => acc + lineTotal(item), 0);
 }
+
+export function getCartCount(cart?: CartItem[]): number {
+  const c = cart || getCart();
+  return c.reduce((acc, item) => acc + (item.quantity || 0), 0);
+}

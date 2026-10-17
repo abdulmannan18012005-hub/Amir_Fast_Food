@@ -1,86 +1,166 @@
-import React, { useState } from 'react';
-import type { MenuItem, ItemVariant } from '../../types';
+import React, { useState, useEffect, useRef } from 'react';
+import { X } from 'lucide-react';
+import type { MenuItem, CartItem, ItemVariant } from '../../types';
 
 interface Props {
-  item: MenuItem;
+  item: MenuItem | null;
   isOpen: boolean;
   onClose: () => void;
-  onAddToCart: (item: MenuItem, quantity: number, selectedVariants: ItemVariant[]) => void;
+  onAddToCart: (cartItem: CartItem) => void;
 }
 
 export function ItemModal({ item, isOpen, onClose, onAddToCart }: Props) {
-  const [quantity, setQuantity] = useState(1);
-  const [selectedVariants, setSelectedVariants] = useState<ItemVariant[]>([]);
+  const [step, setStep] = useState(1);
+  const [drink, setDrink] = useState('Pepsi');
+  const [side, setSide] = useState('Regular Fries');
+  const [upgrades, setUpgrades] = useState<{name: string, price: number}[]>([]);
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (!isOpen) return;
+    setStep(1);
+    setDrink('Pepsi');
+    setSide('Regular Fries');
+    setUpgrades([]);
+    closeBtnRef.current?.focus();
 
-  const handleToggleVariant = (variant: ItemVariant) => {
-    setSelectedVariants(prev => 
-      prev.some(v => v.name === variant.name)
-        ? prev.filter(v => v.name !== variant.name)
-        : [...prev, variant]
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, item]);
+
+  if (!isOpen || !item) return null;
+
+  const isDeal = item.category_id === 'cat_deals' || (item.variants && item.variants.length > 0);
+
+  const toggleUpgrade = (name: string, price: number) => {
+    setUpgrades(prev => 
+      prev.find(u => u.name === name) 
+        ? prev.filter(u => u.name !== name)
+        : [...prev, { name, price }]
     );
   };
 
-  const variantsTotal = selectedVariants.reduce((sum, v) => sum + v.price, 0);
-  const lineTotal = (item.price + variantsTotal) * quantity;
+  const handleComplete = () => {
+    const selectedVariants: ItemVariant[] = isDeal ? [
+      { name: `Drink: ${drink}`, price: 0 },
+      { name: `Side: ${side}`, price: 0 },
+      ...upgrades
+    ] : [];
+
+    onAddToCart({
+      menu_item_id: item.id,
+      name: item.name,
+      price: item.price,
+      quantity: 1,
+      image_url: item.image_url || '/placeholder.webp',
+      variants: selectedVariants
+    });
+    onClose();
+  };
+
+  const total = item.price + upgrades.reduce((s, u) => s + u.price, 0);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-6 w-full max-w-lg relative max-h-[90vh] overflow-y-auto">
-        <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-white bg-slate-800 rounded-full p-1">
-          <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
-        </button>
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in"
+      onClick={onClose}
+    >
+      <div 
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-item-title"
+        className="bg-card border border-border w-full max-w-md rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90dvh]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="h-44 sm:h-48 overflow-hidden relative shrink-0 bg-muted">
+          <img 
+            src={item.image_url || '/placeholder.webp'} 
+            alt={item.name} 
+            onError={(e) => { e.currentTarget.src = '/placeholder.webp'; }} 
+            className="w-full h-full object-cover" 
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-5">
+            <h2 id="modal-item-title" className="text-xl sm:text-2xl font-bold text-white">{item.name}</h2>
+          </div>
+          <button 
+            ref={closeBtnRef}
+            onClick={onClose} 
+            aria-label="Close customizer" 
+            className="absolute top-3 right-3 bg-black/60 text-white p-2 rounded-full hover:bg-black/80 backdrop-blur-md transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
         
-        <img src={item.image_url} alt={item.name} className="w-full h-48 object-cover rounded-xl mb-6 shadow-md" />
-        
-        <h2 className="text-2xl font-bold text-white mb-2">{item.name}</h2>
-        <p className="text-slate-400 text-sm mb-6">{item.description}</p>
-        
-        {item.variants && item.variants.length > 0 && (
-          <div className="mb-6">
-            <h3 className="text-lg font-bold text-white mb-3">Add-ons & Modifiers</h3>
-            <div className="space-y-2">
-              {item.variants.map((v, i) => (
-                <label key={i} className="flex items-center justify-between p-3 border border-slate-700 rounded-lg bg-slate-800/50 cursor-pointer hover:bg-slate-800">
-                  <div className="flex items-center gap-3">
-                    <input 
-                      type="checkbox" 
-                      className="w-5 h-5 accent-red-600 rounded bg-slate-900 border-slate-600"
-                      checked={selectedVariants.some(sv => sv.name === v.name)}
-                      onChange={() => handleToggleVariant(v)}
-                    />
-                    <span className="text-slate-200">{v.name}</span>
-                  </div>
-                  <span className="text-slate-400">+PKR {v.price}</span>
+        <div className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-4">
+          {step === 1 && (
+            <div className="space-y-4 animate-in slide-in-from-right-4">
+              <h3 className="font-bold text-base sm:text-lg text-foreground">1. Choose your Drink</h3>
+              {['Pepsi', '7Up', 'Mirinda', 'Mountain Dew', 'Diet Pepsi'].map(d => (
+                <label key={d} className="flex items-center gap-3 p-3.5 bg-accent/40 rounded-xl cursor-pointer hover:bg-accent border border-border">
+                  <input type="radio" name="drink" checked={drink === d} onChange={() => setDrink(d)} className="w-5 h-5 text-primary accent-primary" />
+                  <span className="text-foreground font-medium text-sm sm:text-base">{d}</span>
                 </label>
               ))}
+              <button 
+                onClick={() => setStep(2)} 
+                className="w-full bg-primary text-primary-foreground font-bold py-3.5 rounded-xl hover:bg-primary/90 mt-2 transition-colors"
+              >
+                Next Step
+              </button>
             </div>
-          </div>
-        )}
+          )}
 
-        <div className="flex items-center justify-between mb-6 bg-slate-800 p-2 rounded-lg">
-          <button 
-            onClick={() => setQuantity(Math.max(1, quantity - 1))}
-            className="w-10 h-10 bg-slate-700 rounded text-white font-bold hover:bg-slate-600"
-          >-</button>
-          <span className="text-xl font-bold text-white">{quantity}</span>
-          <button 
-            onClick={() => setQuantity(quantity + 1)}
-            className="w-10 h-10 bg-slate-700 rounded text-white font-bold hover:bg-slate-600"
-          >+</button>
+          {step === 2 && (
+            <div className="space-y-4 animate-in slide-in-from-right-4">
+              <h3 className="font-bold text-base sm:text-lg text-foreground">2. Choose your Side</h3>
+              {['Regular Fries', 'Masala Fries', 'Coleslaw', 'Garlic Mayo Dip'].map(s => (
+                <label key={s} className="flex items-center gap-3 p-3.5 bg-accent/40 rounded-xl cursor-pointer hover:bg-accent border border-border">
+                  <input type="radio" name="side" checked={side === s} onChange={() => setSide(s)} className="w-5 h-5 text-primary accent-primary" />
+                  <span className="text-foreground font-medium text-sm sm:text-base">{s}</span>
+                </label>
+              ))}
+              <div className="flex gap-3 mt-4">
+                <button onClick={() => setStep(1)} className="w-1/3 bg-accent text-foreground font-bold py-3 rounded-xl hover:bg-accent/80 transition-colors">Back</button>
+                <button onClick={() => setStep(3)} className="w-2/3 bg-primary text-primary-foreground font-bold py-3 rounded-xl hover:bg-primary/90 transition-colors">Next Step</button>
+              </div>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="space-y-4 animate-in slide-in-from-right-4">
+              <h3 className="font-bold text-base sm:text-lg text-foreground">3. Premium Upgrades</h3>
+              {[
+                { name: 'Extra Cheese', price: 60 },
+                { name: 'Extra Dip', price: 50 },
+                { name: 'Jalapenos', price: 40 }
+              ].map(u => {
+                const checked = upgrades.some(x => x.name === u.name);
+                return (
+                  <label key={u.name} className="flex items-center justify-between p-3.5 bg-accent/40 rounded-xl cursor-pointer hover:bg-accent border border-border">
+                    <div className="flex items-center gap-3">
+                      <input type="checkbox" checked={checked} onChange={() => toggleUpgrade(u.name, u.price)} className="w-5 h-5 rounded text-primary accent-primary" />
+                      <span className="text-foreground font-medium text-sm sm:text-base">{u.name}</span>
+                    </div>
+                    <span className="text-primary font-bold text-sm sm:text-base">+PKR {u.price}</span>
+                  </label>
+                );
+              })}
+              <div className="flex gap-3 mt-6">
+                <button onClick={() => setStep(2)} className="w-1/3 bg-accent text-foreground font-bold py-3 rounded-xl hover:bg-accent/80 transition-colors">Back</button>
+                <button 
+                  onClick={handleComplete} 
+                  className="w-2/3 bg-emerald-600 text-white font-bold py-3 rounded-xl hover:bg-emerald-500 shadow-md transition-colors"
+                >
+                  Add - PKR {total}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-
-        <button 
-          onClick={() => {
-            onAddToCart(item, quantity, selectedVariants);
-            onClose();
-          }}
-          className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-4 rounded-xl shadow-lg transition-colors flex justify-between items-center px-6"
-        >
-          <span>Add to Order</span>
-          <span>PKR {lineTotal.toFixed(2)}</span>
-        </button>
       </div>
     </div>
   );
