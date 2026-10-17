@@ -265,7 +265,7 @@ function MenuPage() {
         className="menu-fixed-wrapper sticky top-16 z-40 w-full bg-background border-b border-border shadow-sm"
       >
         {/* Title and Subtitle */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 sm:pt-4 pb-1">
+        <div className="menu-title-block max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 sm:pt-4 pb-1">
           <header>
             <h1 className="text-2xl sm:text-4xl font-extrabold text-foreground tracking-tight">Our Menu</h1>
             <p className="text-muted-foreground mt-0.5 sm:mt-1 text-xs sm:text-base truncate max-sm:max-w-[90vw]">
@@ -315,7 +315,7 @@ function MenuPage() {
       </div>
 
       {/* All Sections Rendered in Order with Dynamic Measured Scroll-Margin-Top */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-16 pb-[85vh]">
         {sortedCategories.map((cat, catIdx) => {
           const catItems = sortedItems.filter(i => i.category_id === cat.id);
           if (catItems.length === 0) return null;
