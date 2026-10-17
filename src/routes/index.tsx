@@ -86,7 +86,7 @@ function Index() {
             <span className="text-sm font-medium text-primary uppercase tracking-wider">Explore</span>
             <h2 className="font-display text-2xl sm:text-3xl font-bold mt-2 md:text-5xl">Our <span className="text-gradient">Categories</span></h2>
           </div>
-          <div className="flex overflow-x-auto overscroll-x-contain gap-4 pb-8 scrollbar-hide snap-x">
+          <div tabIndex={0} role="region" aria-label="Category showcase scroller" className="flex overflow-x-auto overscroll-x-contain gap-4 pb-8 scrollbar-hide snap-x focus:outline-none focus:ring-2 focus:ring-primary/40 rounded-2xl">
             {[
       { id: 'cat_deals', name: 'Deals & Combos', sub: 'Value Packs', img: categoryImages.cat_deals },
       { id: 'cat_specials', name: 'Specials', sub: 'Chef Recommended', img: categoryImages.cat_specials },
@@ -105,7 +105,7 @@ function Index() {
                 <div className="h-32 sm:h-40 overflow-hidden">
                   <img src={cat.img} alt={cat.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                 </div>
-                <div className="p-4 bg-gradient-to-t from-background to-background/80 absolute bottom-0 left-0 right-0">
+                <div className="p-4 bg-background border-t border-border absolute bottom-0 left-0 right-0">
                   <h3 className="font-bold text-foreground">{cat.name}</h3>
                   <p className="text-xs text-primary">{cat.sub}</p>
                 </div>

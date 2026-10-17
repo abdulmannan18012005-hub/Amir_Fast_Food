@@ -2,7 +2,7 @@
 
 let sharedCtx: AudioContext | null = null;
 
-export const getAudioContext = () => {
+const getAudioContext = () => {
   if (typeof window === 'undefined') return null;
   if (!sharedCtx) {
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -48,33 +48,6 @@ export const playSuccessChime = () => {
   } catch (e) {
     // Ignore in SSR or if Audio API is blocked
   }
-};
-
-export const playCashChime = () => {
-  try {
-    const ctx = getAudioContext();
-    if (!ctx) return;
-    
-    // Play a register 'ka-ching' style arpeggio
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    
-    osc.type = 'square';
-    
-    // Quick arpeggio up
-    osc.frequency.setValueAtTime(783.99, ctx.currentTime);       // G5
-    osc.frequency.setValueAtTime(987.77, ctx.currentTime + 0.05); // B5
-    osc.frequency.setValueAtTime(1318.51, ctx.currentTime + 0.1); // E6
-    
-    gain.gain.setValueAtTime(0, ctx.currentTime);
-    gain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
-    
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.3);
-  } catch (e) { }
 };
 
 export const playKitchenDing = () => {

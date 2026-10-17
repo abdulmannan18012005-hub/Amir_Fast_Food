@@ -1,4 +1,4 @@
-export const SITE = 'https://amir-fast-food.vercel.app';
+const SITE = 'https://amir-fast-food.vercel.app';
 export function seo(o: { title: string; description: string; path: string; noindex?: boolean }) {
   return {
     meta: [

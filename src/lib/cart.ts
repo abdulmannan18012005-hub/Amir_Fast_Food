@@ -48,25 +48,7 @@ export function addToCart(newItem: CartItem) {
   saveCart(cart);
 }
 
-export function updateQty(menuItemId: string, variants: ItemVariant[], delta: number) {
-  const cart = getCart();
-  const existingIndex = cart.findIndex(
-    item => 
-      item.menu_item_id === menuItemId && 
-      JSON.stringify(item.variants.sort((a, b) => a.name.localeCompare(b.name))) === 
-      JSON.stringify(variants.sort((a, b) => a.name.localeCompare(b.name)))
-  );
 
-  if (existingIndex >= 0) {
-    const newQty = cart[existingIndex].quantity + delta;
-    if (newQty <= 0) {
-      cart.splice(existingIndex, 1);
-    } else if (newQty <= 20) {
-      cart[existingIndex].quantity = newQty;
-    }
-    saveCart(cart);
-  }
-}
 
 export function removeItem(menuItemId: string, variants: ItemVariant[]) {
   const cart = getCart();
@@ -93,7 +75,7 @@ export function getCartSubtotal(cart: CartItem[]): number {
   return cart.reduce((acc, item) => acc + lineTotal(item), 0);
 }
 
-export function getCartCount(cart?: CartItem[]): number {
+function getCartCount(cart?: CartItem[]): number {
   const c = cart || getCart();
   return c.reduce((acc, item) => acc + (item.quantity || 0), 0);
 }

@@ -1,3 +1,11 @@
+function fetchNominatim(url: string) {
+  const ua = process.env.SHOP_EMAIL ? ('AMR Fast Food / ' + process.env.SHOP_EMAIL) : 'AMR Fast Food (https://amir-fast-food.vercel.app)';
+  return fetch(url, {
+    headers: { 'User-Agent': ua },
+    signal: AbortSignal.timeout(6000)
+  });
+}
+
 import { createServerFn } from '@tanstack/react-start';
 import { checkRateLimit } from './rateLimit';
 import { getClientIp } from './auth';
@@ -27,12 +35,7 @@ export const reverseGeocodeFn = createServerFn({ method: "POST" })
     
     try {
       const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&addressdetails=1&zoom=18&accept-language=en`;
-      const res = await fetch(url, {
-        headers: {
-          'User-Agent': process.env.SHOP_EMAIL ? `AMR Fast Food / ${process.env.SHOP_EMAIL}` : 'AMR Fast Food (https://amir-fast-food.vercel.app)'
-        },
-        signal: AbortSignal.timeout(6000)
-      });
+      const res = await fetchNominatim(url);
       if (!res.ok) return null;
       const data = await res.json();
       
@@ -59,12 +62,7 @@ export const reverseGeocodeFn = createServerFn({ method: "POST" })
 export async function forwardGeocode(address: string): Promise<{ lat: number, lng: number } | null> {
   try {
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1&countrycodes=pk`;
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent': process.env.SHOP_EMAIL ? `AMR Fast Food / ${process.env.SHOP_EMAIL}` : 'AMR Fast Food (https://amir-fast-food.vercel.app)'
-      },
-      signal: AbortSignal.timeout(6000)
-    });
+    const res = await fetchNominatim(url);
     if (!res.ok) return null;
     const data = await res.json();
     if (data && data.length > 0) {

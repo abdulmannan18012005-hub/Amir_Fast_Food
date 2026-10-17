@@ -348,45 +348,6 @@ export const getCompletedOrdersFn = createServerFn({ method: "POST" })
     return { orders, totalCount: count || 0 };
   });
 
-// Expose safe public order details for tracking
-export const getPublicOrder = createServerFn({ method: "POST" })
-  .validator((d: { orderId: string }) => d)
-  .handler(async ({ data }) => {
-    const supabase = getSupabaseServer();
-    
-    const { data: order, error } = await supabase
-      .from('orders')
-      .select('id, status, created_at, status_changed_at, canceled_at, payment_method, total_amount, delivery_fee, customer_name, delivery_address, rider_name, rider_phone, cancel_reason, order_items(*, menu_items(name))')
-      .eq('id', data.orderId)
-      .maybeSingle();
-      
-    if (error || !order) return null;
-    
-    return {
-      id: order.id,
-      shortCode: order.id.slice(0, 8).toUpperCase(),
-      status: order.status as OrderStatus,
-      created_at: order.created_at,
-      status_changed_at: order.status_changed_at || order.created_at,
-      canceled_at: order.canceled_at,
-      payment_method: order.payment_method,
-      subtotal: order.total_amount,
-      delivery_fee: order.delivery_fee,
-      total: Number(order.total_amount) + Number(order.delivery_fee),
-      customer_name: order.customer_name?.split(' ')[0] || 'Customer',
-      delivery_address: order.delivery_address,
-      rider_name: order.rider_name,
-      rider_phone: order.rider_phone,
-      cancel_reason: order.cancel_reason,
-      items: order.order_items.map((i: any) => ({
-        name: i.menu_items?.name || 'Item',
-        quantity: i.quantity,
-        unit_price: i.unit_price,
-        variants: i.selected_variants
-      }))
-    };
-  });
-
 export const getKitchenOrders = createServerFn({ method: "POST" })
   .validator((d: { pin?: string }) => d)
   .handler(async ({ data }) => {

@@ -1,3 +1,15 @@
+async function initWebPush() {
+  const VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY;
+  const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY;
+  if (!VAPID_PUBLIC || !VAPID_PRIVATE) return null;
+  const webpush = await initWebPush();
+    if (!webpush) {
+      console.warn("Skipping push: VAPID keys missing.");
+      return;
+    }
+  return webpush;
+}
+
 import { createServerFn } from '@tanstack/react-start';
 import { getSupabaseServer } from '../lib/supabase';
 import { getClientIp, verifyAdminPin } from './auth';
@@ -45,18 +57,8 @@ export const subscribeToPushFn = createServerFn({ method: "POST" })
 
 export async function sendOrderPush(orderId: string, status: string, title?: string, body?: string) {
   try {
-    const webpush = (await import('web-push')).default;
-    
-    const VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY;
-    const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY;
-    const VAPID_SUBJECT = process.env.VAPID_SUBJECT || (process.env.SHOP_EMAIL ? `mailto:${process.env.SHOP_EMAIL}` : 'https://amir-fast-food.vercel.app');
-    
-    if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
-      console.warn("Skipping push: VAPID keys missing.");
-      return;
-    }
-    
-    webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
+    const webpush = await initWebPush();
+    if (!webpush) return;
     const supabase = getSupabaseServer();
     
     // Select ONLY subscriptions for THIS order_id

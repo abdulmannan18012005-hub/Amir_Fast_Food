@@ -1,3 +1,22 @@
+function ImageConfigRow({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder: string }) {
+  return (
+    <div className="flex gap-4 items-center">
+      <div className="w-1/3">
+        <p className="font-bold text-slate-700 capitalize">{label}</p>
+      </div>
+      <div className="w-2/3">
+        <input 
+          type="text" 
+          value={value} 
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-primary text-sm"
+          placeholder={placeholder}
+        />
+      </div>
+    </div>
+  );
+}
+
 import { createFileRoute } from '@tanstack/react-router';
 import { seo } from '../../lib/seo';
 import React, { useEffect, useState } from 'react';

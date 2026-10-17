@@ -6,7 +6,7 @@ export class UserFacingError extends Error {
   }
 }
 
-export const GENERIC_ERROR = 'Something went wrong on our end. Please try again or call 0301-4265785.';
+const GENERIC_ERROR = 'Something went wrong on our end. Please try again or call 0301-4265785.';
 
 export function toSafeError(err: unknown, fallback = GENERIC_ERROR): string {
   if (err instanceof UserFacingError) {

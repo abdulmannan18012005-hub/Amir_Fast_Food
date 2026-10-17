@@ -2,7 +2,7 @@ export type OrderStatus = 'received' | 'preparing' | 'out_for_delivery' | 'deliv
 
 export const ORDER_STATUSES: OrderStatus[] = ['received', 'preparing', 'out_for_delivery', 'delivered', 'canceled'];
 
-export const ORDER_STATUS_CONFIG: Record<OrderStatus, { label: string; emoji: string; customerText: string; isFinal: boolean }> = {
+const ORDER_STATUS_CONFIG: Record<OrderStatus, { label: string; emoji: string; customerText: string; isFinal: boolean }> = {
   received: {
     label: 'Received',
     emoji: '✅',
@@ -35,7 +35,7 @@ export const ORDER_STATUS_CONFIG: Record<OrderStatus, { label: string; emoji: st
   }
 };
 
-export const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
+const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   received: ['preparing', 'out_for_delivery', 'canceled'],
   preparing: ['out_for_delivery', 'canceled'],
   out_for_delivery: ['delivered', 'canceled'],

@@ -103,17 +103,37 @@ export const updateMenuItemFn = createServerFn({ method: "POST" })
     }
   });
 
-export const getCategoryImagesFn = createServerFn({ method: "GET" }).handler(async () => {
+async function getKnowledgeJson<T>(title: string, fallback: T): Promise<T> {
   try {
     const supabase = getSupabaseServer();
-    const { data } = await supabase.from('restaurant_knowledge').select('content').eq('title', 'category_images').maybeSingle();
+    const { data } = await supabase.from('restaurant_knowledge').select('content').eq('title', title).maybeSingle();
     if (data && data.content) {
       try { return JSON.parse(data.content); } catch (e) {}
     }
   } catch (err) {
-    console.error('getCategoryImagesFn error:', err);
+    console.error('getKnowledgeJson error for ' + title + ':', err);
   }
-  return {
+  return fallback;
+}
+
+async function saveKnowledgeJson(title: string, data: Record<string, string>, pin?: string) {
+  try {
+    verifyAdminPin(pin);
+    const supabase = getSupabaseServer();
+    const { data: existing } = await supabase.from('restaurant_knowledge').select('id').eq('title', title).maybeSingle();
+    if (existing) {
+      await supabase.from('restaurant_knowledge').update({ content: JSON.stringify(data) }).eq('id', existing.id);
+    } else {
+      await supabase.from('restaurant_knowledge').insert({ title, content: JSON.stringify(data) });
+    }
+    return { success: true };
+  } catch (err: any) {
+    throw new Error(toSafeError(err));
+  }
+}
+
+export const getCategoryImagesFn = createServerFn({ method: "GET" }).handler(async () => {
+  return getKnowledgeJson('category_images', {
     cat_deals: 'https://images.unsplash.com/photo-1594968973184-9040a5a79963?auto=format&fit=crop&w=300&q=80',
     cat_specials: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=300&q=80',
     cat_burgers: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=300&q=80',
@@ -122,60 +142,25 @@ export const getCategoryImagesFn = createServerFn({ method: "GET" }).handler(asy
     cat_chicken: 'https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?auto=format&fit=crop&w=300&q=80',
     cat_sandwiches_fries: 'https://images.unsplash.com/photo-1534080564583-6be75777b70a?auto=format&fit=crop&w=300&q=80',
     cat_drinks: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=300&q=80'
-  };
+  });
 });
 
 export const updateCategoryImagesFn = createServerFn({ method: "POST" })
   .validator((d: { data: Record<string, string>, pin?: string }) => d)
   .handler(async ({ data: payload }) => {
-    try {
-      verifyAdminPin(payload.pin);
-      const data = payload.data;
-      const supabase = getSupabaseServer();
-      const { data: existing } = await supabase.from('restaurant_knowledge').select('id').eq('title', 'category_images').maybeSingle();
-      if (existing) {
-        await supabase.from('restaurant_knowledge').update({ content: JSON.stringify(data) }).eq('id', existing.id);
-      } else {
-        await supabase.from('restaurant_knowledge').insert({ title: 'category_images', content: JSON.stringify(data) });
-      }
-      return { success: true };
-    } catch (err: any) {
-      throw new Error(toSafeError(err));
-    }
+    return saveKnowledgeJson('category_images', payload.data, payload.pin);
   });
 
 export const getHighlightImagesFn = createServerFn({ method: "GET" }).handler(async () => {
-  try {
-    const supabase = getSupabaseServer();
-    const { data } = await supabase.from('restaurant_knowledge').select('content').eq('title', 'highlight_images').maybeSingle();
-    if (data && data.content) {
-      try { return JSON.parse(data.content); } catch (e) {}
-    }
-  } catch (err) {
-    console.error('getHighlightImagesFn error:', err);
-  }
-  return {
+  return getKnowledgeJson('highlight_images', {
     hl_shawarma: '/images/food-placeholder.jpg',
     hl_burger: '/images/food-placeholder.jpg',
     hl_combos: '/images/food-placeholder.jpg'
-  };
+  });
 });
 
 export const updateHighlightImagesFn = createServerFn({ method: "POST" })
   .validator((d: { data: Record<string, string>, pin?: string }) => d)
   .handler(async ({ data: payload }) => {
-    try {
-      verifyAdminPin(payload.pin);
-      const data = payload.data;
-      const supabase = getSupabaseServer();
-      const { data: existing } = await supabase.from('restaurant_knowledge').select('id').eq('title', 'highlight_images').maybeSingle();
-      if (existing) {
-        await supabase.from('restaurant_knowledge').update({ content: JSON.stringify(data) }).eq('id', existing.id);
-      } else {
-        await supabase.from('restaurant_knowledge').insert({ title: 'highlight_images', content: JSON.stringify(data) });
-      }
-      return { success: true };
-    } catch (err: any) {
-      throw new Error(toSafeError(err));
-    }
+    return saveKnowledgeJson('highlight_images', payload.data, payload.pin);
   });

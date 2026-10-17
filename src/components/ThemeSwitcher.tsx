@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
+import { useClickOutside } from '../hooks/useClickOutside';
 
 const THEMES = [
   { id: 'orange', color: '#f97316', hsl: '25 95% 53%', label: 'Orange' },
@@ -13,15 +14,7 @@ export function ThemeSwitcher() {
   const [activeTheme, setActiveTheme] = useState('orange');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  useClickOutside(dropdownRef, () => setIsOpen(false));
 
   const changeTheme = (themeId: string, hslString: string) => {
     setActiveTheme(themeId);
