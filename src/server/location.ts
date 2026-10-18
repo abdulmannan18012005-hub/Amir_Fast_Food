@@ -19,7 +19,7 @@ export const reverseGeocodeFn = createServerFn({ method: "POST" })
     const ip = getClientIp();
     
     // Rate limit: 30 / 10 min
-    if (!checkRateLimit(ip, 'reverse_geocode', 30, 600000)) {
+    if (!(await checkRateLimit(ip, 'reverse_geocode', 30, 600000))) {
       return null;
     }
     

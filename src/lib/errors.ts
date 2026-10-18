@@ -1,12 +1,31 @@
+export type ErrorCode =
+  | 'auth'
+  | 'rate_limited'
+  | 'shop_closed'
+  | 'tid_duplicate'
+  | 'payment_unverified'
+  | 'validation'
+  | 'db_migration_needed';
+
 export class UserFacingError extends Error {
   public isUserFacing = true;
-  constructor(message: string) {
+  public code: ErrorCode;
+  constructor(message: string, code: ErrorCode = 'validation') {
     super(message);
     this.name = 'UserFacingError';
+    this.code = code;
   }
 }
 
 export const GENERIC_ERROR = 'We could not complete that right now. Please try again in a moment, or call us on 0301 4265785.';
+
+export function getErrorCode(err: unknown): ErrorCode {
+  if (err instanceof UserFacingError) return err.code;
+  if (err && typeof err === 'object' && 'code' in err && typeof (err as any).code === 'string') {
+    return (err as any).code as ErrorCode;
+  }
+  return 'validation';
+}
 
 export function friendlyMessage(err: unknown, fallback = GENERIC_ERROR): string {
   if (!err) return fallback;

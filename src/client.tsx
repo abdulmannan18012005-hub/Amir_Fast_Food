@@ -1,7 +1,7 @@
 import './index.css';
-/// <reference types="@tanstack/start/client" />
+/// <reference types="@tanstack/react-start/client" />
 import { hydrateRoot } from 'react-dom/client';
-import { StartClient } from '@tanstack/start';
+import { StartClient } from '@tanstack/react-start/client';
 import { createRouter } from './router';
 
 if (typeof window !== 'undefined') {
@@ -15,6 +15,4 @@ if (typeof window !== 'undefined') {
   });
 }
 
-const router = createRouter();
-
-hydrateRoot(document, <StartClient router={router} />);
+hydrateRoot(document, <StartClient />);

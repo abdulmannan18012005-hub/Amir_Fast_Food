@@ -105,7 +105,7 @@ export const chatWithAmirBot = createServerFn({ method: 'POST' })
   }) => d)
   .handler(async ({ data }) => {
     const ip = getClientIp();
-    if (!checkRateLimit(ip, 'chat', 20, 300000)) {
+    if (!(await checkRateLimit(ip, 'chat', 20, 300000))) {
       return { reply: 'You are sending messages too fast. Please wait a few minutes and try again.', actions: [] };
     }
 

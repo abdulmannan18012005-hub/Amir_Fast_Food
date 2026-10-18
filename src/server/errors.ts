@@ -1,4 +1,4 @@
-export { UserFacingError, GENERIC_ERROR, friendlyMessage } from '../lib/errors';
+export { UserFacingError, GENERIC_ERROR, friendlyMessage, getErrorCode, type ErrorCode } from '../lib/errors';
 import { UserFacingError, GENERIC_ERROR } from '../lib/errors';
 
 export function toSafeError(err: unknown, fallback = GENERIC_ERROR): string {

@@ -425,13 +425,13 @@ function CheckoutPage() {
                 
                 <div className="bg-slate-50 p-6 rounded-2xl border border-border mb-8">
                   <p className="font-semibold text-slate-900 mb-2">Permanent Tracking Link:</p>
-                  <Link to={`/orders/${successOrderId}`} className="text-primary hover:underline font-mono text-sm break-all">
+                  <Link to="/orders/$orderId" params={{ orderId: successOrderId }} className="text-primary hover:underline font-mono text-sm break-all">
                     https://amir-fast-food.vercel.app/orders/{successOrderId}
                   </Link>
                   <p className="text-xs text-muted-foreground mt-4">Save this link to track your order status with live updates.</p>
                 </div>
 
-                <Link to={`/orders/${successOrderId}`} className="inline-block w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl hover:bg-primary/90 shadow-lg shadow-primary/30 transition-all text-lg mb-4">
+                <Link to="/orders/$orderId" params={{ orderId: successOrderId }} className="inline-block w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl hover:bg-primary/90 shadow-lg shadow-primary/30 transition-all text-lg mb-4">
                   Track My Order Now
                 </Link>
               </section>

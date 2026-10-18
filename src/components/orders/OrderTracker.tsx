@@ -203,7 +203,8 @@ export function OrderTracker() {
             {/* Fixed Footer within Sheet */}
             <div className="p-4 bg-card border-t border-border flex gap-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] shrink-0">
               <Link 
-                 to={`/orders/${orderId}`}
+                 to="/orders/$orderId"
+                 params={{ orderId }}
                  className="flex-1 text-center py-3 font-bold text-foreground bg-accent rounded-xl hover:bg-accent/80 transition-colors"
                  onClick={() => setIsExpanded(false)}
               >

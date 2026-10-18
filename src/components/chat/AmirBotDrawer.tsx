@@ -156,7 +156,7 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
         text: txt,
         history,
         cartSummary,
-        activeOrderId,
+        activeOrderId: activeOrderId || undefined,
       }});
 
       // Execute server-resolved actions

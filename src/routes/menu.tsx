@@ -54,8 +54,8 @@ function MenuPage() {
   // Sort items: Deals numerically, others alphabetically
   const sortedItems = [...items].sort((a, b) => {
     if (a.category_id === 'cat_deals' && b.category_id === 'cat_deals') {
-      const numA = parseInt((a.name.match(/\d+/) || [0])[0]);
-      const numB = parseInt((b.name.match(/\d+/) || [0])[0]);
+      const numA = parseInt(String((a.name.match(/\d+/) || [0])[0]), 10);
+      const numB = parseInt(String((b.name.match(/\d+/) || [0])[0]), 10);
       return numA - numB;
     }
     return a.name.localeCompare(b.name);

@@ -1,32 +1,61 @@
-// In-memory token bucket rate limiter (best effort per serverless instance)
+import { getSupabaseServer } from '../lib/supabase';
 
-const store = new Map<string, { count: number; expiresAt: number }>();
+// In-memory token bucket fallback (per instance)
+const inMemoryStore = new Map<string, { count: number; expiresAt: number }>();
 
-export function checkRateLimit(ip: string, action: string, limit: number, windowMs: number): boolean {
-  const key = `${ip}:${action}`;
+function checkRateLimitInMemory(key: string, limit: number, windowMs: number): boolean {
   const now = Date.now();
-  
-  const record = store.get(key);
+  const record = inMemoryStore.get(key);
   if (!record || record.expiresAt < now) {
-    store.set(key, { count: 1, expiresAt: now + windowMs });
+    inMemoryStore.set(key, { count: 1, expiresAt: now + windowMs });
     return true;
   }
-  
   if (record.count >= limit) {
     return false;
   }
-  
   record.count += 1;
-  store.set(key, record);
+  inMemoryStore.set(key, record);
   return true;
 }
 
-// Global cleanup every minute to prevent memory leaks
+export async function checkRateLimit(
+  keyIdentifier: string,
+  action: string,
+  limit: number,
+  windowMs: number
+): Promise<boolean> {
+  const key = `${keyIdentifier}:${action}`;
+  const windowSeconds = Math.max(1, Math.round(windowMs / 1000));
+
+  try {
+    const supabase = getSupabaseServer();
+    const { data, error } = await supabase.rpc('rate_limit_hit', {
+      p_key: key,
+      p_limit: limit,
+      p_window_seconds: windowSeconds,
+    });
+
+    if (!error && typeof data === 'boolean') {
+      return data;
+    }
+
+    if (error) {
+      console.warn(`[RateLimit] RPC 'rate_limit_hit' unavailable (${error.message}); using in-memory limiter.`);
+    }
+  } catch (err: any) {
+    console.warn(`[RateLimit] RPC 'rate_limit_hit' failed (${err?.message || err}); using in-memory limiter.`);
+  }
+
+  // Graceful fallback to in-memory store
+  return checkRateLimitInMemory(key, limit, windowMs);
+}
+
+// Global cleanup every minute for in-memory fallback store
 const cleanupTimer = setInterval(() => {
   const now = Date.now();
-  for (const [key, record] of store.entries()) {
+  for (const [key, record] of inMemoryStore.entries()) {
     if (record.expiresAt < now) {
-      store.delete(key);
+      inMemoryStore.delete(key);
     }
   }
 }, 60000);
