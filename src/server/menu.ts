@@ -133,7 +133,7 @@ async function saveKnowledgeJson(title: string, data: Record<string, string>, pi
 }
 
 export const getCategoryImagesFn = createServerFn({ method: "GET" }).handler(async () => {
-  return getKnowledgeJson('category_images', {
+  const images = await getKnowledgeJson('category_images', {
     cat_deals: 'https://images.unsplash.com/photo-1594968973184-9040a5a79963?auto=format&fit=crop&w=300&q=80',
     cat_specials: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=300&q=80',
     cat_burgers: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=300&q=80',
@@ -143,6 +143,15 @@ export const getCategoryImagesFn = createServerFn({ method: "GET" }).handler(asy
     cat_sandwiches_fries: 'https://images.unsplash.com/photo-1534080564583-6be75777b70a?auto=format&fit=crop&w=300&q=80',
     cat_drinks: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=300&q=80'
   });
+  const sanitized: Record<string, string> = {};
+  for (const [k, v] of Object.entries(images)) {
+    if (typeof v === 'string' && (v.includes('vecteezy.com') || v.includes('/images/food-placeholder.jpg'))) {
+      sanitized[k] = '/placeholder.webp';
+    } else {
+      sanitized[k] = v;
+    }
+  }
+  return sanitized;
 });
 
 export const updateCategoryImagesFn = createServerFn({ method: "POST" })
