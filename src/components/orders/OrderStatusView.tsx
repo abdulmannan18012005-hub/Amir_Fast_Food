@@ -36,10 +36,11 @@ export function OrderStatusView({ order, onNotify }: { order: LiveOrder, onNotif
   };
   
   const getEta = () => {
-    const elapsedAll = (now - new Date(order.created_at).getTime()) / 60000;
-    const remaining = Math.max(5, 35 - elapsedAll);
-    if (remaining > 35) return "Taking a bit longer than usual";
-    return `About ${Math.round(remaining)} min`;
+    const elapsedMinutes = (now - new Date(order.created_at).getTime()) / 60000;
+    if (elapsedMinutes > 40) {
+      return "Taking longer than usual; call 0301 4265785 if you need help";
+    }
+    return "Estimated 30–40 minutes";
   };
 
   const progress = getProgress();
@@ -75,7 +76,7 @@ export function OrderStatusView({ order, onNotify }: { order: LiveOrder, onNotif
         <div className="w-full h-2 bg-muted rounded-full mb-3 overflow-hidden">
           <div 
              className={`h-full rounded-full transition-all duration-[10000ms] ease-linear motion-reduce:transition-none ${
-               order.status === 'canceled' ? 'bg-destructive' : order.status === 'delivered' ? 'bg-emerald-600' : 'bg-primary'
+               order.status === 'canceled' ? 'bg-destructive' : order.status === 'delivered' ? 'bg-emerald-700' : 'bg-primary'
              }`}
              style={{ width: `${progress}%` }}
           />

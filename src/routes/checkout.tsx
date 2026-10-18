@@ -12,7 +12,7 @@ import { addActiveOrder, markJustOrdered } from '../lib/activeOrders';
 import type { CartItem } from '../types';
 
 export const Route = createFileRoute('/checkout')({
-  head: () => seo({ title: 'Checkout - Amir Fast Food', description: 'Securely checkout your order at Amir Fast Food.', path: '/checkout' }),
+  head: () => seo({ title: 'Checkout - Amir Fast Food', description: 'Complete your Amir Fast Food order.', path: '/checkout' }),
   component: CheckoutPage,
 });
 
@@ -293,7 +293,7 @@ function CheckoutPage() {
                     <button type="button" onClick={handleGetLocation} disabled={gettingLocation} className="mt-2 text-sm text-primary font-semibold flex items-center gap-1 hover:underline">
                       📍 {gettingLocation ? 'Finding...' : 'Use my current location'}
                     </button>
-                    {locMsg && <p className="text-xs text-emerald-600 mt-1">{locMsg}</p>}
+                    {locMsg && <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-1">{locMsg}</p>}
                     {distanceKm > 0 && (
                        <p className="text-xs text-muted-foreground mt-2">
                          📍 Location pinned · about {distanceKm.toFixed(1)} km from the shop · delivery fee PKR {totalDeliveryFee}
@@ -396,7 +396,7 @@ function CheckoutPage() {
 
                 <label className="flex items-start gap-3 mb-6 p-4 bg-red-50 text-red-900 border border-red-200 rounded-xl cursor-pointer">
                   <input type="checkbox"  checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1 w-5 h-5 accent-red-600 rounded flex-shrink-0" />
-                  <span className="text-sm font-medium leading-tight">Orders once confirmed cannot be cancelled as preparation begins immediately. I agree and wish to place my order.</span>
+                  <span className="text-sm font-medium leading-tight">Orders cannot be cancelled on the website once placed as kitchen preparation begins immediately. I agree and wish to place my order.</span>
                 </label>
 
                 <div className="flex gap-4 pt-6 mt-6 border-t border-border">
@@ -427,7 +427,7 @@ function CheckoutPage() {
                   <Link to={`/orders/${successOrderId}`} className="text-primary hover:underline font-mono text-sm break-all">
                     https://amir-fast-food.vercel.app/orders/{successOrderId}
                   </Link>
-                  <p className="text-xs text-muted-foreground mt-4">Save this link! You can use it to track your order status in real-time.</p>
+                  <p className="text-xs text-muted-foreground mt-4">Save this link to track your order status with live updates.</p>
                 </div>
 
                 <Link to={`/orders/${successOrderId}`} className="inline-block w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl hover:bg-primary/90 shadow-lg shadow-primary/30 transition-all text-lg mb-4">

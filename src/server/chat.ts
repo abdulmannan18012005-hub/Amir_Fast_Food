@@ -1,3 +1,4 @@
+import { SHOP_ADDRESS, SHOP_PHONE_LOCAL, SHOP_HOURS_DISPLAY, SHOP_DELIVERY_RADIUS_FREE_KM, SHOP_DELIVERY_FEE_PER_KM, SHOP_DELIVERY_MAX_KM, SHOP_COD_THRESHOLD, SHOP_COD_FEE, SHOP_ESTIMATED_DELIVERY_TIME, SHOP_CANCELLATION_POLICY, SHOP_PAYMENT_METHODS } from '../lib/shop';
 import { createServerFn } from '@tanstack/react-start';
 import { getSupabaseServer } from '../lib/supabase';
 import OpenAI from 'openai';
@@ -123,13 +124,13 @@ export const chatWithAmirBot = createServerFn({ method: 'POST' })
     const inputLower = trimmedText.toLowerCase();
     if (inputLower === 'where are you' || inputLower === 'location' || inputLower === 'where is the shop') {
       return {
-        reply: 'We are located at Post Office Mansoora, Anwar Market, Peco Road, Kakazai, Lahore. Drop by or order online!',
+        reply: `We are located at ${SHOP_ADDRESS}. Drop by or order online!`,
         actions: [{ type: 'OPEN_MENU', payload: 'burgers' }]
       };
     }
     if (inputLower === 'delivery fee' || inputLower === 'delivery charges' || inputLower === 'kitna delivery charge?') {
       return {
-        reply: 'Delivery itself has NO base fee! However, for Cash on Delivery orders under PKR 1000, there is a PKR 100 COD fee. We deliver within a 5 KM radius for free. Beyond 5 KM, it is +PKR 100 per extra KM.',
+        reply: `Free delivery within ${SHOP_DELIVERY_RADIUS_FREE_KM} km. Beyond ${SHOP_DELIVERY_RADIUS_FREE_KM} km, delivery is PKR ${SHOP_DELIVERY_FEE_PER_KM} per extra km up to ${SHOP_DELIVERY_MAX_KM} km max. Cash on Delivery orders under PKR ${SHOP_COD_THRESHOLD} have a PKR ${SHOP_COD_FEE} COD fee.`,
         actions: []
       };
     }
@@ -173,10 +174,14 @@ REPLY LANGUAGE: Reply naturally in the language the customer writes (English, Ur
 TONE: Short (max 4 sentences), friendly, plain text only (no markdown, no bold, no headers, no bullet points with #).
 
 SHOP KNOWLEDGE:
-- Hours: 4:05 PM to 2:00 AM PKT. Currently: ${isOpen ? 'OPEN' : 'CLOSED'}.
-- Delivery: 5 km free area. +100 PKR per extra km. No base fee.
-- COD Fee: PKR 100 applies ONLY if subtotal < 1000 AND payment is Cash On Delivery. Online payment has 0 COD fee.
-- Address: Post Office Mansoora, Anwar Market, Peco Road, Kakazai, Lahore, 54000.
+- Hours: ${SHOP_HOURS_DISPLAY} PKT. Currently: ${isOpen ? 'OPEN' : 'CLOSED'}.
+- Delivery: ${SHOP_DELIVERY_RADIUS_FREE_KM} km free radius. PKR ${SHOP_DELIVERY_FEE_PER_KM} per extra km up to ${SHOP_DELIVERY_MAX_KM} km max.
+- COD Fee: PKR ${SHOP_COD_FEE} applies ONLY if subtotal < ${SHOP_COD_THRESHOLD} AND payment is Cash On Delivery. Online payment has 0 COD fee.
+- Payment Methods: ${SHOP_PAYMENT_METHODS}.
+- Cancellation Policy: ${SHOP_CANCELLATION_POLICY}
+- Estimated Delivery: ${SHOP_ESTIMATED_DELIVERY_TIME}.
+- Address: ${SHOP_ADDRESS}.
+- Phone: ${SHOP_PHONE_LOCAL}.
 
 LIVE MENU (only AVAILABLE items):
 ${menuStr}
@@ -192,7 +197,8 @@ STRICT RULES (Zero Hallucination):
 5. If they ask to clear the cart, ask for confirmation first, then append: [ACTION:CLEAR_CART]
 6. If they want to checkout, append: [ACTION:CHECKOUT]
 7. If they ask about their order status, append: [ACTION:TRACK_ORDER] and explain the status.
-8. NEVER output HTML. Use plain text only.`;
+8. NEVER output HTML. Use plain text only.
+9. If unsure, say you are not sure and give ${SHOP_PHONE_LOCAL}; never state delivery times other than the estimated range (30–40 minutes).`;
 
     const primaryModel = process.env.GROQ_MODEL || 'openai/gpt-oss-20b';
     const fallbackModel = process.env.GROQ_FALLBACK_MODEL || 'openai/gpt-oss-120b';

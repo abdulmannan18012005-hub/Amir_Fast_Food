@@ -1,6 +1,6 @@
 # Amir Fast Food
 
-> Authentic shawarma, smash burgers and irresistible combos in Lahore, Pakistan.
+> Shawarma, smash burgers and combos in Kakazai, Lahore, Pakistan.
 
 ## Pages
 
@@ -24,4 +24,4 @@
 
 ## Delivery
 
-Free within 5 km. PKR 100/extra km beyond 5 km. COD fee PKR 100 if subtotal < PKR 1000.
+Free delivery within 5 km. PKR 100/extra km beyond 5 km up to 15 km max. COD fee PKR 100 if subtotal < PKR 1000.

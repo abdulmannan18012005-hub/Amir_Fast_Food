@@ -11,7 +11,7 @@ type Msg = { role: 'user' | 'bot' | 'system'; text: string };
 type ToastInfo = { id: number; msg: string; type: 'success' | 'error' | 'info' };
 
 const STORAGE_KEY = 'amirbot_chat';
-const DEFAULT_MSG: Msg[] = [{ role: 'bot', text: 'Hi! I am AmirBot. How can I help you today?' }];
+const DEFAULT_MSG: Msg[] = [{ role: 'bot', text: 'Hi! I am AmirBot. I can help you with menu items, your cart, delivery fees, and order status.' }];
 
 interface Props {
   isOpen: boolean;
@@ -190,7 +190,7 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
         <div className="absolute top-0 left-0 right-0 -mt-16 flex flex-col items-center gap-2 pointer-events-none z-50">
           {toasts.map(t => (
             <div key={t.id} role="status" aria-live="polite" className={`px-4 py-2 rounded-full text-white text-sm font-bold shadow-lg pointer-events-auto transition-all ${
-              t.type === 'success' ? 'bg-green-500' : t.type === 'error' ? 'bg-red-500' : 'bg-slate-700'
+              t.type === 'success' ? 'bg-emerald-700' : t.type === 'error' ? 'bg-rose-700' : 'bg-slate-700'
             }`}>
               {t.msg}
             </div>
@@ -204,7 +204,7 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
             </div>
             <div>
               <h2 className="font-bold text-lg leading-tight">AmirBot</h2>
-              <p className="text-xs text-primary-foreground/80">Always here to help</p>
+              <p className="text-xs text-primary-foreground/80">Here to help</p>
             </div>
           </div>
           <div className="flex items-center gap-2">

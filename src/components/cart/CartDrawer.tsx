@@ -90,20 +90,8 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
 
         {items.length > 0 && (
           <div className="p-6 bg-background border-t border-border space-y-4">
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs font-medium">
-                {subtotal >= 1000 ? (
-                  <span className="text-emerald-700 dark:text-emerald-400 font-bold">You've unlocked FREE delivery!</span>
-                ) : (
-                  <span className="text-muted-foreground">Add <span className="text-primary font-bold">PKR {1000 - subtotal}</span> for FREE delivery</span>
-                )}
-              </div>
-              <div className="h-2 w-full bg-accent rounded-full overflow-hidden">
-                <div 
-                  className={`h-full transition-all duration-500 rounded-full ${subtotal >= 1000 ? 'bg-emerald-500' : 'bg-primary'}`} 
-                  style={{ width: `${Math.min((subtotal / 1000) * 100, 100)}%` }} 
-                />
-              </div>
+            <div className="rounded-xl bg-accent/60 p-3 text-xs text-muted-foreground border border-border/50">
+              Free delivery within 5 km. Delivery beyond 5 km and COD fees under PKR 1,000 apply at checkout.
             </div>
             <div className="flex justify-between text-muted-foreground">
               <span>Subtotal</span>

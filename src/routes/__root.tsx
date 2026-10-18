@@ -1,4 +1,4 @@
-import { SHOP_PHONE_DISPLAY, SHOP_WHATSAPP } from '../lib/shop';
+import { SHOP_PHONE_DISPLAY, SHOP_WHATSAPP, SHOP_LAT, SHOP_LNG, SHOP_ADDRESS } from '../lib/shop';
 import { createRootRoute, Outlet, useLocation, Scripts, HeadContent, ScrollRestoration, Link } from '@tanstack/react-router';
 import React, { useState, useEffect } from 'react';
 const AmirBotDrawer = React.lazy(() => import('../components/chat/AmirBotDrawer').then(m => ({ default: m.AmirBotDrawer })));
@@ -110,12 +110,20 @@ function RootComponent() {
             },
             "geo": {
               "@type": "GeoCoordinates",
-              "latitude": 31.492160,
-              "longitude": 74.290800
+              "latitude": SHOP_LAT,
+              "longitude": SHOP_LNG
             },
             "servesCuisine": "Fast Food, Shawarma, Burgers",
-            "priceRange": "PKR",
-            "telephone": "+923014265785"
+            "hasMenu": "https://amir-fast-food.vercel.app/menu",
+            "telephone": SHOP_PHONE_DISPLAY,
+            "openingHoursSpecification": [
+              {
+                "@type": "OpeningHoursSpecification",
+                "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+                "opens": "16:05",
+                "closes": "02:00"
+              }
+            ]
           })
         }} />
       </head>
@@ -184,7 +192,7 @@ function RootComponent() {
                       <span className="text-xs font-semibold uppercase tracking-[0.2em] text-primary block leading-none">Fast Food</span>
                     </div>
                   </div>
-                  <p className="text-sm text-muted-foreground mt-4">Authentic shawarma, handcrafted burgers, and irresistible combos.</p>
+                  <p className="text-sm text-muted-foreground mt-4">Shawarma, smash burgers, and combo deals in Lahore.</p>
                 </div>
                 <div className="space-y-3">
                   <p className="font-display font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-4">Links</p>

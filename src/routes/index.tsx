@@ -6,7 +6,7 @@ import { getCategoryImagesFn, getHighlightImagesFn } from '../server/menu';
 export const Route = createFileRoute('/')({
   component: Index,
   head: () => {
-    const s = seo({ title: 'Amir Fast Food - Shawarma, Burgers & Combos', description: 'Order the best Shawarma and Burgers in Lahore from Amir Fast Food.', path: '/' });
+    const s = seo({ title: 'Amir Fast Food - Shawarma, Burgers & Combos', description: 'Order Shawarma and Burgers online in Lahore from Amir Fast Food.', path: '/' });
     return {
       meta: s.meta,
       links: [
@@ -40,7 +40,7 @@ function Index() {
             </h1>
             
             <p className="text-lg sm:text-xl text-muted-foreground mb-8 sm:mb-10 max-w-lg">
-              Authentic shawarma, smash burgers and irresistible combos. Restaurants, food trailers &amp; delivery — always near you.
+              Shawarma, burgers and combos from Kakazai, Lahore — order online for delivery.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4">
@@ -54,9 +54,8 @@ function Index() {
             </div>
 
             <div className="mt-10 flex flex-wrap gap-4 sm:gap-6 text-muted-foreground text-sm font-medium">
-              <span className="flex items-center gap-1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary" aria-hidden="true" focusable="false"><path d="M3 10l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg> Near you</span>
-              <span className="flex items-center gap-1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> Ready in 30 mins</span>
-              <span className="flex items-center gap-1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary" aria-hidden="true" focusable="false"><path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2.5z"></path></svg> Made fresh</span>
+              <span className="flex items-center gap-1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary" aria-hidden="true" focusable="false"><path d="M3 10l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg> Kakazai, Lahore</span>
+              <span className="flex items-center gap-1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> Estimated 30–40 mins</span>
             </div>
           </div>
           
@@ -128,7 +127,7 @@ function Index() {
             <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent"></div>
             <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
               <h3 className="font-display text-lg sm:text-xl font-bold text-foreground">Classic Shawarma</h3>
-              <p className="mt-1 text-xs sm:text-sm text-muted-foreground">Spit-roasted meat, garlic sauce &amp; artisan pita bread</p>
+              <p className="mt-1 text-xs sm:text-sm text-muted-foreground">Classic chicken shawarma with pita and signature sauce</p>
             </div>
           </div>
           <div className="group relative overflow-hidden rounded-2xl sm:rounded-3xl bg-card border border-border/30">
@@ -138,7 +137,7 @@ function Index() {
             <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent"></div>
             <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
               <h3 className="font-display text-lg sm:text-xl font-bold text-foreground">Smash Burger</h3>
-              <p className="mt-1 text-xs sm:text-sm text-muted-foreground">Exclusive blend, 200g of pure smashed beef</p>
+              <p className="mt-1 text-xs sm:text-sm text-muted-foreground">Smashed burger patties with fresh toppings</p>
             </div>
           </div>
           <div className="group relative overflow-hidden rounded-2xl sm:rounded-3xl bg-card border border-border/30">
@@ -148,7 +147,7 @@ function Index() {
             <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent"></div>
             <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
               <h3 className="font-display text-lg sm:text-xl font-bold text-foreground">Combos</h3>
-              <p className="mt-1 text-xs sm:text-sm text-muted-foreground">Burger + fries + drink at a special price</p>
+              <p className="mt-1 text-xs sm:text-sm text-muted-foreground">Burger, fries, and drink combos — see current offers on the menu</p>
             </div>
           </div>
         </div>
@@ -166,8 +165,8 @@ function Index() {
               <div className="mx-auto mb-4 h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/20">
                 <span className="font-display text-xl sm:text-2xl font-bold text-primary-foreground">01</span>
               </div>
-              <h3 className="font-display text-base sm:text-lg font-semibold text-foreground">Scan the QR</h3>
-              <p className="mt-2 text-xs sm:text-sm text-muted-foreground">Point your camera at the table or trailer QR code</p>
+              <h3 className="font-display text-base sm:text-lg font-semibold text-foreground">Browse the menu</h3>
+              <p className="mt-2 text-xs sm:text-sm text-muted-foreground">Explore shawarma, burgers, and combo deals</p>
             </div>
             <div className="text-center">
               <div className="mx-auto mb-4 h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/20">
@@ -180,8 +179,8 @@ function Index() {
               <div className="mx-auto mb-4 h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/20">
                 <span className="font-display text-xl sm:text-2xl font-bold text-primary-foreground">03</span>
               </div>
-              <h3 className="font-display text-base sm:text-lg font-semibold text-foreground">Get it fresh</h3>
-              <p className="mt-2 text-xs sm:text-sm text-muted-foreground">Track in real time and pick up when ready</p>
+              <h3 className="font-display text-base sm:text-lg font-semibold text-foreground">Track live delivery</h3>
+              <p className="mt-2 text-xs sm:text-sm text-muted-foreground">Track your order live, we deliver it to your address</p>
             </div>
           </div>
         </div>
@@ -193,7 +192,7 @@ function Index() {
           <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 20%, white 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
           <div className="relative z-10">
             <h2 className="font-display text-2xl sm:text-3xl font-bold text-primary-foreground md:text-4xl">Hungry?</h2>
-            <p className="mt-3 text-primary-foreground/90 text-base sm:text-lg max-w-md mx-auto">Order in seconds from your phone. No lines, no waiting.</p>
+            <p className="mt-3 text-primary-foreground/90 text-base sm:text-lg max-w-md mx-auto">Order online in a few taps.</p>
             <div className="mt-6 sm:mt-8">
               <Link to="/menu" preload="intent" className="inline-flex items-center justify-center whitespace-nowrap bg-background text-foreground hover:bg-background/90 h-11 gap-2 px-8 sm:px-10 py-6 text-base rounded-2xl font-bold shadow-lg">
                   Order Now

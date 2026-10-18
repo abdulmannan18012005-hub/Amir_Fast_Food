@@ -90,7 +90,7 @@ export async function sendOrderPush(orderId: string, status: string, title?: str
     if (!subs || subs.length === 0) return;
     
     const statusMessages: Record<string, string> = {
-      received: "Order confirmed - we've got your order",
+      received: "We have received your order",
       preparing: "Your food is being prepared",
       out_for_delivery: "On the way to you!",
       delivered: "Delivered. Enjoy your meal!",
