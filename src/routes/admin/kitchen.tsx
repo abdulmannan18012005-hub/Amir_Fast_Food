@@ -1,3 +1,4 @@
+import { friendlyMessage } from '../../lib/errors';
 import { createFileRoute } from '@tanstack/react-router';
 import { seo } from '../../lib/seo';
 import React, { useEffect, useState } from 'react';
@@ -135,10 +136,10 @@ function KitchenKDS() {
       if (res.success) {
         setPushStatus('Enabled');
       } else {
-        showToast('Failed to subscribe on server: ' + (res.error || 'Unknown error'), 'error');
+        showToast('Failed to subscribe on server: ' + friendlyMessage(res.error), 'error');
       }
     } catch (e: any) {
-      showToast('Failed to enable push: ' + (e.message || 'Unknown error'), 'error');
+      showToast('Failed to enable push: ' + friendlyMessage(e), 'error');
     }
   };
 
@@ -147,7 +148,7 @@ function KitchenKDS() {
       const savedPin = getRawSession('admin_pin') || '';
       await sendTestAdminPushFn({ data: { pin: savedPin } });
     } catch (e: any) {
-      showToast('Test push failed: ' + (e.message || 'Unknown error'), 'error');
+      showToast('Test push failed: ' + friendlyMessage(e), 'error');
     }
   };
 
@@ -255,7 +256,7 @@ function KitchenKDS() {
       }});
       fetchOrders();
     } catch (e: any) {
-      showToast(e.message || 'Failed to update order', 'error');
+      showToast(friendlyMessage(e, 'Failed to update order'), 'error');
       fetchOrders();
     }
   };
@@ -391,7 +392,7 @@ function KitchenKDS() {
           {currentStatus === 'out_for_delivery' && (
             <button 
               onClick={() => handleStatusUpdate(order.id, 'delivered', undefined, undefined, undefined, 'out_for_delivery')}
-              className="flex-[2] bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-3 rounded-lg text-sm transition-colors"
+              className="flex-[2] bg-green-700 hover:bg-green-600 text-white font-bold py-2 px-3 rounded-lg text-sm transition-colors"
             >
               Mark Completed
             </button>

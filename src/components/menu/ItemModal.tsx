@@ -153,7 +153,7 @@ export function ItemModal({ item, isOpen, onClose, onAddToCart }: Props) {
                 <button onClick={() => setStep(2)} className="w-1/3 bg-accent text-foreground font-bold py-3 rounded-xl hover:bg-accent/80 transition-colors">Back</button>
                 <button 
                   onClick={handleComplete} 
-                  className="w-2/3 bg-emerald-600 text-white font-bold py-3 rounded-xl hover:bg-emerald-500 shadow-md transition-colors"
+                  className="w-2/3 bg-emerald-700 text-white font-bold py-3 rounded-xl hover:bg-emerald-600 shadow-md transition-colors"
                 >
                   Add - PKR {total}
                 </button>

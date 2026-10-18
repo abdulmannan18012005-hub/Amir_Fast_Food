@@ -1,4 +1,4 @@
-import { toSafeError } from './errors';
+import { toSafeError, UserFacingError, GENERIC_ERROR } from './errors';
 import { calculateDeliveryFee, calculateDistanceKm } from '../lib/pricing';
 import { createServerFn } from '@tanstack/react-start';
 import { getSupabaseServer } from '../lib/supabase';
@@ -43,40 +43,40 @@ export const createOrder = createServerFn({ method: "POST" })
     // Rate limits (3 per phone per 10min, 5 per IP per 10min)
     const phoneNormal = payload.customerPhone.replace(/[\s-]/g, '');
     if (!checkRateLimit(phoneNormal, 'order_phone', 3, 600000)) {
-      throw new Error("Too many orders from this phone number. Please try again later.");
+      throw new UserFacingError("Too many orders from this phone number. Please try again later.");
     }
     if (!checkRateLimit(ip, 'order_ip', 5, 600000)) {
-      throw new Error("Too many orders from this IP. Please try again later.");
+      throw new UserFacingError("Too many orders from this IP. Please try again later.");
     }
 
     const supabase = getSupabaseServer();
 
     // 1. Validate Payload basics
     if (!payload.items || !Array.isArray(payload.items) || payload.items.length === 0) {
-      throw new Error("Cart is empty.");
+      throw new UserFacingError("Cart is empty.");
     }
     if (payload.items.length > 30) {
-      throw new Error("Too many items in one order.");
+      throw new UserFacingError("Too many items in one order.");
     }
     const nameStr = (payload.customerName?.trim() || '').replace(/[\x00-\x1F\x7F]/g, '').slice(0, 60);
     if (nameStr.length < 2 || nameStr.length > 60) {
-      throw new Error("Invalid name.");
+      throw new UserFacingError("Invalid name.");
     }
     const phoneRegex = /^(?:\+923|923|03)\d{9}$/;
     if (!phoneRegex.test(phoneNormal)) {
-      throw new Error("Invalid phone number. Must be a valid Pakistani mobile number.");
+      throw new UserFacingError("Invalid phone number. Must be a valid Pakistani mobile number.");
     }
     const addrStr = (payload.deliveryAddress?.trim() || '').replace(/[\x00-\x1F\x7F]/g, '').slice(0, 300);
     if (addrStr.length < 10 || addrStr.length > 300) {
-      throw new Error("Delivery address must be between 10 and 300 characters.");
+      throw new UserFacingError("Delivery address must be between 10 and 300 characters.");
     }
     if (payload.paymentMethod !== 'cod' && payload.paymentMethod !== 'online_transfer') {
-      throw new Error("Invalid payment method.");
+      throw new UserFacingError("Invalid payment method.");
     }
     
     const trxId = (payload.paymentTrxId?.trim() || '').replace(/[\x00-\x1F\x7F]/g, '').slice(0, 60);
     if (payload.paymentMethod === 'online_transfer' && !trxId) {
-      throw new Error("Transaction ID is required for online transfer.");
+      throw new UserFacingError("Transaction ID is required for online transfer.");
     }
 
     // 2. Fetch prices from DB to prevent client tampering
@@ -85,7 +85,7 @@ export const createOrder = createServerFn({ method: "POST" })
       .from('menu_items')
       .select('id, name, price, is_available, variants')
       .in('id', itemIds);
-    if (menuErr || !menuData) throw new Error('Failed to verify menu items.');
+    if (menuErr || !menuData) { console.error('[Database Menu Error]:', menuErr); throw new UserFacingError('Failed to verify menu items.'); }
     const menuMap = new Map(menuData.map((m: any) => [m.id, m]));
 
     let computedSubtotal = 0;
@@ -93,15 +93,15 @@ export const createOrder = createServerFn({ method: "POST" })
     const itemNames: string[] = [];
     for (const item of payload.items) {
       const qty = Number(item.quantity);
-      if (!Number.isInteger(qty) || qty < 1 || qty > 20) throw new Error('Invalid quantity.');
+      if (!Number.isInteger(qty) || qty < 1 || qty > 20) throw new UserFacingError('Invalid quantity.');
       const dbItem: any = menuMap.get(item.menu_item_id);
-      if (!dbItem || !dbItem.is_available) throw new Error('One or more items are unavailable.');
+      if (!dbItem || !dbItem.is_available) throw new UserFacingError('One or more items are unavailable.');
 
       const dbVariants: { name: string; price: number }[] = Array.isArray(dbItem.variants) ? dbItem.variants : [];
       const chosen: { name: string; price: number }[] = [];
       for (const v of Array.isArray(item.variants) ? item.variants : []) {
         const match = dbVariants.find(dv => dv.name === v?.name);
-        if (!match) throw new Error(`Option "${String(v?.name ?? '').slice(0, 40)}" is no longer available.`);
+        if (!match) throw new UserFacingError(`Option "${String(v?.name ?? '').slice(0, 40)}" is no longer available.`);
         chosen.push({ name: match.name, price: Number(match.price) || 0 });   // DB price only
       }
       const unit = Number(dbItem.price) + chosen.reduce((s, v) => s + v.price, 0);
@@ -133,13 +133,13 @@ export const createOrder = createServerFn({ method: "POST" })
         lat = coords.lat;
         lng = coords.lng;
       } else {
-        throw new Error("We couldn't locate your address. Please tap 'Use my current location' or WhatsApp us on 0301 4265785.");
+        throw new UserFacingError("We couldn't locate your address. Please tap 'Use my current location' or WhatsApp us on 0301 4265785.");
       }
     }
     
     distanceKm = calculateDistanceKm(lat, lng);
     if (distanceKm > 15) {
-      throw new Error("Sorry, your address is beyond our 15 KM delivery area.");
+      throw new UserFacingError("Sorry, your address is beyond our 15 KM delivery area.");
     }
     
     const pricing = calculateDeliveryFee(computedSubtotal, distanceKm, payload.paymentMethod);
@@ -207,7 +207,7 @@ export const createOrder = createServerFn({ method: "POST" })
       if (payload.paymentMethod === 'online_transfer') {
         // Must reject if we can't save TID
         await supabase.from('orders').update({ status: 'canceled', cancel_reason: 'System Error: Failed to save TID' }).eq('id', orderId);
-        throw new Error("We couldn't save your transaction ID securely. Your order was not placed. Please try again.");
+        throw new UserFacingError("We couldn't save your transaction ID securely. Your order was not placed. Please try again.");
       }
     }
     
@@ -248,9 +248,9 @@ export const updateOrderStatus = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     verifyAdminPin(data.pin);
 
-    if (!ORDER_STATUSES.includes(data.status)) throw new Error('Invalid status.');
+    if (!ORDER_STATUSES.includes(data.status)) throw new UserFacingError('Invalid status.');
     if (!data.expectedFrom || !isValidTransition(data.expectedFrom, data.status)) {
-      throw new Error('That status change is not allowed.');
+      throw new UserFacingError('That status change is not allowed.');
     }
 
     const updates: Record<string, any> = { status: data.status };
@@ -260,14 +260,14 @@ export const updateOrderStatus = createServerFn({ method: 'POST' })
     if (data.status === 'canceled') {
       cancelReason = String(data.reason ?? '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
       if (cancelReason.length < 5 || cancelReason.length > 200) {
-        throw new Error('Cancellation reason must be 5 to 200 characters.');
+        throw new UserFacingError('Cancellation reason must be 5 to 200 characters.');
       }
       updates.cancel_reason = cancelReason;
     }
     if (data.status === 'out_for_delivery') {
       riderName = String(data.riderName ?? '').replace(/<[^>]*>/g, '').trim().slice(0, 40);
       const phone = String(data.riderPhone ?? '').replace(/[\s-]/g, '');
-      if (phone && !/^(\+92|0)3\d{9}$/.test(phone)) throw new Error('Invalid rider phone number.');
+      if (phone && !/^(\+92|0)3\d{9}$/.test(phone)) throw new UserFacingError('Invalid rider phone number.');
       if (riderName) updates.rider_name = riderName;
       if (phone) updates.rider_phone = phone;
     }
@@ -279,12 +279,10 @@ export const updateOrderStatus = createServerFn({ method: 'POST' })
       .select('id').maybeSingle();
 
     if (error) {
-      if (/cancel_reason|rider_name|rider_phone|status_changed_at/.test(error.message)) {
-        throw new Error('Database update needed: run supabase/migrations/20261005_webapp_v3.sql in Supabase.');
-      }
-      throw new Error(error.message);
+      console.error("[Database Order Update Error]:", error);
+      throw new Error("Database update failed");
     }
-    if (!row) throw new Error('This order was already updated by someone else.');
+    if (!row) throw new UserFacingError('This order was already updated by someone else.');
 
     const code = data.orderId.slice(0, 8).toUpperCase();
     const bodies: Record<string, string> = {
@@ -343,7 +341,7 @@ export const getCompletedOrdersFn = createServerFn({ method: "POST" })
     query = query.order('created_at', { ascending: false }).range(start, end);
 
     const { data: orders, count, error } = await query;
-    if (error) throw new Error(error.message);
+    if (error) { console.error('[Database Query Error]:', error); throw new UserFacingError(GENERIC_ERROR); }
     
     return { orders, totalCount: count || 0 };
   });

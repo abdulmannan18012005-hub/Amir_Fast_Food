@@ -326,7 +326,7 @@ function MenuPage() {
         <div 
           role="status"
           aria-live="polite"
-          className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom)+0.75rem)] md:bottom-6 left-1/2 -translate-x-1/2 z-[80] bg-emerald-600 text-white px-5 py-3 rounded-full shadow-xl font-bold flex items-center gap-2 text-sm animate-in slide-in-from-bottom-4 fade-in duration-300"
+          className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom)+0.75rem)] md:bottom-6 left-1/2 -translate-x-1/2 z-[80] bg-emerald-700 text-white px-5 py-3 rounded-full shadow-xl font-bold flex items-center gap-2 text-sm animate-in slide-in-from-bottom-4 fade-in duration-300"
         >
           <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />

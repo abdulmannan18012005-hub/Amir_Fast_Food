@@ -1,3 +1,4 @@
+import { friendlyMessage } from '../../lib/errors';
 import { createFileRoute } from '@tanstack/react-router';
 import { seo } from '../../lib/seo';
 import React, { useEffect, useState } from 'react';
@@ -108,7 +109,7 @@ function AdminMenuEditor() {
       await updateHighlightImagesFn({ data: { data: highlightImages, pin } });
       showToast('Highlight images updated successfully!');
     } catch (e: any) {
-      showToast(e.message || 'Failed to update highlight images', 'error');
+      showToast(friendlyMessage(e, 'Failed to update highlight images'), 'error');
     }
   };
 
@@ -118,7 +119,7 @@ function AdminMenuEditor() {
       await updateCategoryImagesFn({ data: { data: categoryImages, pin } });
       showToast('Category images updated successfully!');
     } catch (e: any) {
-      showToast(e.message || 'Failed to update category images', 'error');
+      showToast(friendlyMessage(e, 'Failed to update category images'), 'error');
     }
   };
 
@@ -133,7 +134,7 @@ function AdminMenuEditor() {
       setItems(prev => prev.map(item => item.id === id ? { ...item, price, image_url: editImage, is_available: editIsAvailable } : item));
       setEditingId(null);
     } catch (e: any) {
-      showToast(e.message || 'Failed to update item!', 'error');
+      showToast(friendlyMessage(e, 'Failed to update item!'), 'error');
     }
   };
 

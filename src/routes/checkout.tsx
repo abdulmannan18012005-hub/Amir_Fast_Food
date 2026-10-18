@@ -1,3 +1,4 @@
+import { friendlyMessage } from '../lib/errors';
 import { SHOP_PHONE_LOCAL, SHOP_WHATSAPP } from '../lib/shop';
 import React, { useState, useEffect } from 'react';
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router';
@@ -182,7 +183,7 @@ function CheckoutPage() {
       setSuccessOrderId(newOrderId);
       setStep(3);
     } catch (err: any) {
-      setError(err.message || 'Failed to place order.');
+      setError(friendlyMessage(err));
       setLoading(false);
     }
   };
