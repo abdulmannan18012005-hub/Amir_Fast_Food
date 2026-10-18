@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ChefHat } from 'lucide-react';
-import { verifyAdminPinFn } from '../../server/adminAuthApi';
+import { loginAdminFn } from '../../server/adminAuthApi';
+import { getAdminToken, setAdminToken, clearAdminSession } from '../../lib/adminSession';
+import { getErrorCode } from '../../lib/errors';
 
 export function PinGate({ children, onUnlock }: { children: React.ReactNode, onUnlock?: () => void }) {
   const [pin, setPin] = useState('');
@@ -11,11 +13,18 @@ export function PinGate({ children, onUnlock }: { children: React.ReactNode, onU
 
   useEffect(() => {
     // Hydrate authentication state on client mount only to prevent SSR mismatch
-    const stored = sessionStorage.getItem('admin_pin');
-    if (stored) {
+    const token = getAdminToken();
+    if (token) {
       setIsAuthenticated(true);
     }
     setIsReady(true);
+
+    const onExpired = (e: any) => {
+      setIsAuthenticated(false);
+      setError(e.detail?.message || 'Your session has expired. Please enter the PIN again.');
+    };
+    window.addEventListener('adminSessionExpired', onExpired);
+    return () => window.removeEventListener('adminSessionExpired', onExpired);
   }, []);
 
   useEffect(() => {
@@ -27,15 +36,22 @@ export function PinGate({ children, onUnlock }: { children: React.ReactNode, onU
     setLoading(true);
     setError('');
     try {
-      const res = await verifyAdminPinFn({ data: { pin } });
-      if (res.success) {
-        sessionStorage.setItem('admin_pin', pin);
+      const res = await loginAdminFn({ data: { pin } });
+      if (res.success && res.token) {
+        setAdminToken(res.token);
         setIsAuthenticated(true);
       } else {
         setError(res.error || 'Incorrect PIN. Please try again.');
       }
-    } catch {
-      setError('Incorrect PIN. Please try again.');
+    } catch (err: any) {
+      const code = getErrorCode(err);
+      if (code === 'auth') {
+        setError(err.message || 'Incorrect PIN. Please try again.');
+      } else if (code === 'rate_limited') {
+        setError('Too many attempts. Please wait 15 minutes and try again.');
+      } else {
+        setError('Incorrect PIN. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -57,14 +73,16 @@ export function PinGate({ children, onUnlock }: { children: React.ReactNode, onU
           <h1 className="text-2xl font-bold text-white mb-2">Admin Access</h1>
           <p className="text-slate-400 text-sm mb-6">Enter your secure PIN to continue.</p>
           
-          {error && <div className="mb-4 text-red-400 bg-red-400/10 p-3 rounded-xl text-sm">{error}</div>}
+          {error && <div className="mb-4 text-red-400 bg-red-400/10 p-3 rounded-xl text-sm" role="alert">{error}</div>}
           
           <input 
             type="password" 
             value={pin}
             onChange={e => setPin(e.target.value)}
-            placeholder="Enter PIN"
-            className="w-full bg-slate-900 border border-slate-700 text-white text-center text-xl tracking-[0.5em] rounded-xl py-3 mb-4 focus:outline-none focus:border-primary"
+            placeholder="Enter PIN / Passphrase"
+            maxLength={64}
+            autoComplete="current-password"
+            className="w-full bg-slate-900 border border-slate-700 text-white text-center text-lg rounded-xl py-3 mb-4 focus:outline-none focus:border-primary"
             autoFocus
             disabled={loading}
           />
@@ -89,14 +107,13 @@ class AdminErrorBoundary extends React.Component<{children: React.ReactNode}, {h
   }
   componentDidCatch(error: Error, info: any) {
     console.error("AdminErrorBoundary caught an error:", error, info);
-    if (error.message.includes('Unauthorized') || error.message.includes('Invalid PIN')) {
-      sessionStorage.removeItem('admin_pin');
-      window.location.reload();
+    if (getErrorCode(error) === 'auth') {
+      clearAdminSession();
     }
   }
   render() {
     if (this.state.hasError) {
-      if (this.state.error?.message.includes('Unauthorized') || this.state.error?.message.includes('Invalid PIN')) {
+      if (getErrorCode(this.state.error) === 'auth') {
         return null;
       }
       return (

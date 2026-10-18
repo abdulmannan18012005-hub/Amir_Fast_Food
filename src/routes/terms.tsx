@@ -14,7 +14,8 @@ import {
   SHOP_COD_FEE,
   SHOP_ESTIMATED_DELIVERY_TIME,
   SHOP_CANCELLATION_POLICY,
-  SHOP_PAYMENT_METHODS
+  SHOP_PAYMENT_METHODS,
+  SHOP_PAYMENT_VERIFICATION_NOTE
 } from '../lib/shop';
 
 export const Route = createFileRoute('/terms')({
@@ -32,7 +33,7 @@ function TermsPage() {
         <div className="space-y-8 text-muted-foreground leading-relaxed">
           <section>
             <h2 className="text-xl font-bold text-foreground mb-3">1. Operational Hours & Service Area</h2>
-            <p className="mb-2"><strong>Hours:</strong> {SHOP_HOURS_DISPLAY} (Pakistan Standard Time).</p>
+            <p className="mb-2"><strong>Hours:</strong> {SHOP_HOURS_DISPLAY} (Pakistan Standard Time). Orders are accepted during opening hours only.</p>
             <p><strong>Service Area:</strong> Online delivery orders are accepted within a maximum radius of {SHOP_DELIVERY_MAX_KM} km from our location at {SHOP_ADDRESS}. Orders outside this distance cannot be fulfilled.</p>
           </section>
           
@@ -44,6 +45,7 @@ function TermsPage() {
           <section>
             <h2 className="text-xl font-bold text-foreground mb-3">3. Delivery Fees & Payment Methods</h2>
             <p className="mb-2"><strong>Accepted Payment Methods:</strong> {SHOP_PAYMENT_METHODS}.</p>
+            <p className="text-sm mb-2">{SHOP_PAYMENT_VERIFICATION_NOTE} Each Transaction ID can be used for one order only.</p>
             <ul className="list-disc pl-5 space-y-1.5 text-sm">
               <li><strong>Free Delivery Area:</strong> Delivery is free within a {SHOP_DELIVERY_RADIUS_FREE_KM} km radius from our restaurant.</li>
               <li><strong>Distance Fee:</strong> Deliveries beyond {SHOP_DELIVERY_RADIUS_FREE_KM} km incur an additional PKR {SHOP_DELIVERY_FEE_PER_KM} per extra kilometer up to {SHOP_DELIVERY_MAX_KM} km.</li>

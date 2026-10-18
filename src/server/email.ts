@@ -57,7 +57,7 @@ export async function sendOrderReceiptEmail(order: Order, items: (OrderItem & { 
         <p><strong>Name:</strong> ${escapeHtml(order.customer_name)}</p>
         <p><strong>Phone:</strong> ${escapeHtml(order.customer_phone)}</p>
         <p><strong>Address:</strong> ${escapeHtml(order.delivery_address)}</p>
-        <p><strong>Payment Method:</strong> ${escapeHtml(order.payment_method?.toUpperCase())}</p>
+        <p><strong>Payment Method:</strong> ${order.payment_method === 'online_transfer' ? `Online Transfer (TID: ${escapeHtml(order.payment_trx_id || 'N/A')})` : 'Cash on Delivery (COD)'}</p>
       </div>
 
       <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">

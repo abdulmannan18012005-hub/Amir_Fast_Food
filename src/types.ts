@@ -56,6 +56,8 @@ export interface Order {
   total_amount: number;
   delivery_fee: number;
   payment_method: 'wallet' | 'cod' | 'online_transfer';
+  payment_trx_id?: string | null;
+  payment_verified_at?: string | null;
   status: OrderStatus;
   delivery_address: string;
   customer_name: string;

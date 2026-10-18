@@ -5,7 +5,7 @@ import { getCompletedOrdersFn } from '../../server/order';
 import { ChefHat, Search, Calendar, RefreshCcw } from 'lucide-react';
 import { PinGate } from '../../components/admin/PinGate';
 import { AdminNav } from '../../components/admin/AdminNav';
-import { getRawSession } from '../../lib/storage';
+import { adminCall } from '../../lib/adminSession';
 
 export const Route = createFileRoute('/admin/history')({
   head: () => Object.assign(seo({ title: 'Admin - Amir Fast Food', description: 'Admin Panel', path: '/admin', noindex: true }), { links: [{ rel: 'manifest', href: '/admin.webmanifest' }] }),
@@ -29,19 +29,17 @@ function AdminHistoryPage() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+  const [refreshError, setRefreshError] = useState(false);
 
   const fetchOrders = async () => {
     setIsLoading(true);
-    const savedPin = getRawSession('admin_pin') || '';
     try {
-      const res = await getCompletedOrdersFn({ data: { pin: savedPin, date: dateFilter, search: searchQuery, status: statusFilter, page, pageSize: 25 } });
+      const res = await adminCall(getCompletedOrdersFn, { date: dateFilter, search: searchQuery, status: statusFilter, page, pageSize: 25 });
       setOrders(res.orders || []);
       setTotalCount(res.totalCount || 0);
-    } catch (e: any) {
-      if (e.message?.includes('Unauthorized')) {
-        sessionStorage.removeItem('admin_pin');
-        window.location.reload();
-      }
+      setRefreshError(false);
+    } catch {
+      setRefreshError(true);
     } finally {
       setIsLoading(false);
     }
@@ -116,12 +114,19 @@ function AdminHistoryPage() {
           </button>
         </div>
       </header>
-        <div className="bg-white border-b border-slate-200 px-6 py-3 flex justify-between items-center text-sm">
-          <span className="font-bold text-slate-700">Daily Summary (Page {page})</span>
-          <span className="bg-green-100 text-green-800 font-bold px-3 py-1 rounded-full">
-            Revenue: PKR {orders.filter(o => o.status === 'delivered').reduce((sum, o) => sum + Number(o.total_amount) + Number(o.delivery_fee), 0)}
-          </span>
+
+      {refreshError && (
+        <div role="alert" className="bg-amber-100 border-b border-amber-300 text-amber-900 px-6 py-2 text-xs text-center font-semibold">
+          Could not refresh — retrying
         </div>
+      )}
+
+      <div className="bg-white border-b border-slate-200 px-6 py-3 flex justify-between items-center text-sm">
+        <span className="font-bold text-slate-700">Daily Summary (Page {page})</span>
+        <span className="bg-green-100 text-green-800 font-bold px-3 py-1 rounded-full">
+          Revenue: PKR {orders.filter(o => o.status === 'delivered').reduce((sum, o) => sum + Number(o.total_amount) + Number(o.delivery_fee), 0)}
+        </span>
+      </div>
 
       <div className="p-6 max-w-7xl mx-auto">
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -151,9 +156,19 @@ function AdminHistoryPage() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="font-black text-primary mb-1">PKR {Number(order.total_amount) + Number(order.delivery_fee)}</div>
-                      <div className="text-slate-500 text-xs font-semibold uppercase tracking-wider bg-slate-100 inline-block px-2 py-0.5 rounded">
-                        {order.payment_method}
-                      </div>
+                      {order.payment_method === 'cod' ? (
+                        <div className="text-slate-600 text-xs font-semibold uppercase tracking-wider bg-slate-100 inline-block px-2 py-0.5 rounded">
+                          COD
+                        </div>
+                      ) : order.payment_verified_at ? (
+                        <div className="text-emerald-800 text-xs font-semibold bg-emerald-100 inline-block px-2 py-0.5 rounded">
+                          ONLINE · verified
+                        </div>
+                      ) : (
+                        <div className="text-amber-800 text-xs font-semibold bg-amber-100 inline-block px-2 py-0.5 rounded">
+                          ONLINE · verify TID
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold capitalize

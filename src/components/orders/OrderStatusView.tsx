@@ -53,13 +53,17 @@ export function OrderStatusView({ order, onNotify }: { order: LiveOrder, onNotif
         <div className="flex justify-between items-center mb-4">
           <div>
             <h2 className="text-xl font-black text-foreground">
-              {order.status === 'received' && 'Order Received'}
+              {order.status === 'received' && (order.payment_method === 'online_transfer' ? "Verifying Payment" : 'Order Received')}
               {order.status === 'preparing' && 'Preparing Food'}
               {order.status === 'out_for_delivery' && 'Out for Delivery'}
               {order.status === 'delivered' && 'Delivered - Enjoy!'}
               {order.status === 'canceled' && 'Order Canceled'}
             </h2>
-            <p className="text-muted-foreground text-sm mt-0.5">Order #{order.shortCode}</p>
+            <p className="text-muted-foreground text-sm mt-0.5">
+              {order.status === 'received' && order.payment_method === 'online_transfer' 
+                ? "We have received your order. We're verifying your payment." 
+                : `Order #${order.shortCode}`}
+            </p>
           </div>
           {onNotify && !isFinal && (
             <button 

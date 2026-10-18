@@ -42,11 +42,64 @@ export function getClientIp(): string {
   }
 }
 
+function getAdminSigningKey(): Buffer {
+  const pin = process.env.ADMIN_PIN || '';
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'aff-admin-secret-key-salt-32-chars-long';
+  return crypto.createHmac('sha256', serviceKey).update(`admin-session|${pin}`).digest();
+}
+
+export function signAdminToken(): string {
+  const payload = {
+    role: 'admin',
+    exp: Date.now() + 12 * 3600 * 1000 // 12 hours
+  };
+  const payloadB64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const sig = crypto.createHmac('sha256', getAdminSigningKey()).update(payloadB64).digest('base64url');
+  return `${payloadB64}.${sig}`;
+}
+
+export function verifyAdminToken(token: string): boolean {
+  if (!process.env.ADMIN_PIN) return false;
+  if (!token || typeof token !== 'string') return false;
+  const parts = token.split('.');
+  if (parts.length !== 2) return false;
+  const [payloadB64, sig] = parts;
+  try {
+    const expectedSig = crypto.createHmac('sha256', getAdminSigningKey()).update(payloadB64).digest('base64url');
+    if (expectedSig.length !== sig.length) return false;
+    if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expectedSig))) return false;
+    const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
+    if (!payload || payload.role !== 'admin' || typeof payload.exp !== 'number') return false;
+    if (payload.exp < Date.now()) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function requireAdmin(tokenOrPin?: string): boolean {
+  if (!process.env.ADMIN_PIN) {
+    console.warn('[AUTH] Admin is not configured.');
+    throw new UserFacingError('Admin is not configured.', 'auth');
+  }
+  if (!tokenOrPin) {
+    throw new UserFacingError('PIN is required. Please enter your admin PIN.', 'auth');
+  }
+  if (tokenOrPin.includes('.')) {
+    if (verifyAdminToken(tokenOrPin)) return true;
+    throw new UserFacingError('Your session has expired. Please enter the PIN again.', 'auth');
+  }
+  return verifyAdminPin(tokenOrPin);
+}
+
 export function verifyAdminPin(providedPin?: string): boolean {
+  if (!process.env.ADMIN_PIN) {
+    console.warn('[AUTH] Admin is not configured.');
+    throw new UserFacingError('Admin is not configured.', 'auth');
+  }
+
   if (!providedPin) {
-    const err = new UserFacingError('PIN is required. Please enter your admin PIN.');
-    (err as any).code = 'auth';
-    throw err;
+    throw new UserFacingError('PIN is required. Please enter your admin PIN.', 'auth');
   }
 
   const ip = getClientIp();
@@ -54,15 +107,10 @@ export function verifyAdminPin(providedPin?: string): boolean {
   const record = attempts.get(ip) || { count: 0, lockUntil: 0 };
 
   if (record.lockUntil > now) {
-    const err = new UserFacingError('Too many attempts. Please wait one minute and try again.');
-    (err as any).code = 'rate_limited';
-    throw err;
+    throw new UserFacingError('Too many attempts. Please wait 15 minutes and try again.', 'rate_limited');
   }
 
-  if (!process.env.ADMIN_PIN) {
-    console.warn('[AUTH] ADMIN_PIN environment variable is unset. Using default PIN.');
-  }
-  const expectedPin = process.env.ADMIN_PIN || '7864';
+  const expectedPin = process.env.ADMIN_PIN;
 
   let isMatch = false;
   try {
@@ -71,7 +119,7 @@ export function verifyAdminPin(providedPin?: string): boolean {
     if (expectedBuffer.length === providedBuffer.length) {
       isMatch = crypto.timingSafeEqual(expectedBuffer, providedBuffer);
     }
-  } catch(e) {
+  } catch (e) {
     isMatch = false;
   }
 
@@ -81,12 +129,10 @@ export function verifyAdminPin(providedPin?: string): boolean {
   } else {
     record.count++;
     if (record.count >= 5) {
-      record.lockUntil = now + 60000;
+      record.lockUntil = now + 15 * 60 * 1000; // 15 minutes lock
       record.count = 0;
     }
     attempts.set(ip, record);
-    const err = new UserFacingError('Incorrect PIN. Please try again.');
-    (err as any).code = 'auth';
-    throw err;
+    throw new UserFacingError('Incorrect PIN. Please try again.', 'auth');
   }
 }

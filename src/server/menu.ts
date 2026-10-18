@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/react-start';
-import { verifyAdminPin } from './auth';
+import { requireAdmin, verifyAdminPin } from './auth';
 import { getSupabaseServer } from '../lib/supabase';
 import { toSafeError } from './errors';
 import type { Category, MenuItem } from '../types';
@@ -80,10 +80,10 @@ export const searchMenuItems = createServerFn({ method: "GET" })
   });
 
 export const updateMenuItemFn = createServerFn({ method: "POST" })
-  .validator((d: { id: string, price: number, image_url: string, is_available?: boolean, pin?: string }) => d)
+  .validator((d: { id: string; price: number; image_url: string; is_available?: boolean; pin?: string; token?: string }) => d)
   .handler(async ({ data }) => {
     try {
-      verifyAdminPin(data.pin);
+      requireAdmin(data.token || data.pin);
       const supabase = getSupabaseServer();
       const updateData: any = { price: data.price, image_url: data.image_url };
       if (data.is_available !== undefined) {
@@ -116,9 +116,9 @@ async function getKnowledgeJson<T>(title: string, fallback: T): Promise<T> {
   return fallback;
 }
 
-async function saveKnowledgeJson(title: string, data: Record<string, string>, pin?: string) {
+async function saveKnowledgeJson(title: string, data: Record<string, string>, pinOrToken?: string) {
   try {
-    verifyAdminPin(pin);
+    requireAdmin(pinOrToken);
     const supabase = getSupabaseServer();
     const { data: existing } = await supabase.from('restaurant_knowledge').select('id').eq('title', title).maybeSingle();
     if (existing) {
@@ -155,9 +155,9 @@ export const getCategoryImagesFn = createServerFn({ method: "GET" }).handler(asy
 });
 
 export const updateCategoryImagesFn = createServerFn({ method: "POST" })
-  .validator((d: { data: Record<string, string>, pin?: string }) => d)
+  .validator((d: { data: Record<string, string>; pin?: string; token?: string }) => d)
   .handler(async ({ data: payload }) => {
-    return saveKnowledgeJson('category_images', payload.data, payload.pin);
+    return saveKnowledgeJson('category_images', payload.data, payload.token || payload.pin);
   });
 
 export const getHighlightImagesFn = createServerFn({ method: "GET" }).handler(async () => {
@@ -178,7 +178,7 @@ export const getHighlightImagesFn = createServerFn({ method: "GET" }).handler(as
 });
 
 export const updateHighlightImagesFn = createServerFn({ method: "POST" })
-  .validator((d: { data: Record<string, string>, pin?: string }) => d)
+  .validator((d: { data: Record<string, string>; pin?: string; token?: string }) => d)
   .handler(async ({ data: payload }) => {
-    return saveKnowledgeJson('highlight_images', payload.data, payload.pin);
+    return saveKnowledgeJson('highlight_images', payload.data, payload.token || payload.pin);
   });

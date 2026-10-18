@@ -7,7 +7,7 @@ import { updateMenuItemFn, getCategoryImagesFn, updateCategoryImagesFn, getHighl
 import { ChefHat, Pencil, Check, X, Image as ImageIcon, Save } from 'lucide-react';
 import { PinGate } from '../../components/admin/PinGate';
 import { AdminNav } from '../../components/admin/AdminNav';
-import { getRawSession } from '../../lib/storage';
+import { adminCall } from '../../lib/adminSession';
 import type { MenuItem } from '../../types';
 
 function ImageConfigRow({
@@ -73,40 +73,44 @@ function AdminMenuEditor() {
   const [categoryImages, setCategoryImages] = useState<Record<string, string>>({});
   const [activeAdminCategory, setActiveAdminCategory] = useState<string>('all');
 
+  const [refreshError, setRefreshError] = useState(false);
+
   useEffect(() => {
-    const fetchItems = async () => {
-      const { data } = await supabaseBrowser.from('menu_items').select('*');
-      if (data) {
-        data.sort((a, b) => {
-          if (a.category_id === 'cat_deals' && b.category_id === 'cat_deals') {
-            const numA = parseInt((a.name.match(/\d+/) || [0])[0] as string);
-            const numB = parseInt((b.name.match(/\d+/) || [0])[0] as string);
-            return numA - numB;
-          }
-          return a.name.localeCompare(b.name);
-        });
-        setItems(data as MenuItem[]);
+    let cancelled = false;
+    const fetchAll = async () => {
+      try {
+        const [itemsRes, catRes, hlRes] = await Promise.all([
+          supabaseBrowser.from('menu_items').select('*'),
+          getCategoryImagesFn(),
+          getHighlightImagesFn(),
+        ]);
+        if (cancelled) return;
+        if (itemsRes.data) {
+          const data = [...itemsRes.data];
+          data.sort((a, b) => {
+            if (a.category_id === 'cat_deals' && b.category_id === 'cat_deals') {
+              const numA = parseInt((a.name.match(/\d+/) || [0])[0] as string);
+              const numB = parseInt((b.name.match(/\d+/) || [0])[0] as string);
+              return numA - numB;
+            }
+            return a.name.localeCompare(b.name);
+          });
+          setItems(data as MenuItem[]);
+        }
+        if (catRes) setCategoryImages(catRes);
+        if (hlRes) setHighlightImages(hlRes);
+        setRefreshError(false);
+      } catch {
+        if (!cancelled) setRefreshError(true);
       }
     };
-    fetchItems();
-    
-    const fetchCategoryImages = async () => {
-      const data = await getCategoryImagesFn();
-      if (data) setCategoryImages(data);
-    };
-    fetchCategoryImages();
-    
-    const fetchHighlightImages = async () => {
-      const data = await getHighlightImagesFn();
-      if (data) setHighlightImages(data);
-    };
-    fetchHighlightImages();
+    fetchAll();
+    return () => { cancelled = true; };
   }, []);
 
   const handleSaveHighlights = async () => {
     try {
-      const pin = getRawSession('admin_pin') || '';
-      await updateHighlightImagesFn({ data: { data: highlightImages, pin } });
+      await adminCall(updateHighlightImagesFn, { data: highlightImages });
       showToast('Highlight images updated successfully!');
     } catch (e: any) {
       showToast(friendlyMessage(e, 'Failed to update highlight images'), 'error');
@@ -115,8 +119,7 @@ function AdminMenuEditor() {
 
   const handleSaveCategory = async () => {
     try {
-      const pin = getRawSession('admin_pin') || '';
-      await updateCategoryImagesFn({ data: { data: categoryImages, pin } });
+      await adminCall(updateCategoryImagesFn, { data: categoryImages });
       showToast('Category images updated successfully!');
     } catch (e: any) {
       showToast(friendlyMessage(e, 'Failed to update category images'), 'error');
@@ -125,11 +128,10 @@ function AdminMenuEditor() {
 
   const handleSaveItem = async (id: string) => {
     try {
-      const pin = getRawSession('admin_pin') || '';
       const price = parseFloat(editPrice);
       if (isNaN(price)) return showToast('Invalid price', 'error');
 
-      await updateMenuItemFn({ data: { id, price, image_url: editImage, is_available: editIsAvailable, pin } });
+      await adminCall(updateMenuItemFn, { id, price, image_url: editImage, is_available: editIsAvailable });
       
       setItems(prev => prev.map(item => item.id === id ? { ...item, price, image_url: editImage, is_available: editIsAvailable } : item));
       setEditingId(null);
@@ -155,6 +157,11 @@ function AdminMenuEditor() {
       </header>
 
       <div className="p-6 max-w-6xl mx-auto">
+        {refreshError && (
+          <div role="alert" className="bg-amber-500/10 border border-amber-500/30 text-amber-700 px-4 py-2 rounded-xl text-xs font-semibold mb-4">
+            Could not refresh — retrying
+          </div>
+        )}
         {activeTab === 'items' && (
           <div className="space-y-6 animate-in fade-in">
             <div className="flex flex-wrap gap-2 mb-6">

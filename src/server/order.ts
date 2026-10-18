@@ -3,10 +3,12 @@ import { calculateDeliveryFee, calculateDistanceKm } from '../lib/pricing';
 import { createServerFn } from '@tanstack/react-start';
 import { getSupabaseServer } from '../lib/supabase';
 import { sendOrderReceiptEmail } from './email';
-import { verifyAdminPin, getClientIp } from './auth';
+import { requireAdmin, verifyAdminPin, getClientIp } from './auth';
 import { checkRateLimit } from './rateLimit';
 import { isValidTransition, OrderStatus, ORDER_STATUSES } from '../lib/orderStatus';
 import { sendOrderPush, sendAdminOrderPush } from './push';
+import { getShopStatus } from '../lib/shop';
+import { normalizeName, normalizePhone, normalizeAddress, normalizeTid, validateTid } from '../lib/orderValidation';
 
 export interface CreateOrderPayload {
   website?: string; // honeypot
@@ -34,49 +36,84 @@ export const createOrder = createServerFn({ method: "POST" })
   try {
     const ip = getClientIp();
     
-    // 0. Spam / Honeypot guard
+    // 0. Opening hours check (server authoritative)
+    const shopStatus = getShopStatus();
+    if (!shopStatus.open) {
+      throw new UserFacingError(
+        `We're closed right now. We open every day at ${shopStatus.opensAtLabel} (Pakistan time). You can fill your cart now and order when we open.`,
+        'shop_closed'
+      );
+    }
+
+    // 0b. Spam / Honeypot guard
     if (payload.website) {
       // Silently fail if honeypot is filled
       return { success: true, orderId: '00000000-0000-0000-0000-000000000000' };
-    }
-    
-    // Rate limits (3 per phone per 10min, 5 per IP per 10min)
-    const phoneNormal = payload.customerPhone.replace(/[\s-]/g, '');
-    if (!checkRateLimit(phoneNormal, 'order_phone', 3, 600000)) {
-      throw new UserFacingError("Too many orders from this phone number. Please try again later.");
-    }
-    if (!checkRateLimit(ip, 'order_ip', 5, 600000)) {
-      throw new UserFacingError("Too many orders from this IP. Please try again later.");
     }
 
     const supabase = getSupabaseServer();
 
     // 1. Validate Payload basics
     if (!payload.items || !Array.isArray(payload.items) || payload.items.length === 0) {
-      throw new UserFacingError("Cart is empty.");
+      throw new UserFacingError("Cart is empty.", "validation");
     }
     if (payload.items.length > 30) {
-      throw new UserFacingError("Too many items in one order.");
+      throw new UserFacingError("Too many items in one order.", "validation");
     }
-    const nameStr = (payload.customerName?.trim() || '').replace(/[\x00-\x1F\x7F]/g, '').slice(0, 60);
+
+    const nameStr = normalizeName(payload.customerName || '');
     if (nameStr.length < 2 || nameStr.length > 60) {
-      throw new UserFacingError("Invalid name.");
+      throw new UserFacingError("Invalid name.", "validation");
     }
+
+    const phoneNormal = normalizePhone(payload.customerPhone || '');
     const phoneRegex = /^(?:\+923|923|03)\d{9}$/;
     if (!phoneRegex.test(phoneNormal)) {
-      throw new UserFacingError("Invalid phone number. Must be a valid Pakistani mobile number.");
+      throw new UserFacingError("Invalid phone number. Must be a valid Pakistani mobile number.", "validation");
     }
-    const addrStr = (payload.deliveryAddress?.trim() || '').replace(/[\x00-\x1F\x7F]/g, '').slice(0, 300);
+
+    const addrStr = normalizeAddress(payload.deliveryAddress || '');
     if (addrStr.length < 10 || addrStr.length > 300) {
-      throw new UserFacingError("Delivery address must be between 10 and 300 characters.");
+      throw new UserFacingError("Delivery address must be between 10 and 300 characters.", "validation");
     }
+
+    // Rate limits (3 per phone per 10min, 5 per IP per 10min, 3 per address per 10min)
+    if (!(await checkRateLimit(phoneNormal, 'order_phone', 3, 600000))) {
+      throw new UserFacingError("Too many orders from this phone number. Please try again later.", "rate_limited");
+    }
+    if (!(await checkRateLimit(ip, 'order_ip', 5, 600000))) {
+      throw new UserFacingError("Too many orders from this IP. Please try again later.", "rate_limited");
+    }
+    if (!(await checkRateLimit(addrStr.toLowerCase(), 'order_addr', 3, 600000))) {
+      throw new UserFacingError("Too many orders for this address. Please try again later.", "rate_limited");
+    }
+
     if (payload.paymentMethod !== 'cod' && payload.paymentMethod !== 'online_transfer') {
-      throw new UserFacingError("Invalid payment method.");
+      throw new UserFacingError("Invalid payment method.", "validation");
     }
-    
-    const trxId = (payload.paymentTrxId?.trim() || '').replace(/[\x00-\x1F\x7F]/g, '').slice(0, 60);
-    if (payload.paymentMethod === 'online_transfer' && !trxId) {
-      throw new UserFacingError("Transaction ID is required for online transfer.");
+
+    let normalizedTrx = '';
+    if (payload.paymentMethod === 'online_transfer') {
+      normalizedTrx = normalizeTid(payload.paymentTrxId || '');
+      if (!validateTid(normalizedTrx)) {
+        throw new UserFacingError("Please enter the Transaction ID exactly as shown in your EasyPaisa/JazzCash payment confirmation.", "validation");
+      }
+
+      // Check duplicate active TID across non-canceled orders
+      const { data: existingTrx } = await supabase
+        .from('orders')
+        .select('id')
+        .eq('payment_method', 'online_transfer')
+        .neq('status', 'canceled')
+        .ilike('payment_trx_id', normalizedTrx)
+        .limit(1);
+
+      if (existingTrx && existingTrx.length > 0) {
+        throw new UserFacingError(
+          "This Transaction ID has already been used for another order. Please check the ID, or call us on 0301 4265785.",
+          "tid_duplicate"
+        );
+      }
     }
 
     // 2. Fetch prices from DB to prevent client tampering
@@ -189,7 +226,7 @@ export const createOrder = createServerFn({ method: "POST" })
 
     // 5. Update extra fields missing from RPC safely
     const extraFields: any = {
-      payment_trx_id: payload.paymentMethod === 'online_transfer' ? trxId : null,
+      payment_trx_id: payload.paymentMethod === 'online_transfer' ? normalizedTrx : null,
       delivery_lat: lat,
       delivery_lng: lng,
       distance_km: distanceKm,
@@ -204,19 +241,19 @@ export const createOrder = createServerFn({ method: "POST" })
       
     if (updateErr) {
       console.warn("Failed to save extra order fields:", updateErr);
+      if (updateErr.code === '23505' || updateErr.message?.includes('orders_unique_active_trx')) {
+        await supabase.from('orders').update({ status: 'canceled', cancel_reason: 'Duplicate TID' }).eq('id', orderId);
+        throw new UserFacingError("This Transaction ID has already been used for another order. Please check the ID, or call us on 0301 4265785.", "tid_duplicate");
+      }
       if (payload.paymentMethod === 'online_transfer') {
         // Must reject if we can't save TID
         await supabase.from('orders').update({ status: 'canceled', cancel_reason: 'System Error: Failed to save TID' }).eq('id', orderId);
-        throw new UserFacingError("We couldn't save your transaction ID securely. Your order was not placed. Please try again.");
+        throw new UserFacingError("We couldn't save your transaction ID securely. Your order was not placed. Please try again.", "validation");
       }
     }
     
-    // Trigger push via dynamic import / internal API call (will implement next)
-    
-
-    
     // Admin Push Alert
-    const adminSummary = `New order #${orderId.slice(0, 8).toUpperCase()} - PKR ${computedSubtotal + finalDeliveryFee} · ${payload.paymentMethod === 'cod' ? 'COD' : 'PAID'}`;
+    const adminSummary = `New order #${orderId.slice(0, 8).toUpperCase()} - PKR ${computedSubtotal + finalDeliveryFee} · ${payload.paymentMethod === 'cod' ? 'COD' : 'ONLINE · verify TID'}`;
     await Promise.race([
       sendAdminOrderPush(orderId, adminSummary),
       new Promise(r => setTimeout(r, 4000))
@@ -239,18 +276,59 @@ export const createOrder = createServerFn({ method: "POST" })
   }
 });
 
+// Verify Online Payment (Admin)
+export const verifyPaymentFn = createServerFn({ method: "POST" })
+  .validator((d: { orderId: string; pin?: string; token?: string }) => d)
+  .handler(async ({ data }) => {
+    requireAdmin(data.token || data.pin);
+    const supabase = getSupabaseServer();
+    const nowIso = new Date().toISOString();
+    const { error } = await supabase
+      .from('orders')
+      .update({ payment_verified_at: nowIso })
+      .eq('id', data.orderId)
+      .eq('payment_method', 'online_transfer');
+
+    if (error) {
+      console.warn('[verifyPaymentFn] DB error:', error.message);
+      if (error.code === '42703' || error.message?.includes('payment_verified_at')) {
+        return { success: false, code: 'db_migration_needed', message: 'Database update needed for payment verification (ask the developer)' };
+      }
+      throw new UserFacingError('Failed to verify payment.', 'validation');
+    }
+    return { success: true };
+  });
+
 // Update Order Status (Admin)
 export const updateOrderStatus = createServerFn({ method: 'POST' })
   .validator((d: {
-    orderId: string; status: OrderStatus; pin: string;
+    orderId: string; status: OrderStatus; pin?: string; token?: string;
     expectedFrom: OrderStatus; reason?: string; riderName?: string; riderPhone?: string;
   }) => d)
   .handler(async ({ data }) => {
-    verifyAdminPin(data.pin);
+    requireAdmin(data.token || data.pin);
 
-    if (!ORDER_STATUSES.includes(data.status)) throw new UserFacingError('Invalid status.');
+    if (!ORDER_STATUSES.includes(data.status)) throw new UserFacingError('Invalid status.', 'validation');
     if (!data.expectedFrom || !isValidTransition(data.expectedFrom, data.status)) {
-      throw new UserFacingError('That status change is not allowed.');
+      throw new UserFacingError('That status change is not allowed.', 'validation');
+    }
+
+    const supabase = getSupabaseServer();
+
+    // Payment verification gate for online_transfer:
+    // refuse received -> preparing (and any other progression) if unverified
+    if (data.status !== 'canceled' && data.expectedFrom === 'received') {
+      const { data: currentOrder, error: fetchErr } = await supabase
+        .from('orders')
+        .select('id, payment_method, payment_verified_at')
+        .eq('id', data.orderId)
+        .maybeSingle();
+
+      if (!fetchErr && currentOrder && currentOrder.payment_method === 'online_transfer') {
+        if ('payment_verified_at' in currentOrder && !currentOrder.payment_verified_at) {
+          throw new UserFacingError("Please verify the payment first.", "payment_unverified");
+        }
+      }
     }
 
     const updates: Record<string, any> = { status: data.status };
@@ -260,19 +338,18 @@ export const updateOrderStatus = createServerFn({ method: 'POST' })
     if (data.status === 'canceled') {
       cancelReason = String(data.reason ?? '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
       if (cancelReason.length < 5 || cancelReason.length > 200) {
-        throw new UserFacingError('Cancellation reason must be 5 to 200 characters.');
+        throw new UserFacingError('Cancellation reason must be 5 to 200 characters.', 'validation');
       }
       updates.cancel_reason = cancelReason;
     }
     if (data.status === 'out_for_delivery') {
       riderName = String(data.riderName ?? '').replace(/<[^>]*>/g, '').trim().slice(0, 40);
       const phone = String(data.riderPhone ?? '').replace(/[\s-]/g, '');
-      if (phone && !/^(\+92|0)3\d{9}$/.test(phone)) throw new UserFacingError('Invalid rider phone number.');
+      if (phone && !/^(\+92|0)3\d{9}$/.test(phone)) throw new UserFacingError('Invalid rider phone number.', 'validation');
       if (riderName) updates.rider_name = riderName;
       if (phone) updates.rider_phone = phone;
     }
 
-    const supabase = getSupabaseServer();
     const { data: row, error } = await supabase
       .from('orders').update(updates)
       .eq('id', data.orderId).eq('status', data.expectedFrom)
@@ -301,9 +378,9 @@ export const updateOrderStatus = createServerFn({ method: 'POST' })
   });
 
 export const getCompletedOrdersFn = createServerFn({ method: "POST" })
-  .validator((d: { pin?: string, date?: string, search?: string, status?: string, page?: number, pageSize?: number }) => d)
+  .validator((d: { pin?: string; token?: string; date?: string; search?: string; status?: string; page?: number; pageSize?: number }) => d)
   .handler(async ({ data }) => {
-    verifyAdminPin(data.pin);
+    requireAdmin(data.token || data.pin);
 
     const supabase = getSupabaseServer();
     let query = supabase
@@ -347,9 +424,9 @@ export const getCompletedOrdersFn = createServerFn({ method: "POST" })
   });
 
 export const getKitchenOrders = createServerFn({ method: "POST" })
-  .validator((d: { pin?: string }) => d)
+  .validator((d: { pin?: string; token?: string }) => d)
   .handler(async ({ data }) => {
-    verifyAdminPin(data.pin);
+    requireAdmin(data.token || data.pin);
     const supabase = getSupabaseServer();
     
     const { data: orders, error } = await supabase

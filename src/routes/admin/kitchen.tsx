@@ -1,14 +1,14 @@
 import { friendlyMessage } from '../../lib/errors';
 import { createFileRoute } from '@tanstack/react-router';
 import { seo } from '../../lib/seo';
-import React, { useEffect, useState } from 'react';
-import { updateOrderStatus, getKitchenOrders } from '../../server/order';
+import React, { useEffect, useState, useRef } from 'react';
+import { updateOrderStatus, getKitchenOrders, verifyPaymentFn } from '../../server/order';
 import { playKitchenDing, initAudio } from '../../lib/sound';
 import { PinGate } from '../../components/admin/PinGate';
 import { AdminNav } from '../../components/admin/AdminNav';
-import { Clock, CheckCircle, ChefHat, Truck, XCircle, Volume2, VolumeX, BellRing, Printer, AlertTriangle } from 'lucide-react';
+import { Clock, CheckCircle, ChefHat, Truck, XCircle, Volume2, VolumeX, BellRing, Printer, AlertTriangle, Copy } from 'lucide-react';
 import { subscribeAdminPushFn, sendTestAdminPushFn, getVapidPublicKeyFn } from '../../server/push';
-import { getRawSession } from '../../lib/storage';
+import { adminCall, clearAdminSession } from '../../lib/adminSession';
 
 
 function KitchenColumn({
@@ -83,7 +83,11 @@ function KitchenSoundGate({ children }: { children: React.ReactNode }) {
 
 function KitchenKDS() {
   const [orders, setOrders] = useState<any[]>([]);
-  const [connState, setConnState] = useState<'Live' | 'Reconnecting...' | 'Offline' | 'Live (Polling)'>('Live');
+  const [connStatus, setConnStatus] = useState<'live' | 'reconnecting' | 'offline'>('live');
+  const [lastUpdatedTime, setLastUpdatedTime] = useState<string>('');
+  const [dbMigrationNeeded, setDbMigrationNeeded] = useState(false);
+  const [copiedTid, setCopiedTid] = useState<string | null>(null);
+  const [verifyingPaymentId, setVerifyingPaymentId] = useState<string | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [now, setNow] = useState(Date.now());
   const [kitchenToast, setKitchenToast] = useState<{ msg: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -94,6 +98,12 @@ function KitchenKDS() {
   const [wakeLockEnabled, setWakeLockEnabled] = useState(false);
   const [pushStatus, setPushStatus] = useState<'Checking...' | 'Enabled' | 'Blocked' | 'Not Supported' | 'Alerts not configured'>('Checking...');
 
+  const prevOrderIdsRef = useRef<Set<string>>(new Set());
+  const consecutiveFailuresRef = useRef<number>(0);
+  const lastSuccessTimeRef = useRef<number>(Date.now());
+  const pollTimerRef = useRef<any>(null);
+  const isPollingRef = useRef<boolean>(false);
+
   useEffect(() => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       setPushStatus('Not Supported');
@@ -102,7 +112,7 @@ function KitchenKDS() {
     navigator.permissions.query({ name: 'notifications' }).then(status => {
       if (status.state === 'denied') setPushStatus('Blocked');
       else if (status.state === 'granted') setPushStatus('Enabled');
-      else setPushStatus('Checking...'); // Actually means 'Promptable'
+      else setPushStatus('Checking...');
     });
   }, []);
 
@@ -131,8 +141,7 @@ function KitchenKDS() {
         });
       }
 
-      const savedPin = getRawSession('admin_pin') || '';
-      const res = await subscribeAdminPushFn({ data: { subscription: JSON.parse(JSON.stringify(subscription)), pin: savedPin } });
+      const res = await adminCall(subscribeAdminPushFn, { subscription: JSON.parse(JSON.stringify(subscription)) });
       if (res.success) {
         setPushStatus('Enabled');
       } else {
@@ -145,13 +154,11 @@ function KitchenKDS() {
 
   const handleTestPush = async () => {
     try {
-      const savedPin = getRawSession('admin_pin') || '';
-      await sendTestAdminPushFn({ data: { pin: savedPin } });
+      await adminCall(sendTestAdminPushFn);
     } catch (e: any) {
       showToast('Test push failed: ' + friendlyMessage(e), 'error');
     }
   };
-
 
   // Modals
   const [cancelModalOpen, setCancelModalOpen] = useState<{ id: string, expected: any } | null>(null);
@@ -194,39 +201,80 @@ function KitchenKDS() {
     return () => clearInterval(timer);
   }, []);
 
-  const fetchOrders = async () => {
-    const pin = getRawSession('admin_pin') || '';
+  const scheduleNextPoll = (delayMs: number) => {
+    if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+    pollTimerRef.current = setTimeout(runPoll, delayMs);
+  };
+
+  const runPoll = async () => {
+    if (isPollingRef.current) return;
+    if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+      scheduleNextPoll(5000);
+      return;
+    }
+    isPollingRef.current = true;
     try {
-      const data = await getKitchenOrders({ data: { pin } });
-      setOrders(data);
-      setConnState('Live');
-    } catch (e: any) {
-      if (e.message?.includes('Unauthorized')) {
-        sessionStorage.removeItem('admin_pin');
-        window.location.reload();
+      const data = await adminCall(getKitchenOrders);
+      lastSuccessTimeRef.current = Date.now();
+      consecutiveFailuresRef.current = 0;
+      setConnStatus('live');
+      
+      const nowStr = new Date().toLocaleTimeString('en-GB');
+      setLastUpdatedTime(nowStr);
+
+      const newOrders = Array.isArray(data) ? data : [];
+      const newIds = new Set(newOrders.map((o: any) => o.id));
+      const newlyArrived = newOrders.filter((o: any) => !prevOrderIdsRef.current.has(o.id));
+      
+      if (prevOrderIdsRef.current.size > 0 && newlyArrived.length > 0 && soundEnabled) {
+        playKitchenDing();
       }
+      prevOrderIdsRef.current = newIds;
+      setOrders(newOrders);
+      scheduleNextPoll(5000);
+    } catch (err: any) {
+      consecutiveFailuresRef.current++;
+      const timeSinceSuccess = Date.now() - lastSuccessTimeRef.current;
+      const isOffline = consecutiveFailuresRef.current >= 3 || timeSinceSuccess >= 20000;
+      
+      if (isOffline) {
+        if (connStatus !== 'offline' && soundEnabled) {
+          playKitchenDing();
+        }
+        setConnStatus('offline');
+      } else {
+        setConnStatus('reconnecting');
+      }
+
+      const nextDelay = consecutiveFailuresRef.current === 1 ? 5000 : (consecutiveFailuresRef.current === 2 ? 10000 : 20000);
+      scheduleNextPoll(nextDelay);
+    } finally {
+      isPollingRef.current = false;
     }
   };
 
   useEffect(() => {
-    fetchOrders();
-    setConnState('Live (Polling)');
+    runPoll();
 
-    // Network status
-    const onOnline = () => { setConnState('Live (Polling)'); fetchOrders(); };
-    const onOffline = () => setConnState('Offline');
+    const onOnline = () => {
+      runPoll();
+    };
+    const onOffline = () => {
+      setConnStatus('offline');
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') runPoll();
+    };
+
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
-
-    // Primary polling (5s)
-    const poll = setInterval(() => {
-       if (document.visibilityState === 'visible') fetchOrders();
-    }, 5000);
+    document.addEventListener('visibilitychange', onVisibility);
 
     return () => {
-      clearInterval(poll);
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
       window.removeEventListener('online', onOnline);
       window.removeEventListener('offline', onOffline);
+      document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [soundEnabled]);
 
@@ -237,27 +285,45 @@ function KitchenKDS() {
     if (hasReceived) {
       const dingTimer = setInterval(() => {
         playKitchenDing();
-      }, 20000); // Repeat ding every 20s if pending
+      }, 20000);
       return () => clearInterval(dingTimer);
     }
   }, [orders, soundEnabled]);
 
   const handleStatusUpdate = async (orderId: string, status: any, reason?: string, riderN?: string, riderP?: string, expectedFrom?: any) => {
-    const savedPin = getRawSession('admin_pin') || '';
     try {
-      await updateOrderStatus({ data: { 
+      await adminCall(updateOrderStatus, { 
         orderId, 
         status, 
-        pin: savedPin,
         reason,
         riderName: riderN,
         riderPhone: riderP,
         expectedFrom
-      }});
-      fetchOrders();
+      });
+      runPoll();
     } catch (e: any) {
       showToast(friendlyMessage(e, 'Failed to update order'), 'error');
-      fetchOrders();
+      runPoll();
+    }
+  };
+
+  const handleVerifyPayment = async (orderId: string) => {
+    setVerifyingPaymentId(orderId);
+    try {
+      const res = await adminCall(verifyPaymentFn, { orderId });
+      if (res && (res as any).code === 'db_migration_needed') {
+        setDbMigrationNeeded(true);
+        showToast((res as any).message || 'Database update needed for payment verification', 'error');
+      } else if (res && res.success) {
+        showToast('Payment verified successfully', 'success');
+        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, payment_verified_at: new Date().toISOString() } : o));
+      } else {
+        showToast('Failed to verify payment', 'error');
+      }
+    } catch (e: any) {
+      showToast(friendlyMessage(e, 'Failed to verify payment'), 'error');
+    } finally {
+      setVerifyingPaymentId(null);
     }
   };
 
@@ -299,7 +365,7 @@ function KitchenKDS() {
         ${itemsHtml}
         <div class="footer">
           <p>Total: PKR ${Number(order.total_amount) + Number(order.delivery_fee)}</p>
-          <p><b>Payment:</b> ${order.payment_method === 'cod' ? 'COD' : 'PAID (ONLINE)'}</p>
+          <p><b>Payment:</b> ${order.payment_method === 'cod' ? 'COD' : (order.payment_verified_at ? 'ONLINE (verified)' : 'ONLINE (verify TID)')}</p>
         </div>
         <script>
           window.onload = () => { window.print(); setTimeout(() => window.close(), 500); }
@@ -326,8 +392,12 @@ function KitchenKDS() {
           <div>
             <div className="flex items-center gap-2">
               <span className="font-mono text-xs text-slate-400 bg-slate-900 px-2 py-0.5 rounded">#{order.id.slice(0, 8)}</span>
-              {order.payment_method !== 'cod' && (
-                <span className="text-xs bg-green-900/50 text-green-400 font-bold px-1.5 py-0.5 rounded uppercase">Paid</span>
+              {order.payment_method === 'cod' ? (
+                <span className="text-xs bg-slate-900 text-slate-300 font-bold px-2 py-0.5 rounded">COD</span>
+              ) : order.payment_verified_at ? (
+                <span className="text-xs bg-emerald-950/90 text-emerald-300 border border-emerald-700/60 font-bold px-2 py-0.5 rounded">ONLINE · verified</span>
+              ) : (
+                <span className="text-xs bg-amber-950/90 text-amber-300 border border-amber-700/60 font-bold px-2 py-0.5 rounded">ONLINE · verify TID</span>
               )}
             </div>
             <h3 className="font-bold text-white mt-1">{order.customer_name}</h3>
@@ -338,6 +408,45 @@ function KitchenKDS() {
             <Clock size={12} /> {timeAgo(order.created_at)}
           </div>
         </div>
+
+        {order.payment_method === 'online_transfer' && (
+          <div className="bg-slate-900/90 border border-slate-700/80 rounded-lg p-2.5 text-xs text-slate-300 flex items-center justify-between gap-2 mt-1">
+            <div>
+              <span className="text-slate-400 block text-[11px]">TID to match:</span>
+              <span className="font-mono font-bold text-amber-300 text-sm select-all tracking-wider">{order.payment_trx_id || 'N/A'}</span>
+              <span className="text-slate-400 block text-[11px] mt-0.5">Amount: <strong className="text-white">PKR {Number(order.total_amount) + Number(order.delivery_fee)}</strong></span>
+            </div>
+            {order.payment_trx_id && (
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard?.writeText(order.payment_trx_id);
+                  setCopiedTid(order.id);
+                  setTimeout(() => setCopiedTid(null), 2000);
+                }}
+                className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-600 font-semibold text-xs flex items-center gap-1 transition-colors"
+                title="Copy TID"
+              >
+                <Copy size={13} />
+                <span>{copiedTid === order.id ? 'Copied' : 'Copy'}</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {currentStatus === 'received' && order.payment_method === 'online_transfer' && !order.payment_verified_at && (
+          <div className="bg-amber-950/30 border border-amber-800/60 rounded-lg p-2.5 text-xs text-amber-200 space-y-2 mt-1">
+            <p className="font-medium text-amber-300">Check this TID and amount in the EasyPaisa/JazzCash app first</p>
+            <button
+              type="button"
+              disabled={verifyingPaymentId === order.id}
+              onClick={() => handleVerifyPayment(order.id)}
+              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-3 rounded-lg text-sm transition-colors flex items-center justify-center gap-1.5 shadow disabled:opacity-50"
+            >
+              {verifyingPaymentId === order.id ? 'Verifying...' : 'Mark payment verified'}
+            </button>
+          </div>
+        )}
 
         <div className="space-y-2 mt-2">
           {order.order_items.map((item: any, idx: number) => (
@@ -367,13 +476,17 @@ function KitchenKDS() {
             <>
               <button 
                 onClick={() => handleStatusUpdate(order.id, 'preparing', undefined, undefined, undefined, 'received')}
-                className="flex-[1] bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-2 px-2 rounded-lg text-sm transition-colors"
+                disabled={order.payment_method === 'online_transfer' && !order.payment_verified_at && !dbMigrationNeeded}
+                className="flex-[1] bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-2 px-2 rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title={order.payment_method === 'online_transfer' && !order.payment_verified_at && !dbMigrationNeeded ? 'Please verify the payment first' : undefined}
               >
                 Prep Food
               </button>
               <button 
                 onClick={() => setDispatchModalOpen({ id: order.id, expected: 'received' })}
-                className="flex-[1] bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-2 rounded-lg text-sm transition-colors"
+                disabled={order.payment_method === 'online_transfer' && !order.payment_verified_at && !dbMigrationNeeded}
+                className="flex-[1] bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-2 rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title={order.payment_method === 'online_transfer' && !order.payment_verified_at && !dbMigrationNeeded ? 'Please verify the payment first' : undefined}
               >
                 Skip to Delivery
               </button>
@@ -421,14 +534,24 @@ function KitchenKDS() {
           <ChefHat className="text-primary" size={28} />
           <h1 className="text-xl font-bold text-white hidden md:block">KDS | AMR Fast Food</h1>
           
-          <div className={`px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 ${
-            connState === 'Live' ? 'bg-green-900/40 text-green-400' :
-            connState === 'Reconnecting...' ? 'bg-yellow-900/40 text-yellow-400' :
-            'bg-red-900/40 text-red-400'
-          }`}>
-            <div className={`w-2 h-2 rounded-full ${connState === 'Live' ? 'bg-green-400' : connState === 'Reconnecting...' ? 'bg-yellow-400 animate-pulse' : 'bg-red-400'}`} />
-            {connState}
-          </div>
+          {connStatus === 'live' && (
+            <div className="px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 bg-emerald-950/80 text-emerald-300 border border-emerald-700/60">
+              <div className="w-2 h-2 rounded-full bg-emerald-400" />
+              <span>Live{lastUpdatedTime ? ` · updated ${lastUpdatedTime}` : ''}</span>
+            </div>
+          )}
+          {connStatus === 'reconnecting' && (
+            <div className="px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 bg-amber-950/80 text-amber-300 border border-amber-700/60">
+              <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              <span>Reconnecting…</span>
+            </div>
+          )}
+          {connStatus === 'offline' && (
+            <div role="alert" className="px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 bg-red-700 text-white shadow-md animate-pulse">
+              <div className="w-2 h-2 rounded-full bg-white" />
+              <span>Offline — orders may be out of date</span>
+            </div>
+          )}
           {wakeLockEnabled && (
             <span className="text-xs bg-slate-700 px-2 py-0.5 rounded text-slate-300 hidden sm:block">
               Screen Awake
@@ -449,11 +572,23 @@ function KitchenKDS() {
           >
             {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
           </button>
-          <button onClick={() => { sessionStorage.removeItem('admin_pin'); window.location.reload(); }} className="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg text-sm font-bold text-white transition-colors">
+          <button onClick={() => { clearAdminSession(); window.location.reload(); }} className="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg text-sm font-bold text-white transition-colors">
             Lock
           </button>
         </div>
       </header>
+
+      {dbMigrationNeeded && (
+        <div role="alert" className="bg-red-600 text-white font-bold p-3 text-center text-sm shadow">
+          Database update needed for payment verification (ask the developer)
+        </div>
+      )}
+      {connStatus === 'offline' && (
+        <div role="alert" className="bg-red-950/90 border-b border-red-800 text-red-200 px-6 py-2.5 text-xs text-center font-bold flex items-center justify-center gap-2">
+          <AlertTriangle size={15} className="text-red-400" />
+          <span>Offline — orders may be out of date. Reconnecting automatically...</span>
+        </div>
+      )}
 
       {/* Kanban Board */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start p-6">

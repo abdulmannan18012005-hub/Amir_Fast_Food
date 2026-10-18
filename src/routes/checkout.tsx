@@ -1,5 +1,5 @@
 import { friendlyMessage } from '../lib/errors';
-import { SHOP_PHONE_LOCAL, SHOP_WHATSAPP } from '../lib/shop';
+import { SHOP_PHONE_LOCAL, SHOP_WHATSAPP, SHOP_PAYMENT_VERIFICATION_NOTE } from '../lib/shop';
 import React, { useState, useEffect } from 'react';
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router';
 import { createOrder } from '../server/order';
@@ -392,6 +392,7 @@ function CheckoutPage() {
                       className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                       placeholder="e.g. 123456789012"
                     />
+                    <p className="text-xs text-muted-foreground mt-2">{SHOP_PAYMENT_VERIFICATION_NOTE}</p>
                   </div>
                 )}
 

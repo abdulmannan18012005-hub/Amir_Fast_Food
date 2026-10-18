@@ -245,7 +245,7 @@ export function OrderTracker() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-foreground truncate">
-                  {status === 'received' && 'Order Received'}
+                  {status === 'received' && (order?.payment_method === 'online_transfer' ? "We're verifying your payment" : 'Order Received')}
                   {status === 'preparing' && 'Preparing Food'}
                   {status === 'out_for_delivery' && 'Out for Delivery'}
                   {status === 'delivered' && 'Delivered - Enjoy!'}

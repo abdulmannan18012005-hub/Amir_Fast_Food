@@ -37,7 +37,7 @@ export function AdminNav() {
   };
 
   const handleLock = () => {
-    sessionStorage.removeItem('admin_pin');
+    sessionStorage.removeItem('admin_session');
     window.location.reload();
   };
 

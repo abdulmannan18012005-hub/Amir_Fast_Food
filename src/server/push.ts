@@ -25,18 +25,19 @@ async function dispatchPushToSubscriber(
 async function initWebPush() {
   const VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY;
   const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY;
-  if (!VAPID_PUBLIC || !VAPID_PRIVATE) return null;
-  const webpush = await initWebPush();
-    if (!webpush) {
-      console.warn("Skipping push: VAPID keys missing.");
-      return;
-    }
+  const VAPID_SUBJECT = process.env.VAPID_SUBJECT || (process.env.SHOP_EMAIL ? `mailto:${process.env.SHOP_EMAIL}` : 'https://amir-fast-food.vercel.app');
+  if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
+    console.warn("Skipping push: VAPID keys missing.");
+    return null;
+  }
+  const webpush = (await import('web-push')).default;
+  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
   return webpush;
 }
 
 import { createServerFn } from '@tanstack/react-start';
 import { getSupabaseServer } from '../lib/supabase';
-import { getClientIp, verifyAdminPin } from './auth';
+import { getClientIp, verifyAdminPin, requireAdmin } from './auth';
 
 export const getVapidPublicKeyFn = createServerFn({ method: "POST" })
   .handler(async () => {
@@ -114,9 +115,9 @@ export async function sendOrderPush(orderId: string, status: string, title?: str
 
 
 export const subscribeAdminPushFn = createServerFn({ method: "POST" })
-  .validator((d: { subscription: any, pin: string }) => d)
+  .validator((d: { subscription: any; pin?: string; token?: string }) => d)
   .handler(async ({ data }) => {
-    verifyAdminPin(data.pin);
+    requireAdmin(data.token || data.pin);
     const supabase = getSupabaseServer();
     
     const { endpoint, keys } = data.subscription;
@@ -162,9 +163,9 @@ export async function sendAdminOrderPush(orderId: string, summary: string) {
 }
 
 export const sendTestAdminPushFn = createServerFn({ method: "POST" })
-  .validator((d: { pin: string }) => d)
+  .validator((d: { pin?: string; token?: string }) => d)
   .handler(async ({ data }) => {
-    verifyAdminPin(data.pin);
+    requireAdmin(data.token || data.pin);
     await sendAdminOrderPush('TEST', 'Test Alert: Notifications are working!');
     return { success: true };
   });
