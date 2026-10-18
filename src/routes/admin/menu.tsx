@@ -1,10 +1,35 @@
-function ImageConfigRow({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder: string }) {
+import { createFileRoute } from '@tanstack/react-router';
+import { seo } from '../../lib/seo';
+import React, { useEffect, useState } from 'react';
+import { supabaseBrowser } from '../../lib/supabase';
+import { updateMenuItemFn, getCategoryImagesFn, updateCategoryImagesFn, getHighlightImagesFn, updateHighlightImagesFn } from '../../server/menu';
+import { ChefHat, Pencil, Check, X, Image as ImageIcon, Save } from 'lucide-react';
+import { PinGate } from '../../components/admin/PinGate';
+import { AdminNav } from '../../components/admin/AdminNav';
+import { getRawSession } from '../../lib/storage';
+import type { MenuItem } from '../../types';
+
+function ImageConfigRow({
+  label,
+  value,
+  onChange,
+  placeholder = '/placeholder.webp',
+  labelWidth = 'w-1/3',
+  inputWidth = 'w-2/3',
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  labelWidth?: string;
+  inputWidth?: string;
+}) {
   return (
     <div className="flex gap-4 items-center">
-      <div className="w-1/3">
+      <div className={labelWidth}>
         <p className="font-bold text-slate-700 capitalize">{label}</p>
       </div>
-      <div className="w-2/3">
+      <div className={inputWidth}>
         <input 
           type="text" 
           value={value} 
@@ -16,17 +41,6 @@ function ImageConfigRow({ label, value, onChange, placeholder }: { label: string
     </div>
   );
 }
-
-import { createFileRoute } from '@tanstack/react-router';
-import { seo } from '../../lib/seo';
-import React, { useEffect, useState } from 'react';
-import { supabaseBrowser } from '../../lib/supabase';
-import { updateMenuItemFn, getCategoryImagesFn, updateCategoryImagesFn, getHighlightImagesFn, updateHighlightImagesFn } from '../../server/menu';
-import { ChefHat, Pencil, Check, X, Image as ImageIcon, Save } from 'lucide-react';
-import { PinGate } from '../../components/admin/PinGate';
-import { AdminNav } from '../../components/admin/AdminNav';
-import { getRawSession } from '../../lib/storage';
-import type { MenuItem } from '../../types';
 
 export const Route = createFileRoute('/admin/menu')({
   head: () => Object.assign(seo({ title: 'Admin - Amir Fast Food', description: 'Admin Panel', path: '/admin', noindex: true }), { links: [{ rel: 'manifest', href: '/admin.webmanifest' }] }),
@@ -246,20 +260,12 @@ function AdminMenuEditor() {
               
               <div className="space-y-6">
                 {categories.map(cat => (
-                   <div key={cat} className="flex gap-4 items-center">
-                      <div className="w-1/3">
-                        <p className="font-bold text-slate-700 capitalize">{cat.replace('cat_', '').replace(/_/g, ' ')}</p>
-                      </div>
-                      <div className="w-2/3">
-                        <input 
-                          type="text" 
-                          value={categoryImages[cat] || ''} 
-                          onChange={(e) => setCategoryImages({...categoryImages, [cat]: e.target.value})}
-                          className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-primary text-sm"
-                          placeholder="/placeholder.webp"
-                        />
-                      </div>
-                   </div>
+                  <ImageConfigRow
+                    key={cat}
+                    label={cat.replace('cat_', '').replace(/_/g, ' ')}
+                    value={categoryImages[cat] || ''}
+                    onChange={(val) => setCategoryImages({...categoryImages, [cat]: val})}
+                  />
                 ))}
               </div>
             </div>
@@ -279,20 +285,14 @@ function AdminMenuEditor() {
               
               <div className="space-y-6">
                 {[1, 2, 3].map(num => (
-                   <div key={num} className="flex gap-4 items-center">
-                      <div className="w-1/4">
-                        <p className="font-bold text-slate-700">Slide {num}</p>
-                      </div>
-                      <div className="w-3/4">
-                        <input 
-                          type="text" 
-                          value={highlightImages[`slide${num}`] || ''} 
-                          onChange={(e) => setHighlightImages({...highlightImages, [`slide${num}`]: e.target.value})}
-                          className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-primary text-sm"
-                          placeholder="/placeholder.webp"
-                        />
-                      </div>
-                   </div>
+                  <ImageConfigRow
+                    key={num}
+                    label={`Slide ${num}`}
+                    value={highlightImages[`slide${num}`] || ''}
+                    onChange={(val) => setHighlightImages({...highlightImages, [`slide${num}`]: val})}
+                    labelWidth="w-1/4"
+                    inputWidth="w-3/4"
+                  />
                 ))}
               </div>
             </div>

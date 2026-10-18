@@ -9,6 +9,45 @@ import { Clock, CheckCircle, ChefHat, Truck, XCircle, Volume2, VolumeX, BellRing
 import { subscribeAdminPushFn, sendTestAdminPushFn, getVapidPublicKeyFn } from '../../server/push';
 import { getRawSession } from '../../lib/storage';
 
+
+function KitchenColumn({
+  title,
+  icon,
+  badgeBg,
+  badgeText,
+  count,
+  orders,
+  emptyText,
+  renderCard,
+  status
+}: {
+  title: string;
+  icon: React.ReactNode;
+  badgeBg: string;
+  badgeText: string;
+  count: number;
+  orders: any[];
+  emptyText: string;
+  renderCard: (o: any, s: string) => React.ReactNode;
+  status: string;
+}) {
+  return (
+    <div className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700">
+      <div className="flex justify-between items-center mb-4 pb-2 border-b border-slate-700">
+        <h2 className="font-bold text-lg text-white flex items-center gap-2">
+          {icon} {title}
+        </h2>
+        <span className={`${badgeBg} ${badgeText} font-bold px-2.5 py-0.5 rounded-full text-sm`}>{count}</span>
+      </div>
+      <div className="space-y-4">
+        {orders.map(o => renderCard(o, status))}
+        {orders.length === 0 && <p className="text-slate-500 text-sm text-center py-8 font-medium">{emptyText}</p>}
+      </div>
+    </div>
+  );
+}
+
+
 export const Route = createFileRoute('/admin/kitchen')({
   component: KitchenKDSRoute,
   head: () => ({ meta: [{ title: 'Kitchen KDS - Amir Fast Food Admin' }, { name: 'robots', content: 'noindex' }], links: [{ rel: 'manifest', href: '/admin.webmanifest' }] })
@@ -417,47 +456,41 @@ function KitchenKDS() {
 
       {/* Kanban Board */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start p-6">
-        {/* Col 1: Received */}
-        <div className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700">
-          <div className="flex justify-between items-center mb-4 pb-2 border-b border-slate-700">
-            <h2 className="font-bold text-lg text-white flex items-center gap-2">
-              <BellRing className="text-primary" size={20} /> Received
-            </h2>
-            <span className="bg-primary/20 text-primary font-bold px-2.5 py-0.5 rounded-full text-sm">{received.length}</span>
-          </div>
-          <div className="space-y-4">
-            {received.map(o => renderCard(o, 'received'))}
-            {received.length === 0 && <p className="text-slate-500 text-sm text-center py-8 font-medium">No new orders</p>}
-          </div>
-        </div>
+        <KitchenColumn 
+          title="Received"
+          icon={<BellRing className="text-primary" size={20} />}
+          badgeBg="bg-primary/20"
+          badgeText="text-primary"
+          count={received.length}
+          orders={received}
+          emptyText="No new orders"
+          renderCard={renderCard}
+          status="received"
+        />
 
-        {/* Col 2: Preparing */}
-        <div className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700">
-          <div className="flex justify-between items-center mb-4 pb-2 border-b border-slate-700">
-            <h2 className="font-bold text-lg text-white flex items-center gap-2">
-              <ChefHat className="text-blue-400" size={20} /> Preparing
-            </h2>
-            <span className="bg-blue-900/40 text-blue-400 font-bold px-2.5 py-0.5 rounded-full text-sm">{preparing.length}</span>
-          </div>
-          <div className="space-y-4">
-            {preparing.map(o => renderCard(o, 'preparing'))}
-            {preparing.length === 0 && <p className="text-slate-500 text-sm text-center py-8 font-medium">Clear board</p>}
-          </div>
-        </div>
+        <KitchenColumn 
+          title="Preparing"
+          icon={<ChefHat className="text-blue-400" size={20} />}
+          badgeBg="bg-blue-900/40"
+          badgeText="text-blue-400"
+          count={preparing.length}
+          orders={preparing}
+          emptyText="Clear board"
+          renderCard={renderCard}
+          status="preparing"
+        />
 
-        {/* Col 3: Out for Delivery */}
-        <div className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700">
-          <div className="flex justify-between items-center mb-4 pb-2 border-b border-slate-700">
-            <h2 className="font-bold text-lg text-white flex items-center gap-2">
-              <Truck className="text-green-400" size={20} /> Delivery
-            </h2>
-            <span className="bg-green-900/40 text-green-400 font-bold px-2.5 py-0.5 rounded-full text-sm">{outForDelivery.length}</span>
-          </div>
-          <div className="space-y-4">
-            {outForDelivery.map(o => renderCard(o, 'out_for_delivery'))}
-            {outForDelivery.length === 0 && <p className="text-slate-500 text-sm text-center py-8 font-medium">No active deliveries</p>}
-          </div>
-        </div>
+        <KitchenColumn 
+          title="Delivery"
+          icon={<Truck className="text-green-400" size={20} />}
+          badgeBg="bg-green-900/40"
+          badgeText="text-green-400"
+          count={outForDelivery.length}
+          orders={outForDelivery}
+          emptyText="No active deliveries"
+          renderCard={renderCard}
+          status="out_for_delivery"
+        />
       </div>
 
       {/* Cancel Modal */}

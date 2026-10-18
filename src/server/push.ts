@@ -1,3 +1,27 @@
+
+async function dispatchPushToSubscriber(
+  webpush: any,
+  supabase: any,
+  sub: { id?: string; endpoint: string; p256dh: string; auth: string },
+  payload: string,
+  options?: any
+) {
+  try {
+    await webpush.sendNotification(
+      { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+      payload,
+      options
+    );
+  } catch (err: any) {
+    if ([400, 401, 403, 404, 410].includes(err.statusCode)) {
+      const q = sub.id 
+        ? supabase.from('push_subscriptions').delete().eq('id', sub.id)
+        : supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+      await q;
+    }
+  }
+}
+
 async function initWebPush() {
   const VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY;
   const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY;
@@ -81,17 +105,7 @@ export async function sendOrderPush(orderId: string, status: string, title?: str
     });
     
     for (const sub of subs) {
-      try {
-         await webpush.sendNotification({
-           endpoint: sub.endpoint,
-           keys: { p256dh: sub.p256dh, auth: sub.auth }
-         }, payload, { TTL: 3600, urgency: 'high' });
-      } catch (err: any) {
-        console.error('Push delivery failed for endpoint ' + sub.endpoint, err);
-        if (err.statusCode === 410 || err.statusCode === 404) {
-           await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
-         }
-      }
+      await dispatchPushToSubscriber(webpush, supabase, sub, payload, { TTL: 3600, urgency: 'high' });
     }
   } catch (e) {
     console.error('Push Notification Error (Customer):', e instanceof Error ? e.stack : e);
@@ -140,16 +154,7 @@ export async function sendAdminOrderPush(orderId: string, summary: string) {
     });
 
     for (const sub of subs) {
-      try {
-        await webpush.sendNotification({
-          endpoint: sub.endpoint,
-          keys: { p256dh: sub.p256dh, auth: sub.auth }
-        }, payload);
-      } catch (err: any) {
-        if (err.statusCode === 404 || err.statusCode === 410 || err.statusCode === 401 || err.statusCode === 403 || err.statusCode === 400) {
-          await supabase.from('push_subscriptions').delete().eq('id', sub.id);
-        }
-      }
+      await dispatchPushToSubscriber(webpush, supabase, sub, payload);
     }
   } catch (e) {
     console.error('Push Notification Error (Admin):', e instanceof Error ? e.stack : e);

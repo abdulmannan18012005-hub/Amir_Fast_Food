@@ -1,3 +1,4 @@
+import { SHOP_PHONE_LOCAL, SHOP_WHATSAPP } from '../lib/shop';
 import React, { useState, useEffect } from 'react';
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router';
 import { createOrder } from '../server/order';
@@ -358,7 +359,7 @@ function CheckoutPage() {
                     <div>
                       <p className="font-bold text-slate-900">Bank Transfer / EasyPaisa</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        Send the total amount by EasyPaisa / JazzCash to 0301 4265785, then enter your Transaction ID (TID) below. Questions? <a href="https://wa.me/923014265785" target="_blank" rel="noopener noreferrer" aria-label="Chat with us on WhatsApp" className="text-primary hover:underline">WhatsApp us on the same number.</a>
+                        Send the total amount by EasyPaisa / JazzCash to {SHOP_PHONE_LOCAL}, then enter your Transaction ID (TID) below. Questions? <a href={`https://wa.me/${SHOP_WHATSAPP}`} target="_blank" rel="noopener noreferrer" aria-label="Chat with us on WhatsApp" className="text-primary hover:underline">WhatsApp us on the same number.</a>
                       </p>
                     </div>
                   </label>
