@@ -27,52 +27,51 @@ function Index() {
   return (
     <>
       {/* Hero Section */}
-      <section className="relative bg-background min-h-[80vh] flex items-center pt-20 sm:pt-24 pb-16 lg:py-20">
-        <div className="container mx-auto px-4 relative z-10 w-full">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 items-center">
-            <div className="flex flex-col">
-              <div className="inline-flex items-center gap-2 mb-6">
-                <div className="h-0.5 w-12 bg-primary"></div>
-                <span className="text-xs sm:text-sm font-medium uppercase tracking-wider text-primary">Amir Fast Food</span>
-              </div>
-              
-              <h1 className="font-display text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-6 leading-[1.1]">
-                The flavor that finds you <span className="text-primary">.</span>
-              </h1>
-              
-              <p className="text-lg sm:text-xl text-muted-foreground mb-8 sm:mb-10 max-w-lg">
-                Authentic shawarma, smash burgers and irresistible combos. Restaurants, food trailers &amp; delivery — always near you.
-              </p>
-              
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Link to="/menu" preload="intent" className="w-full sm:w-auto inline-flex items-center justify-center whitespace-nowrap bg-primary text-primary-foreground hover:bg-primary/90 h-12 sm:h-14 px-8 sm:px-10 text-base sm:text-lg font-bold rounded-full transition-all shadow-lg shadow-primary/30">
-                  Order Now
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="ml-2 h-5 w-5" aria-hidden="true" focusable="false"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
-                </Link>
-                <Link to="/menu" preload="intent" className="w-full sm:w-auto inline-flex items-center justify-center whitespace-nowrap bg-card border border-border text-foreground hover:bg-accent h-12 sm:h-14 px-8 sm:px-10 text-base sm:text-lg font-bold rounded-full transition-all">
-                  View Menu
-                </Link>
-              </div>
-
-              <div className="mt-10 flex flex-wrap gap-4 sm:gap-6 text-muted-foreground text-sm font-medium">
-                <span className="flex items-center gap-1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary" aria-hidden="true" focusable="false"><path d="M3 10l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg> Near you</span>
-                <span className="flex items-center gap-1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> Ready in 30 mins</span>
-                <span className="flex items-center gap-1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary" aria-hidden="true" focusable="false"><path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2.5z"></path></svg> Made fresh</span>
-              </div>
+      <section className="relative bg-background min-h-[80vh] flex items-center pt-24 sm:pt-28 pb-16 lg:py-0">
+        <div className="container mx-auto px-4 relative lg:static z-10 w-full">
+          <div className="flex flex-col lg:w-1/2 lg:pr-12 relative z-10">
+            <div className="inline-flex items-center gap-2 mb-6 mt-8 lg:mt-0">
+              <div className="h-0.5 w-12 bg-primary"></div>
+              <span className="text-xs sm:text-sm font-medium uppercase tracking-wider text-primary">Amir Fast Food</span>
             </div>
             
-            {/* Single hero image with explicit dimensions and high priority */}
-            <div className="w-full rounded-2xl sm:rounded-3xl overflow-hidden aspect-[4/3] lg:aspect-[5/4] relative shadow-xl border border-border/40">
-              <img 
-                src="/hero.webp" 
-                alt="Amir Fast Food - Shawarma &amp; Burgers" 
-                width={800}
-                height={640}
-                className="w-full h-full object-cover" 
-                fetchPriority="high"
-                decoding="async" 
-              />
+            <h1 className="font-display text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-6 leading-[1.1]">
+              The flavor that finds you <span className="text-primary">.</span>
+            </h1>
+            
+            <p className="text-lg sm:text-xl text-muted-foreground mb-8 sm:mb-10 max-w-lg">
+              Authentic shawarma, smash burgers and irresistible combos. Restaurants, food trailers &amp; delivery — always near you.
+            </p>
+            
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Link to="/menu" preload="intent" className="w-full sm:w-auto inline-flex items-center justify-center whitespace-nowrap bg-primary text-primary-foreground hover:bg-primary/90 h-12 sm:h-14 px-8 sm:px-10 text-base sm:text-lg font-bold rounded-full transition-all shadow-lg shadow-primary/30">
+                Order Now
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="ml-2 h-5 w-5" aria-hidden="true" focusable="false"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+              </Link>
+              <Link to="/menu" preload="intent" className="w-full sm:w-auto inline-flex items-center justify-center whitespace-nowrap bg-card border border-border text-foreground hover:bg-accent h-12 sm:h-14 px-8 sm:px-10 text-base sm:text-lg font-bold rounded-full transition-all">
+                View Menu
+              </Link>
             </div>
+
+            <div className="mt-10 flex flex-wrap gap-4 sm:gap-6 text-muted-foreground text-sm font-medium">
+              <span className="flex items-center gap-1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary" aria-hidden="true" focusable="false"><path d="M3 10l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg> Near you</span>
+              <span className="flex items-center gap-1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> Ready in 30 mins</span>
+              <span className="flex items-center gap-1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary" aria-hidden="true" focusable="false"><path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2.5z"></path></svg> Made fresh</span>
+            </div>
+          </div>
+          
+          {/* Responsive Hero Image - In-flow rounded block on < lg, full-bleed absolute on >= lg */}
+          <div className="mt-12 w-full lg:mt-0 lg:w-1/2 aspect-[4/3] lg:aspect-auto rounded-2xl lg:rounded-none overflow-hidden relative lg:absolute lg:top-0 lg:right-0 lg:h-full z-0">
+            <img 
+              src="/hero.webp" 
+              alt="Amir Fast Food - Shawarma &amp; Burgers" 
+              width={800}
+              height={640}
+              className="w-full h-full object-cover object-center" 
+              fetchPriority="high" 
+              decoding="async"
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-background via-background/40 to-transparent pointer-events-none hidden lg:block" />
           </div>
         </div>
       </section>
