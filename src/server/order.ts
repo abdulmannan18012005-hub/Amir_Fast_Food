@@ -37,7 +37,11 @@ export const createOrder = createServerFn({ method: "POST" })
     const ip = getClientIp();
     
     // 0. Opening hours check (server authoritative)
-    const shopStatus = getShopStatus();
+    let checkNow = new Date();
+    if ((import.meta as any).env?.DEV && process.env.SHOP_NOW_OVERRIDE) {
+      checkNow = new Date(process.env.SHOP_NOW_OVERRIDE);
+    }
+    const shopStatus = getShopStatus(checkNow);
     if (!shopStatus.open) {
       throw new UserFacingError(
         `We're closed right now. We open every day at ${shopStatus.opensAtLabel} (Pakistan time). You can fill your cart now and order when we open.`,

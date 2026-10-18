@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router';
 import React from 'react';
 import type { CartItem } from '../../types';
 import { getCartSubtotal, lineTotal } from '../../lib/cart';
+import { useShopStatus } from '../../hooks/useShopStatus';
 
 interface Props {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveItem, onClearCart }: Props) {
+  const shopStatus = useShopStatus();
   const subtotal = getCartSubtotal(items);
   
   
@@ -105,6 +107,11 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
               <span>Total</span>
               <span>PKR {total}</span>
             </div>
+            {!shopStatus.open && (
+              <div role="alert" className="rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200 p-3 text-xs font-semibold leading-relaxed">
+                {shopStatus.closedMessage}
+              </div>
+            )}
             <Link to="/checkout" onClick={onClose} preload="intent" className="block w-full bg-primary hover:bg-primary/90 text-primary-foreground text-center font-bold py-4 rounded-xl shadow-lg transition-colors">
               Proceed to Checkout
             </Link>

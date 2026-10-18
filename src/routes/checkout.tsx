@@ -10,6 +10,7 @@ import { safeJson } from '../lib/storage';
 import { seo } from '../lib/seo';
 import { getCartSubtotal } from '../lib/cart';
 import { addActiveOrder, markJustOrdered } from '../lib/activeOrders';
+import { useShopStatus } from '../hooks/useShopStatus';
 import type { CartItem } from '../types';
 
 export const Route = createFileRoute('/checkout')({
@@ -19,6 +20,7 @@ export const Route = createFileRoute('/checkout')({
 
 function CheckoutPage() {
   const navigate = useNavigate();
+  const shopStatus = useShopStatus();
   const [step, setStep] = useState(1);
   const [successOrderId, setSuccessOrderId] = useState('');
   const [loading, setLoading] = useState(false);
@@ -225,6 +227,11 @@ function CheckoutPage() {
           )}
 
           <div className="bg-white rounded-3xl shadow-sm border border-border p-6 md:p-8">
+            {!shopStatus.open && (
+              <div role="alert" className="mb-6 p-4 bg-amber-500/10 border border-amber-500/30 text-amber-900 rounded-2xl font-medium text-sm leading-relaxed">
+                {shopStatus.closedMessage}
+              </div>
+            )}
             {error && (
               <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl font-medium text-sm border border-red-100">
                 {error}
@@ -405,10 +412,10 @@ function CheckoutPage() {
                   <button onClick={() => setStep(1)} className="w-1/3 bg-accent text-foreground font-bold py-3.5 rounded-xl hover:bg-accent/80 transition-colors">Back</button>
                   <button 
                     onClick={handlePlaceOrder}
-                    disabled={loading || !consent} 
+                    disabled={loading || !consent || !shopStatus.open} 
                     className="w-2/3 bg-primary text-primary-foreground font-bold py-3.5 rounded-xl hover:bg-primary/90 shadow-lg shadow-primary/30 disabled:opacity-50 flex justify-center items-center transition-all"
                   >
-                    {loading ? 'Processing...' : 'Place Order'}
+                    {loading ? 'Processing...' : !shopStatus.open ? 'Closed right now' : 'Place Order'}
                   </button>
                 </div>
               </section>
