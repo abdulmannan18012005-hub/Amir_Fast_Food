@@ -155,7 +155,7 @@ function RootComponent() {
                 <button 
                   type="button"
                   onClick={() => setIsCartOpen(true)}
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary border border-primary bg-primary hover:bg-primary/90 text-primary-foreground h-9 rounded-full px-4 shadow-sm"
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-bold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary border border-primary bg-primary hover:bg-primary/90 text-primary-foreground h-9 rounded-full px-4 shadow-sm"
                 >
                   Cart ({cartCount})
                 </button>

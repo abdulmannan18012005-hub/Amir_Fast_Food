@@ -152,11 +152,20 @@ export const updateCategoryImagesFn = createServerFn({ method: "POST" })
   });
 
 export const getHighlightImagesFn = createServerFn({ method: "GET" }).handler(async () => {
-  return getKnowledgeJson('highlight_images', {
-    hl_shawarma: '/images/food-placeholder.jpg',
-    hl_burger: '/images/food-placeholder.jpg',
-    hl_combos: '/images/food-placeholder.jpg'
+  const images = await getKnowledgeJson('highlight_images', {
+    hl_shawarma: '/placeholder.webp',
+    hl_burger: '/placeholder.webp',
+    hl_combos: '/placeholder.webp'
   });
+  const sanitized: Record<string, string> = {};
+  for (const [k, v] of Object.entries(images)) {
+    if (typeof v === 'string' && (v.includes('vecteezy.com') || v.includes('/images/food-placeholder.jpg'))) {
+      sanitized[k] = '/placeholder.webp';
+    } else {
+      sanitized[k] = v;
+    }
+  }
+  return sanitized;
 });
 
 export const updateHighlightImagesFn = createServerFn({ method: "POST" })
