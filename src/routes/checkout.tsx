@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, useNavigate, Link } from '@tanstack/react-router';
 import { createOrder } from '../server/order';
 import { reverseGeocodeFn } from '../server/location';
 import { quoteDeliveryFn } from '../server/pricingApi';
@@ -241,7 +241,8 @@ function CheckoutPage() {
                     <input 
                       id="checkout-name"
                       name="name"
-                      type="text" 
+                      type="text"
+                      autoComplete="name" 
                       value={name} onChange={e => setName(e.target.value)}
                       className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                       placeholder="Amir Khan"
@@ -254,7 +255,8 @@ function CheckoutPage() {
                     <input 
                       id="checkout-phone"
                       name="phone"
-                      type="tel" 
+                      type="tel"
+                      autoComplete="tel" 
                       value={phone} onChange={e => setPhone(e.target.value)}
                       className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                       placeholder="0300 1234567"
@@ -267,7 +269,8 @@ function CheckoutPage() {
                     <input 
                       id="checkout-email"
                       name="email"
-                      type="email" 
+                      type="email"
+                      autoComplete="email" 
                       value={email} onChange={e => setEmail(e.target.value)}
                       className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                       placeholder="amir@example.com"
@@ -279,6 +282,7 @@ function CheckoutPage() {
                     <textarea 
                       id="checkout-address"
                       name="address"
+                      autoComplete="street-address"
                       value={address} onChange={e => setAddress(e.target.value)}
                       rows={3}
                       className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none"
@@ -390,7 +394,7 @@ function CheckoutPage() {
                 )}
 
                 <label className="flex items-start gap-3 mb-6 p-4 bg-red-50 text-red-900 border border-red-200 rounded-xl cursor-pointer">
-                  <input type="checkbox" aria-label="I agree that orders cannot be cancelled once confirmed" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1 w-5 h-5 accent-red-600 rounded flex-shrink-0" />
+                  <input type="checkbox"  checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1 w-5 h-5 accent-red-600 rounded flex-shrink-0" />
                   <span className="text-sm font-medium leading-tight">Orders once confirmed cannot be cancelled as preparation begins immediately. I agree and wish to place my order.</span>
                 </label>
 
@@ -419,15 +423,15 @@ function CheckoutPage() {
                 
                 <div className="bg-slate-50 p-6 rounded-2xl border border-border mb-8">
                   <p className="font-semibold text-slate-900 mb-2">Permanent Tracking Link:</p>
-                  <a href={`/orders/${successOrderId}`} className="text-primary hover:underline font-mono text-sm break-all">
+                  <Link to={`/orders/${successOrderId}`} className="text-primary hover:underline font-mono text-sm break-all">
                     https://amir-fast-food.vercel.app/orders/{successOrderId}
-                  </a>
+                  </Link>
                   <p className="text-xs text-muted-foreground mt-4">Save this link! You can use it to track your order status in real-time.</p>
                 </div>
 
-                <a href={`/orders/${successOrderId}`} className="inline-block w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl hover:bg-primary/90 shadow-lg shadow-primary/30 transition-all text-lg mb-4">
+                <Link to={`/orders/${successOrderId}`} className="inline-block w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl hover:bg-primary/90 shadow-lg shadow-primary/30 transition-all text-lg mb-4">
                   Track My Order Now
-                </a>
+                </Link>
               </section>
             )}
           </div>

@@ -17,7 +17,7 @@ function ChatPage() {
     <div className="container mx-auto px-4 py-12 sm:py-20 min-h-[70vh] flex flex-col items-center justify-center">
       <div className="max-w-md text-center space-y-4">
         <div className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center mx-auto animate-pulse">
-          <span className="text-4xl">🤖</span>
+          <span className="text-4xl" role="img" aria-label="Robot assistant">🤖</span>
         </div>
         <h1 className="text-3xl font-bold font-display text-foreground">Ask AmirBot</h1>
         <p className="text-muted-foreground">

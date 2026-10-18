@@ -48,6 +48,7 @@ export function HeaderSearch() {
             <input
               type="text"
               autoFocus
+              aria-label="Search menu items"
               placeholder="Search burgers, deals..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -55,6 +56,7 @@ export function HeaderSearch() {
             />
             <button 
               onClick={() => { setIsOpen(false); setQuery(''); }}
+              aria-label="Clear and close search"
               className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>

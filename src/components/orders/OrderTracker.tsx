@@ -226,18 +226,18 @@ export function OrderTracker() {
           ref={barRef}
           className="fixed inset-x-2 bottom-[calc(4rem+env(safe-area-inset-bottom)+0.5rem)] md:inset-x-auto md:bottom-6 md:right-6 md:w-[360px] z-[55] bg-card text-card-foreground border border-border shadow-xl rounded-2xl transition-all duration-300"
         >
-          <div 
-            ref={triggerRef}
-            role="button"
-            tabIndex={0}
-            aria-label="Expand order status"
-            className="px-4 py-3 flex items-center justify-between cursor-pointer active:bg-accent/50 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            onClick={() => setIsExpanded(true)}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsExpanded(true); } }}
-          >
-            <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="px-4 py-3 flex items-center justify-between">
+            <div 
+              ref={triggerRef}
+              role="button"
+              tabIndex={0}
+              aria-label="Expand order status"
+              className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer active:bg-accent/50 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              onClick={() => setIsExpanded(true)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsExpanded(true); } }}
+            >
               <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
-                status === 'delivered' ? 'bg-emerald-500/10 text-emerald-600' :
+                status === 'delivered' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' :
                 status === 'canceled' ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'
               }`}>
                 {status === 'delivered' ? <CheckCircle size={20} /> : status === 'canceled' ? <AlertTriangle size={20} /> : <Package size={20} />}
@@ -267,7 +267,14 @@ export function OrderTracker() {
                   <X size={16} />
                 </button>
               )}
-              <ChevronUp size={20} className="text-muted-foreground" />
+              <button
+                type="button"
+                onClick={() => setIsExpanded(true)}
+                aria-label="Expand order status"
+                className="text-muted-foreground hover:text-foreground p-1"
+              >
+                <ChevronUp size={20} />
+              </button>
             </div>
           </div>
         </div>

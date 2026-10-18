@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
 import { seo } from '../lib/seo';
 import React from 'react';
 
@@ -49,9 +49,9 @@ function LocationsPage() {
           </div>
           
           <div className="pt-4 flex gap-4">
-            <a href="/menu" className="inline-block bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 px-8 rounded-full transition-all shadow-lg shadow-primary/30">
+            <Link to="/menu" preload="intent" className="inline-block bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 px-8 rounded-full transition-all shadow-lg shadow-primary/30">
               Order Now
-            </a>
+            </Link>
             <a href="https://www.google.com/maps/dir/?api=1&destination=31.5044,74.2618" target="_blank" rel="noopener noreferrer" className="inline-block bg-accent hover:bg-accent/80 text-foreground font-bold py-3 px-8 rounded-full transition-all border border-border">
               Get Directions
             </a>

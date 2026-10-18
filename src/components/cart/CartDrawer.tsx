@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router';
 import React from 'react';
 import type { CartItem } from '../../types';
 import { getCartSubtotal, lineTotal } from '../../lib/cart';
@@ -51,9 +52,9 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
             <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
               <svg width="64" height="64" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1" className="mb-4 opacity-50"><path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
               <p className="mb-6">Your cart is empty</p>
-              <a href="/menu" onClick={onClose} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-2 px-6 rounded-full transition-colors shadow-md">
+              <Link to="/menu" onClick={onClose} preload="intent" className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-2 px-6 rounded-full transition-colors shadow-md">
                 Browse Menu
-              </a>
+              </Link>
             </div>
           ) : (
             items.map((item, idx) => {
@@ -63,7 +64,7 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                 <div key={idx} className="flex gap-4 border-b border-border pb-4">
                   <img src={item.image_url} alt={item.name} className="w-20 h-20 object-cover rounded-lg" />
                   <div className="flex-1">
-                    <h4 className="text-foreground font-bold">{item.name}</h4>
+                    <h3 className="text-foreground font-bold">{item.name}</h3>
                     {item.variants && item.variants.length > 0 && (
                       <p className="text-xs text-muted-foreground mt-1">
                         + {item.variants.map(v => v.name).join(', ')}
@@ -78,7 +79,7 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                         </div>
                         <button onClick={() => onRemoveItem(item.menu_item_id)} aria-label="Remove item" className="text-xs text-destructive font-bold hover:underline">Remove</button>
                       </div>
-                      <span className="font-bold text-emerald-400">PKR {lineTotal}</span>
+                      <span className="font-bold text-emerald-700 dark:text-emerald-400">PKR {lineTotal}</span>
                     </div>
                   </div>
                 </div>
@@ -92,7 +93,7 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
             <div className="space-y-2">
               <div className="flex justify-between text-xs font-medium">
                 {subtotal >= 1000 ? (
-                  <span className="text-emerald-500 font-bold">You've unlocked FREE delivery!</span>
+                  <span className="text-emerald-700 dark:text-emerald-400 font-bold">You've unlocked FREE delivery!</span>
                 ) : (
                   <span className="text-muted-foreground">Add <span className="text-primary font-bold">PKR {1000 - subtotal}</span> for FREE delivery</span>
                 )}
@@ -116,9 +117,9 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
               <span>Total</span>
               <span>PKR {total}</span>
             </div>
-            <a href="/checkout" className="block w-full bg-primary hover:bg-primary/90 text-foreground text-center font-bold py-4 rounded-xl shadow-lg transition-colors">
+            <Link to="/checkout" onClick={onClose} preload="intent" className="block w-full bg-primary hover:bg-primary/90 text-primary-foreground text-center font-bold py-4 rounded-xl shadow-lg transition-colors">
               Proceed to Checkout
-            </a>
+            </Link>
           </div>
         )}
       </div>

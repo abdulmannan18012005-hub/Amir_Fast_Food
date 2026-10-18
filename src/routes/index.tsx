@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
 import { seo } from '../lib/seo';
 import React from 'react';
 import { getCategoryImagesFn, getHighlightImagesFn } from '../server/menu';
@@ -52,17 +52,13 @@ function Index() {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4">
-              <a href="/menu" className="w-full sm:w-auto">
-                <button className="w-full inline-flex items-center justify-center whitespace-nowrap bg-primary text-primary-foreground hover:bg-primary/90 h-12 sm:h-14 px-8 sm:px-10 text-base sm:text-lg font-bold rounded-full transition-all shadow-lg shadow-primary/30">
+              <Link to="/menu" preload="intent" className="w-full sm:w-auto inline-flex items-center justify-center whitespace-nowrap bg-primary text-primary-foreground hover:bg-primary/90 h-12 sm:h-14 px-8 sm:px-10 text-base sm:text-lg font-bold rounded-full transition-all shadow-lg shadow-primary/30">
                   Order Now
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="ml-2 h-5 w-5"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
-                </button>
-              </a>
-              <a href="/menu" className="w-full sm:w-auto">
-                <button className="w-full inline-flex items-center justify-center whitespace-nowrap bg-card border border-border text-foreground hover:bg-accent h-12 sm:h-14 px-8 sm:px-10 text-base sm:text-lg font-bold rounded-full transition-all">
+                </Link>
+              <Link to="/menu" preload="intent" className="w-full sm:w-auto inline-flex items-center justify-center whitespace-nowrap bg-card border border-border text-foreground hover:bg-accent h-12 sm:h-14 px-8 sm:px-10 text-base sm:text-lg font-bold rounded-full transition-all">
                   View Menu
-                </button>
-              </a>
+                </Link>
             </div>
 
             <div className="mt-10 flex flex-wrap gap-4 sm:gap-6 text-muted-foreground text-sm font-medium">
@@ -97,9 +93,11 @@ function Index() {
       { id: 'cat_sandwiches_fries', name: 'Sandwiches & Fries', sub: 'Loaded Snacks', img: categoryImages.cat_sandwiches_fries },
       { id: 'cat_drinks', name: 'Drinks', sub: 'Cold Beverages', img: categoryImages.cat_drinks }
     ].sort((a,b) => a.name.localeCompare(b.name)).map(cat => (
-              <a 
+              <Link 
                 key={cat.id} 
-                href={`/menu?cat=${cat.id}`}
+                to="/menu" 
+                hash={cat.id} 
+                preload="intent"
                 className="min-w-[160px] sm:min-w-[200px] flex-shrink-0 snap-start group relative overflow-hidden rounded-2xl bg-card border border-border hover:border-primary transition-colors shadow-lg"
               >
                 <div className="h-32 sm:h-40 overflow-hidden">
@@ -109,7 +107,7 @@ function Index() {
                   <h3 className="font-bold text-foreground">{cat.name}</h3>
                   <p className="text-xs text-primary">{cat.sub}</p>
                 </div>
-              </a>
+              </Link>
             ))}
           </div>
         </div>
@@ -196,12 +194,10 @@ function Index() {
             <h2 className="font-display text-2xl sm:text-3xl font-bold text-primary-foreground md:text-4xl">Hungry?</h2>
             <p className="mt-3 text-primary-foreground/90 text-base sm:text-lg max-w-md mx-auto">Order in seconds from your phone. No lines, no waiting.</p>
             <div className="mt-6 sm:mt-8">
-              <a href="/menu">
-                <button className="inline-flex items-center justify-center whitespace-nowrap bg-background text-foreground hover:bg-background/90 h-11 gap-2 px-8 sm:px-10 py-6 text-base rounded-2xl font-bold shadow-lg">
+              <Link to="/menu" preload="intent" className="inline-flex items-center justify-center whitespace-nowrap bg-background text-foreground hover:bg-background/90 h-11 gap-2 px-8 sm:px-10 py-6 text-base rounded-2xl font-bold shadow-lg">
                   Order Now
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
-                </button>
-              </a>
+                </Link>
             </div>
           </div>
         </div>

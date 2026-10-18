@@ -18,7 +18,7 @@ export function ThreeDMenuCard({ item, onAddToCart, priority = false }: Props) {
         
         {/* Save Badge */}
         {item.original_price && savingsPercent > 0 && (
-          <div className="absolute top-3 right-3 z-10 bg-emerald-600 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-md">
+          <div className="absolute top-3 right-3 z-10 bg-emerald-700 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-md">
             Save {savingsPercent}%
           </div>
         )}
@@ -60,7 +60,7 @@ export function ThreeDMenuCard({ item, onAddToCart, priority = false }: Props) {
 
           <button
             onClick={() => onAddToCart(item)}
-            aria-label={`Add ${item.name} to cart`}
+            aria-label={`Add to Cart, ${item.name}`}
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 px-4 rounded-xl transition-colors shadow-sm mt-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             Add to Cart
