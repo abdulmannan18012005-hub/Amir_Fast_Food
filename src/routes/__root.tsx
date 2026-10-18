@@ -1,11 +1,11 @@
 import { createRootRoute, Outlet, useLocation, Scripts, HeadContent, ScrollRestoration, Link } from '@tanstack/react-router';
 import React, { useState, useEffect } from 'react';
 const AmirBotDrawer = React.lazy(() => import('../components/chat/AmirBotDrawer').then(m => ({ default: m.AmirBotDrawer })));
-import { OrderTracker } from '../components/orders/OrderTracker';
+const OrderTracker = React.lazy(() => import('../components/orders/OrderTracker').then(m => ({ default: m.OrderTracker })));
 const CartDrawer = React.lazy(() => import('../components/cart/CartDrawer').then(m => ({ default: m.CartDrawer })));
 import { MobileBottomNav } from '../components/navigation/MobileBottomNav';
 import { ThemeSwitcher } from '../components/ThemeSwitcher';
-import { HeaderSearch } from '../components/navigation/HeaderSearch';
+const HeaderSearch = React.lazy(() => import('../components/navigation/HeaderSearch').then(m => ({ default: m.HeaderSearch })));
 import { getCartSubtotal } from '../lib/cart';
 import '../index.css';
 
@@ -139,7 +139,7 @@ function RootComponent() {
                 <Link to="/menu" preload="intent" className="hidden sm:block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors [&.active]:text-primary" activeProps={{ 'aria-current': 'page' }}>Menu</Link>
                 <Link to="/locations" preload="intent" className="hidden sm:block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors [&.active]:text-primary" activeProps={{ 'aria-current': 'page' }}>Locations</Link>
 
-                <HeaderSearch />
+                <React.Suspense fallback={<div className="h-9 w-9" />}><HeaderSearch /></React.Suspense>
                 <ThemeSwitcher />
 
                 <button
@@ -238,7 +238,7 @@ function RootComponent() {
               onOpenCart={() => setIsCartOpen(true)}
               onOpenBot={() => setChatOpen(true)}
             />
-            <OrderTracker />
+            <React.Suspense fallback={null}><OrderTracker /></React.Suspense>
             <React.Suspense fallback={null}>
               <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} items={cartItems} onUpdateQuantity={handleUpdateQuantity} onRemoveItem={handleRemoveItem} onClearCart={handleClearCart} />
             </React.Suspense>

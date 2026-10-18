@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { seo } from '../lib/seo';
-import React from 'react';
+import React, { useState } from 'react';
 
 export const Route = createFileRoute('/locations')({
   head: () => seo({ title: 'Our Locations - Amir Fast Food', description: 'Find Amir Fast Food in Lahore.', path: '/locations' }),
@@ -8,6 +8,8 @@ export const Route = createFileRoute('/locations')({
 });
 
 function LocationsPage() {
+  const [mapLoaded, setMapLoaded] = useState(false);
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 w-full">
       <div className="text-center mb-12">
@@ -24,7 +26,7 @@ function LocationsPage() {
           
           <div className="space-y-4 text-muted-foreground">
             <div className="flex items-start gap-4">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-primary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-primary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" aria-hidden="true" focusable="false"><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
               <div>
                 <p className="font-medium text-foreground">Amir Fast Food</p>
                 <p>Post Office Mansoora, Anwar Market, Peco Road, Kakazai, Lahore, 54000</p>
@@ -32,7 +34,7 @@ function LocationsPage() {
             </div>
             
             <div className="flex items-start gap-4">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-primary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-primary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" aria-hidden="true" focusable="false"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               <div>
                 <p className="font-medium text-foreground">Operational Hours</p>
                 <p>Monday - Sunday: <span className="text-foreground font-medium">Monday to Sunday, 4:05 PM - 2:00 AM</span></p>
@@ -40,7 +42,7 @@ function LocationsPage() {
             </div>
 
             <div className="flex items-start gap-4">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-primary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-primary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" aria-hidden="true" focusable="false"><path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
               <div>
                 <p className="font-medium text-foreground">Contact Us</p>
                 <p>+92 301 4265785</p>
@@ -48,7 +50,7 @@ function LocationsPage() {
             </div>
           </div>
           
-          <div className="pt-4 flex gap-4">
+          <div className="pt-4 flex flex-wrap gap-4">
             <Link to="/menu" preload="intent" className="inline-block bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 px-8 rounded-full transition-all shadow-lg shadow-primary/30">
               Order Now
             </Link>
@@ -58,17 +60,52 @@ function LocationsPage() {
           </div>
         </div>
         
-        <div className="h-96 rounded-2xl overflow-hidden border border-border/50 shadow-inner bg-accent/50">
-          <iframe 
-            src="https://www.google.com/maps/embed?pb=!1m17!1m12!1m3!1d3403.486241063625!2d74.25993986428485!3d31.499765844338224!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m2!1m1!2zMzHCsDI5JzU5LjIiTiA3NMKwMTUnMzUuOCJF!5e0!3m2!1sen!2s!4v1700000000000!5m2!1sen!2s" 
-            width="100%" 
-            height="100%" 
-            style={{ border: 0 }} 
-            allowFullScreen 
-            loading="lazy" 
-            referrerPolicy="no-referrer-when-downgrade"
-            title="Amir Fast Food Lahore"
-          />
+        {/* Click-to-load interactive map facade (zero 3rd-party requests on first load) */}
+        <div className="h-96 rounded-2xl overflow-hidden border border-border shadow-inner bg-card flex flex-col items-center justify-center relative">
+          {mapLoaded ? (
+            <iframe 
+              src="https://www.google.com/maps/embed?pb=!1m17!1m12!1m3!1d3403.486241063625!2d74.25993986428485!3d31.499765844338224!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m2!1m1!2zMzHCsDI5JzU5LjIiTiA3NMKwMTUnMzUuOCJF!5e0!3m2!1sen!2s!4v1700000000000!5m2!1sen!2s" 
+              width="100%" 
+              height="100%" 
+              style={{ border: 0 }} 
+              allowFullScreen 
+              loading="lazy" 
+              referrerPolicy="no-referrer-when-downgrade"
+              title="Amir Fast Food Lahore"
+            />
+          ) : (
+            <div className="p-8 text-center flex flex-col items-center justify-center space-y-4">
+              <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" aria-hidden="true" focusable="false">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-bold text-lg text-foreground">Interactive Google Map</h3>
+                <p className="text-sm text-muted-foreground mt-1 max-w-xs">
+                  Anwar Market, Peco Road, Kakazai, Lahore
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setMapLoaded(true)}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-2.5 px-6 rounded-xl transition-colors shadow-sm text-sm"
+                >
+                  Load interactive map
+                </button>
+                <a
+                  href="https://www.google.com/maps/dir/?api=1&destination=31.5044,74.2618"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-accent hover:bg-accent/80 text-foreground font-semibold py-2.5 px-6 rounded-xl transition-colors border border-border text-sm inline-flex items-center justify-center gap-1.5"
+                >
+                  Open in Google Maps
+                </a>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

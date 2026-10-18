@@ -27,50 +27,52 @@ function Index() {
   return (
     <>
       {/* Hero Section */}
-      <section className="relative bg-background min-h-[80vh] flex items-center pt-24 sm:pt-28 pb-16 lg:py-0">
-        
-
-        {/* Right side image - full bleed on desktop */}
-        <div className="absolute top-0 right-0 w-full lg:w-1/2 h-full z-0 hidden lg:block">
-          <img src="/hero.webp" alt="Amir Fast Food - Shawarma & Burgers" className="w-full h-full object-cover object-center" fetchPriority="high" />
-          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/40 to-transparent"></div>
-        </div>
-
+      <section className="relative bg-background min-h-[80vh] flex items-center pt-20 sm:pt-24 pb-16 lg:py-20">
         <div className="container mx-auto px-4 relative z-10 w-full">
-          <div className="flex flex-col lg:w-1/2 lg:pr-12">
-            <div className="inline-flex items-center gap-2 mb-6 mt-8 lg:mt-0">
-              <div className="h-0.5 w-12 bg-primary"></div>
-              <span className="text-xs sm:text-sm font-medium uppercase tracking-wider text-primary">Amir Fast Food</span>
-            </div>
-            
-            <h1 className="font-display text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-6 leading-[1.1]">
-              The flavor that finds you <span className="text-primary">.</span>
-            </h1>
-            
-            <p className="text-lg sm:text-xl text-muted-foreground mb-8 sm:mb-10 max-w-lg">
-              Authentic shawarma, smash burgers and irresistible combos. Restaurants, food trailers & delivery — always near you.
-            </p>
-            
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Link to="/menu" preload="intent" className="w-full sm:w-auto inline-flex items-center justify-center whitespace-nowrap bg-primary text-primary-foreground hover:bg-primary/90 h-12 sm:h-14 px-8 sm:px-10 text-base sm:text-lg font-bold rounded-full transition-all shadow-lg shadow-primary/30">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 items-center">
+            <div className="flex flex-col">
+              <div className="inline-flex items-center gap-2 mb-6">
+                <div className="h-0.5 w-12 bg-primary"></div>
+                <span className="text-xs sm:text-sm font-medium uppercase tracking-wider text-primary">Amir Fast Food</span>
+              </div>
+              
+              <h1 className="font-display text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-6 leading-[1.1]">
+                The flavor that finds you <span className="text-primary">.</span>
+              </h1>
+              
+              <p className="text-lg sm:text-xl text-muted-foreground mb-8 sm:mb-10 max-w-lg">
+                Authentic shawarma, smash burgers and irresistible combos. Restaurants, food trailers &amp; delivery — always near you.
+              </p>
+              
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Link to="/menu" preload="intent" className="w-full sm:w-auto inline-flex items-center justify-center whitespace-nowrap bg-primary text-primary-foreground hover:bg-primary/90 h-12 sm:h-14 px-8 sm:px-10 text-base sm:text-lg font-bold rounded-full transition-all shadow-lg shadow-primary/30">
                   Order Now
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="ml-2 h-5 w-5"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="ml-2 h-5 w-5" aria-hidden="true" focusable="false"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
                 </Link>
-              <Link to="/menu" preload="intent" className="w-full sm:w-auto inline-flex items-center justify-center whitespace-nowrap bg-card border border-border text-foreground hover:bg-accent h-12 sm:h-14 px-8 sm:px-10 text-base sm:text-lg font-bold rounded-full transition-all">
+                <Link to="/menu" preload="intent" className="w-full sm:w-auto inline-flex items-center justify-center whitespace-nowrap bg-card border border-border text-foreground hover:bg-accent h-12 sm:h-14 px-8 sm:px-10 text-base sm:text-lg font-bold rounded-full transition-all">
                   View Menu
                 </Link>
-            </div>
+              </div>
 
-            <div className="mt-10 flex flex-wrap gap-4 sm:gap-6 text-muted-foreground text-sm font-medium">
-              <span className="flex items-center gap-1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary"><path d="M3 10l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg> Near you</span>
-              <span className="flex items-center gap-1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> Ready in 30 mins</span>
-              <span className="flex items-center gap-1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary"><path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2.5z"></path></svg> Made fresh</span>
+              <div className="mt-10 flex flex-wrap gap-4 sm:gap-6 text-muted-foreground text-sm font-medium">
+                <span className="flex items-center gap-1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary" aria-hidden="true" focusable="false"><path d="M3 10l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg> Near you</span>
+                <span className="flex items-center gap-1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> Ready in 30 mins</span>
+                <span className="flex items-center gap-1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary" aria-hidden="true" focusable="false"><path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2.5z"></path></svg> Made fresh</span>
+              </div>
             </div>
-          </div>
-          
-          {/* Mobile Image */}
-          <div className="mt-12 w-full lg:hidden rounded-2xl overflow-hidden aspect-[4/3] relative">
-            <img src="/hero.webp" alt="Amir Fast Food - Shawarma & Burgers" className="w-full h-full object-cover" fetchPriority="high" />
+            
+            {/* Single hero image with explicit dimensions and high priority */}
+            <div className="w-full rounded-2xl sm:rounded-3xl overflow-hidden aspect-[4/3] lg:aspect-[5/4] relative shadow-xl border border-border/40">
+              <img 
+                src="/hero.webp" 
+                alt="Amir Fast Food - Shawarma &amp; Burgers" 
+                width={800}
+                height={640}
+                className="w-full h-full object-cover" 
+                fetchPriority="high"
+                decoding="async" 
+              />
+            </div>
           </div>
         </div>
       </section>
@@ -108,7 +110,7 @@ function Index() {
                   <p className="text-xs text-primary">{cat.sub}</p>
                 </div>
               </Link>
-            ))}
+            ))} 
           </div>
         </div>
       </section>
@@ -127,7 +129,7 @@ function Index() {
             <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent"></div>
             <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
               <h3 className="font-display text-lg sm:text-xl font-bold text-foreground">Classic Shawarma</h3>
-              <p className="mt-1 text-xs sm:text-sm text-muted-foreground">Spit-roasted meat, garlic sauce & artisan pita bread</p>
+              <p className="mt-1 text-xs sm:text-sm text-muted-foreground">Spit-roasted meat, garlic sauce &amp; artisan pita bread</p>
             </div>
           </div>
           <div className="group relative overflow-hidden rounded-2xl sm:rounded-3xl bg-card border border-border/30">
@@ -196,7 +198,7 @@ function Index() {
             <div className="mt-6 sm:mt-8">
               <Link to="/menu" preload="intent" className="inline-flex items-center justify-center whitespace-nowrap bg-background text-foreground hover:bg-background/90 h-11 gap-2 px-8 sm:px-10 py-6 text-base rounded-2xl font-bold shadow-lg">
                   Order Now
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true" focusable="false"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
                 </Link>
             </div>
           </div>

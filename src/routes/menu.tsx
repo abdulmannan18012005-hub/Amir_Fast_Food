@@ -1,7 +1,7 @@
 import { createFileRoute, useLoaderData } from '@tanstack/react-router';
 import React, { useState, useEffect, useRef } from 'react';
 import { ThreeDMenuCard } from '../components/menu/ThreeDMenuCard';
-import { ItemModal } from '../components/menu/ItemModal';
+const ItemModal = React.lazy(() => import('../components/menu/ItemModal').then(m => ({ default: m.ItemModal })));
 import { getCategories, getMenuItems } from '../server/menu';
 import { playSuccessChime } from '../lib/sound';
 import { seo } from '../lib/seo';
@@ -247,12 +247,16 @@ function MenuPage() {
       className="w-full relative"
       style={{ '--menu-fixed-h': `${fixedHeaderHeight}px` } as React.CSSProperties}
     >
-      <ItemModal 
-        item={modalItem} 
-        isOpen={Boolean(modalItem)} 
-        onClose={() => setModalItem(null)} 
-        onAddToCart={handleModalAdd} 
-      />
+      <React.Suspense fallback={null}>
+        {modalItem && (
+          <ItemModal 
+            item={modalItem} 
+            isOpen={Boolean(modalItem)} 
+            onClose={() => setModalItem(null)} 
+            onAddToCart={handleModalAdd} 
+          />
+        )}
+      </React.Suspense>
       
       {/* Page Title & Subtitle in normal flow (scrolls away) */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-2">

@@ -12,6 +12,21 @@
   "env": {
     "DANGEROUSLY_DEPLOY_VULNERABLE_TANSTACK_START_XSS": "1"
   },
+  "images": {
+    "sizes": [320, 480, 640, 768, 1024, 1280, 1600],
+    "formats": ["image/avif", "image/webp"],
+    "minimumCacheTTL": 31536000,
+    "remotePatterns": [
+      {
+        "protocol": "https",
+        "hostname": "images.unsplash.com"
+      },
+      {
+        "protocol": "https",
+        "hostname": "*.supabase.co"
+      }
+    ]
+  },
   "headers": [
     {
       "source": "/(.*)",
@@ -52,6 +67,37 @@
       ]
     },
     {
+      "source": "/(icons|images)/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/hero(.*)\\.webp",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/llms.txt",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/plain; charset=utf-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
+        }
+      ]
+    },
+    {
       "source": "/(sw\\.js|manifest\\.json|admin\\.webmanifest)",
       "headers": [
         {
@@ -74,6 +120,10 @@
     {
       "source": "/assets/(.*)",
       "destination": "/assets/$1"
+    },
+    {
+      "source": "/llms.txt",
+      "destination": "/llms.txt"
     },
     {
       "source": "/(.*)",
