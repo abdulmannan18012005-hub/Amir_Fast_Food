@@ -11,7 +11,7 @@ type Msg = { role: 'user' | 'bot' | 'system'; text: string };
 type ToastInfo = { id: number; msg: string; type: 'success' | 'error' | 'info' };
 
 const STORAGE_KEY = 'amirbot_chat';
-const DEFAULT_MSG: Msg[] = [{ role: 'bot', text: 'Hi! I am AmirBot. I can help you with menu items, your cart, delivery fees, and order status.' }];
+const DEFAULT_MSG: Msg[] = [{ role: 'bot', text: 'Hi! I am AmirBot. I can help you build your cart, take your delivery and payment details, and place your order.' }];
 
 interface Props {
   isOpen: boolean;

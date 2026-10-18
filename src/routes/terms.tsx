@@ -76,7 +76,7 @@ function TermsPage() {
 
           <section>
             <h2 className="text-xl font-bold text-foreground mb-3">8. Automated Assistant (AmirBot)</h2>
-            <p>AmirBot is an AI assistant provided to assist with menu exploration and order management. While we strive for accuracy, the final item options, pricing, and availability shown in your cart and at checkout are authoritative.</p>
+            <p>AmirBot can help you build the cart and fill your details, but an order is placed only when you press "Confirm &amp; place order". Its answers may be wrong and checkout totals are authoritative.</p>
           </section>
 
           <section>

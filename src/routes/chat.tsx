@@ -21,7 +21,7 @@ function ChatPage() {
         </div>
         <h1 className="text-3xl font-bold font-display text-foreground">Ask AmirBot</h1>
         <p className="text-muted-foreground">
-          I'm here to help you find the perfect meal, check delivery areas, and answer any questions about our menu!
+          I can help you build your cart, take your delivery and payment details, and place your order.
         </p>
         <button onClick={() => window.dispatchEvent(new Event('openAmirBot'))} className="bg-primary text-primary-foreground px-8 py-3 rounded-full font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-colors mt-4">
           Open Chat

@@ -1,4 +1,4 @@
-import { SHOP_ADDRESS, SHOP_PHONE_LOCAL, SHOP_HOURS_DISPLAY, SHOP_DELIVERY_RADIUS_FREE_KM, SHOP_DELIVERY_FEE_PER_KM, SHOP_DELIVERY_MAX_KM, SHOP_COD_THRESHOLD, SHOP_COD_FEE, SHOP_ESTIMATED_DELIVERY_TIME, SHOP_CANCELLATION_POLICY, SHOP_PAYMENT_METHODS } from '../lib/shop';
+import { SHOP_ADDRESS, SHOP_PHONE_LOCAL, SHOP_HOURS_DISPLAY, SHOP_DELIVERY_RADIUS_FREE_KM, SHOP_DELIVERY_FEE_PER_KM, SHOP_DELIVERY_MAX_KM, SHOP_COD_THRESHOLD, SHOP_COD_FEE, SHOP_ESTIMATED_DELIVERY_TIME, SHOP_CANCELLATION_POLICY, SHOP_PAYMENT_METHODS, SHOP_PAYMENT_VERIFICATION_NOTE, getShopStatus } from '../lib/shop';
 import { createServerFn } from '@tanstack/react-start';
 import { getSupabaseServer } from '../lib/supabase';
 import OpenAI from 'openai';
@@ -161,12 +161,8 @@ export const chatWithAmirBot = createServerFn({ method: 'POST' })
     }
 
     // Shop Hours (PKT)
-    const now = new Date();
-    const pktTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Karachi' }));
-    const hours = pktTime.getHours();
-    const mins = pktTime.getMinutes();
-    const timeVal = hours + (mins / 60);
-    const isOpen = (timeVal >= 16.08 || timeVal < 2.0); // 4:05 PM to 2:00 AM
+    const shopStatus = getShopStatus();
+    const isOpen = shopStatus.open;
 
     const systemPrompt = `You are AmirBot, the exclusive AI ordering assistant for Amir Fast Food in Lahore.
 
@@ -174,10 +170,11 @@ REPLY LANGUAGE: Reply naturally in the language the customer writes (English, Ur
 TONE: Short (max 4 sentences), friendly, plain text only (no markdown, no bold, no headers, no bullet points with #).
 
 SHOP KNOWLEDGE:
-- Hours: ${SHOP_HOURS_DISPLAY} PKT. Currently: ${isOpen ? 'OPEN' : 'CLOSED'}.
+- Hours: ${SHOP_HOURS_DISPLAY} PKT. Orders are accepted during opening hours only. Currently: ${isOpen ? 'OPEN' : 'CLOSED'}.
 - Delivery: ${SHOP_DELIVERY_RADIUS_FREE_KM} km free radius. PKR ${SHOP_DELIVERY_FEE_PER_KM} per extra km up to ${SHOP_DELIVERY_MAX_KM} km max.
 - COD Fee: PKR ${SHOP_COD_FEE} applies ONLY if subtotal < ${SHOP_COD_THRESHOLD} AND payment is Cash On Delivery. Online payment has 0 COD fee.
-- Payment Methods: ${SHOP_PAYMENT_METHODS}.
+- Payment Methods: ${SHOP_PAYMENT_METHODS}. ${SHOP_PAYMENT_VERIFICATION_NOTE} Each Transaction ID can be used for one order only.
+- Ordering Rule: You can help build the cart and fill details, but an order is placed only when the customer presses "Confirm & place order". Checkout totals are authoritative.
 - Cancellation Policy: ${SHOP_CANCELLATION_POLICY}
 - Estimated Delivery: ${SHOP_ESTIMATED_DELIVERY_TIME}.
 - Address: ${SHOP_ADDRESS}.

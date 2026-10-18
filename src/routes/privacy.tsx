@@ -43,7 +43,7 @@ function PrivacyPage() {
             <ul className="list-disc pl-5 space-y-1.5 text-sm">
               <li><strong>Supabase:</strong> Encrypted cloud database for storing order records and push subscription endpoints.</li>
               <li><strong>Vercel:</strong> Cloud application hosting and serverless functions.</li>
-              <li><strong>Groq:</strong> Language model inference for our optional automated assistant (AmirBot).</li>
+              <li><strong>Groq:</strong> Language model inference for our optional automated assistant (AmirBot). Personal details typed into AmirBot's forms are not sent to the AI provider, but anything you type as a normal chat message is.</li>
               <li><strong>OpenStreetMap:</strong> Nominatim API for geocoding and map tile embed on our Locations page (zero tracking cookies).</li>
               <li><strong>Gmail SMTP:</strong> Dispatches receipt emails when an email address is provided.</li>
               <li><strong>Web Push Service:</strong> Browser push services for delivering order status notifications when permission is granted.</li>
@@ -54,7 +54,7 @@ function PrivacyPage() {
             <h2 className="text-xl font-bold text-foreground mb-3">5. Browser Storage & Cookies</h2>
             <p className="mb-2">We do not use advertising or tracking cookies. We utilize standard client-side storage for functionality:</p>
             <ul className="list-disc pl-5 space-y-1.5 text-sm">
-              <li><strong>localStorage:</strong> Stores your active shopping cart, cached contact details (name, phone, address) to speed up checkout, theme preference (light/dark), and recent order IDs for tracking.</li>
+              <li><strong>localStorage:</strong> Stores your active shopping cart, theme preference (light/dark), and recent order IDs for tracking. The browser stores an unfinished checkout (name, phone, email, address, location pin, TID) on your device for up to 24 hours so you can continue, and it is cleared after you order or press Start over.</li>
               <li><strong>sessionStorage:</strong> Stores conversation messages with AmirBot for the duration of your session.</li>
               <li><strong>Service Worker Cache:</strong> Caches application assets for offline capability and fast loading.</li>
             </ul>
@@ -67,7 +67,7 @@ function PrivacyPage() {
 
           <section>
             <h2 className="text-xl font-bold text-foreground mb-3">7. Security</h2>
-            <p>All communication between your browser and our servers is encrypted using HTTPS. Administrative order management features are restricted to authorized restaurant staff via PIN authentication.</p>
+            <p>All communication between your browser and our servers is encrypted using HTTPS. Admin staff access is protected by a password-style PIN and a session that expires after 12 hours.</p>
           </section>
 
           <section>
