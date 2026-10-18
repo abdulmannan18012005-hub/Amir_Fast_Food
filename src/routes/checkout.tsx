@@ -1,41 +1,115 @@
 import { friendlyMessage } from '../lib/errors';
 import { SHOP_PHONE_LOCAL, SHOP_WHATSAPP, SHOP_PAYMENT_VERIFICATION_NOTE } from '../lib/shop';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router';
-import { createOrder } from '../server/order';
 import { reverseGeocodeFn } from '../server/location';
 import { quoteDeliveryFn } from '../server/pricingApi';
-import { playSuccessChime } from '../lib/sound';
 import { safeJson } from '../lib/storage';
 import { seo } from '../lib/seo';
 import { getCartSubtotal } from '../lib/cart';
-import { addActiveOrder, markJustOrdered } from '../lib/activeOrders';
 import { useShopStatus } from '../hooks/useShopStatus';
+import { useOrderDraft } from '../lib/orderDraft';
+import { submitOrder } from '../lib/orderSubmit';
+import { validateName, validatePhone, validateAddress, validateTid } from '../lib/orderValidation';
 import type { CartItem } from '../types';
 
 export const Route = createFileRoute('/checkout')({
+  validateSearch: (search: Record<string, unknown>): { step?: number } => {
+    const s = Number(search.step);
+    return s ? { step: s } : {};
+  },
   head: () => seo({ title: 'Checkout - Amir Fast Food', description: 'Complete your Amir Fast Food order.', path: '/checkout' }),
   component: CheckoutPage,
 });
 
 function CheckoutPage() {
   const navigate = useNavigate();
+  const search = Route.useSearch();
   const shopStatus = useShopStatus();
-  const [step, setStep] = useState(1);
+  const [draft, updateDraft, clearDraft] = useOrderDraft();
+
+  const [step, setStep] = useState<number>(() => {
+    if (search?.step === 2) return 2;
+    if (draft.step >= 4) return 2;
+    return 1;
+  });
+
   const [successOrderId, setSuccessOrderId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
-  // Form State - Cached
-  const [name, setName] = useState(() => (safeJson<Record<string, any>>('user_profile', {})).name || '');
-  const [phone, setPhone] = useState(() => (safeJson<Record<string, any>>('user_profile', {})).phone || '');
-  const [email, setEmail] = useState(() => (safeJson<Record<string, any>>('user_profile', {})).email || '');
-  const [address, setAddress] = useState(() => (safeJson<Record<string, any>>('user_profile', {})).address || '');
-  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'online_transfer'>('online_transfer');
-  const [trxId, setTrxId] = useState('');
+  // Form State - Synchronized with Draft
+  const [name, setName] = useState(draft.contact.name);
+  const [phone, setPhone] = useState(draft.contact.phone);
+  const [email, setEmail] = useState(draft.contact.email);
+  const [address, setAddress] = useState(draft.delivery.address);
+  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'online_transfer'>(
+    draft.payment.method || 'online_transfer'
+  );
+  const [trxId, setTrxId] = useState(draft.payment.trxId);
   const [consent, setConsent] = useState(false);
-  const [lat, setLat] = useState<number | null>(null);
-  const [lng, setLng] = useState<number | null>(null);
+  const [lat, setLat] = useState<number | null>(draft.delivery.lat);
+  const [lng, setLng] = useState<number | null>(draft.delivery.lng);
+
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const phoneInputRef = useRef<HTMLInputElement>(null);
+  const addressInputRef = useRef<HTMLTextAreaElement>(null);
+  const debounceTimerRef = useRef<any>(null);
+
+  const saveToDraftDebounced = (patch: Parameters<typeof updateDraft>[0]) => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      updateDraft(patch);
+    }, 200);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (step === 1) {
+      if (!name.trim()) {
+        nameInputRef.current?.focus();
+      } else if (!phone.trim()) {
+        phoneInputRef.current?.focus();
+      } else if (!address.trim()) {
+        addressInputRef.current?.focus();
+      }
+    }
+  }, [step]);
+
+  const handleNameChange = (val: string) => {
+    setName(val);
+    saveToDraftDebounced({ contact: { name: val } });
+  };
+
+  const handlePhoneChange = (val: string) => {
+    setPhone(val);
+    saveToDraftDebounced({ contact: { phone: val } });
+  };
+
+  const handleEmailChange = (val: string) => {
+    setEmail(val);
+    saveToDraftDebounced({ contact: { email: val } });
+  };
+
+  const handleAddressChange = (val: string) => {
+    setAddress(val);
+    saveToDraftDebounced({ delivery: { address: val, source: 'typed' } });
+  };
+
+  const handlePaymentMethodChange = (method: 'cod' | 'online_transfer') => {
+    setPaymentMethod(method);
+    updateDraft({ payment: { method, chosen: true } });
+  };
+
+  const handleTrxIdChange = (val: string) => {
+    setTrxId(val);
+    saveToDraftDebounced({ payment: { trxId: val } });
+  };
   
   const [gettingLocation, setGettingLocation] = useState(false);
   const [locMsg, setLocMsg] = useState('');
@@ -99,20 +173,36 @@ function CheckoutPage() {
           setLocMsg('Location pinned successfully.');
         }
         
+        let resolvedAddr = '';
         try {
           const addr = await reverseGeocodeFn({ data: { lat: coords.latitude, lng: coords.longitude } });
           if (addr) {
+            resolvedAddr = addr;
             setAddress(addr);
             setLocMsg('Address updated with pinned location.');
           } else {
-             // Fallback
              const fallback = `GPS location (${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)})`;
-             if (!address) setAddress(fallback);
+             if (!address) {
+               resolvedAddr = fallback;
+               setAddress(fallback);
+             }
           }
         } catch(e) {
           const fallback = `GPS location (${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)})`;
-          if (!address) setAddress(fallback);
+          if (!address) {
+            resolvedAddr = fallback;
+            setAddress(fallback);
+          }
         }
+        
+        updateDraft({
+          delivery: {
+            lat: coords.latitude,
+            lng: coords.longitude,
+            source: 'gps',
+            ...(resolvedAddr ? { address: resolvedAddr } : {})
+          }
+        });
         
         setGettingLocation(false);
       },
@@ -140,67 +230,48 @@ function CheckoutPage() {
       setError('Your cart is empty.');
       return;
     }
-    if (paymentMethod === 'online_transfer' && !trxId.trim()) {
-      setError('Please provide the Transaction ID (TID) for your payment.');
-      return;
-    }
     
     setLoading(true);
     setError('');
-    
-    // Check honeypot
-    const honeypot = (document.getElementById('website_honeypot') as HTMLInputElement)?.value;
-    
-    try {
-      const res = await createOrder({ data: { 
-        website: honeypot,
-        customerName: name,
-        customerPhone: phone,
-        customerEmail: email,
-        deliveryAddress: address, 
-        deliveryLat: lat, 
-        deliveryLng: lng,
-        paymentMethod,
-        paymentTrxId: trxId,
-        items: cartItems,
-        subtotal
-      } });
 
-      if (!res.success) {
-        throw new Error(res.error);
-      }
-      
-      const NIL_UUID = '00000000-0000-0000-0000-000000000000';
-      const newOrderId = res.orderId && res.orderId !== NIL_UUID ? res.orderId : '';
-      playSuccessChime();
-      localStorage.removeItem('cart');
-      localStorage.setItem('user_profile', JSON.stringify({ name, phone, email, address }));
-      if (newOrderId) {
-        addActiveOrder(newOrderId);
-        markJustOrdered(newOrderId);
-      }
-      window.dispatchEvent(new Event('cartUpdated'));
-      window.dispatchEvent(new Event('orderPlaced'));
-      
-      setSuccessOrderId(newOrderId);
-      setStep(3);
-    } catch (err: any) {
-      setError(friendlyMessage(err));
+    const currentDraft = {
+      ...draft,
+      contact: { name, phone, email },
+      delivery: { address, lat, lng, source: draft.delivery.source },
+      payment: { method: paymentMethod, chosen: true, trxId }
+    };
+
+    const res = await submitOrder(currentDraft, cartItems);
+
+    if (!res.success) {
+      setError(res.error || 'Failed to place order.');
       setLoading(false);
+      return;
     }
+
+    setSuccessOrderId(res.orderId || '');
+    setStep(3);
+    setLoading(false);
   };
 
   const handleNext = () => {
     if (step === 1) {
-      if (!name.trim()) return setError('Please provide your name.');
-      if (!address.trim()) return setError('Please provide your complete address.');
-      if (distanceError) return setError(distanceError);
+      const nameVal = validateName(name);
+      if (!nameVal.valid) return setError(nameVal.error || 'Please provide your name.');
       
-      const phoneRegex = /^(?:\+923|923|03)\d{9}$/;
-      let normalizedPhone = phone.replace(/\s|-/g, '');
-      if (!phoneRegex.test(normalizedPhone)) {
-        return setError('Please enter a valid Pakistani phone number (e.g. 03001234567).');
-      }
+      const phoneVal = validatePhone(phone);
+      if (!phoneVal.valid) return setError(phoneVal.error || 'Please enter a valid Pakistani phone number.');
+      
+      const addrVal = validateAddress(address);
+      if (!addrVal.valid) return setError(addrVal.error || 'Please provide your complete address.');
+      
+      if (distanceError) return setError(distanceError);
+
+      updateDraft({
+        step: 4,
+        contact: { name: nameVal.normalized, phone: phoneVal.normalized, email: email.trim() },
+        delivery: { address: addrVal.normalized, lat, lng }
+      });
     }
     setError('');
     setStep(2);
@@ -248,11 +319,12 @@ function CheckoutPage() {
                   <div>
                     <label htmlFor="checkout-name" className="block text-sm font-semibold mb-2">Full Name *</label>
                     <input 
+                      ref={nameInputRef}
                       id="checkout-name"
                       name="name"
                       type="text"
                       autoComplete="name" 
-                      value={name} onChange={e => setName(e.target.value)}
+                      value={name} onChange={e => handleNameChange(e.target.value)}
                       className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                       placeholder="Amir Khan"
                       required
@@ -262,11 +334,12 @@ function CheckoutPage() {
                   <div>
                     <label htmlFor="checkout-phone" className="block text-sm font-semibold mb-2">Phone Number *</label>
                     <input 
+                      ref={phoneInputRef}
                       id="checkout-phone"
                       name="phone"
                       type="tel"
                       autoComplete="tel" 
-                      value={phone} onChange={e => setPhone(e.target.value)}
+                      value={phone} onChange={e => handlePhoneChange(e.target.value)}
                       className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                       placeholder="0300 1234567"
                       required
@@ -280,7 +353,7 @@ function CheckoutPage() {
                       name="email"
                       type="email"
                       autoComplete="email" 
-                      value={email} onChange={e => setEmail(e.target.value)}
+                      value={email} onChange={e => handleEmailChange(e.target.value)}
                       className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                       placeholder="amir@example.com"
                     />
@@ -289,10 +362,11 @@ function CheckoutPage() {
                   <div>
                     <label htmlFor="checkout-address" className="block text-sm font-semibold mb-2">Complete Address *</label>
                     <textarea 
+                      ref={addressInputRef}
                       id="checkout-address"
                       name="address"
                       autoComplete="street-address"
-                      value={address} onChange={e => setAddress(e.target.value)}
+                      value={address} onChange={e => handleAddressChange(e.target.value)}
                       rows={3}
                       className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none"
                       placeholder="House, Street, Area, Lahore"
@@ -361,7 +435,7 @@ function CheckoutPage() {
                       name="payment" 
                       value="online_transfer"
                       checked={paymentMethod === 'online_transfer'}
-                      onChange={() => setPaymentMethod('online_transfer')}
+                      onChange={() => handlePaymentMethodChange('online_transfer')}
                       className="w-5 h-5 accent-primary flex-shrink-0"
                     />
                     <div>
@@ -378,7 +452,7 @@ function CheckoutPage() {
                       name="payment" 
                       value="cod"
                       checked={paymentMethod === 'cod'}
-                      onChange={() => setPaymentMethod('cod')}
+                      onChange={() => handlePaymentMethodChange('cod')}
                       className="w-5 h-5 accent-primary flex-shrink-0"
                     />
                     <div>
@@ -395,7 +469,7 @@ function CheckoutPage() {
                       id="checkout-trxid"
                       name="trxId"
                       type="text" 
-                      value={trxId} onChange={e => setTrxId(e.target.value)}
+                      value={trxId} onChange={e => handleTrxIdChange(e.target.value)}
                       className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                       placeholder="e.g. 123456789012"
                     />

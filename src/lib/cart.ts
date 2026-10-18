@@ -61,6 +61,24 @@ export function removeItem(menuItemId: string, variants: ItemVariant[]) {
   saveCart(updatedCart);
 }
 
+export function updateItemQuantity(menuItemId: string, variants: ItemVariant[], quantity: number) {
+  if (quantity <= 0) {
+    removeItem(menuItemId, variants);
+    return;
+  }
+  const cart = getCart();
+  const index = cart.findIndex(
+    item => 
+      item.menu_item_id === menuItemId && 
+      JSON.stringify(item.variants.sort((a, b) => a.name.localeCompare(b.name))) === 
+      JSON.stringify(variants.sort((a, b) => a.name.localeCompare(b.name)))
+  );
+  if (index >= 0) {
+    cart[index].quantity = Math.min(Math.max(1, quantity), 20);
+    saveCart(cart);
+  }
+}
+
 export function clearCart() {
   saveCart([]);
 }
