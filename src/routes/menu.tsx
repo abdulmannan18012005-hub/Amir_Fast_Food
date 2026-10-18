@@ -24,11 +24,16 @@ export const Route = createFileRoute('/menu')({
 
 function MenuPage() {
   const { categories, items } = useLoaderData({ from: '/menu' });
-  const [activeCategory, setActiveCategory] = useState<string>('all');
+
+  // Sort categories alphabetically
+  const sortedCategories = [...categories].sort((a, b) => a.name.localeCompare(b.name));
+  const initialCategory = sortedCategories[0]?.id || '';
+
+  const [activeCategory, setActiveCategory] = useState<string>(initialCategory);
   const [modalItem, setModalItem] = useState<MenuItem | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Measured height of fixed header block (fallback 118px avoids CLS)
+  // Measured height of fixed header block (fallback 56px avoids CLS)
   const [fixedHeaderHeight, setFixedHeaderHeight] = useState<number>(56);
   const fixedHeaderRef = useRef<HTMLDivElement>(null);
   const fixedHeaderHeightRef = useRef<number>(56);
@@ -37,7 +42,7 @@ function MenuPage() {
   const chipsContainerRef = useRef<HTMLDivElement>(null);
   const isProgrammaticScrollRef = useRef(false);
   const scrollLockTimerRef = useRef<any>(null);
-  const activeCategoryRef = useRef<string>('all');
+  const activeCategoryRef = useRef<string>(initialCategory);
   activeCategoryRef.current = activeCategory;
   const rafIdRef = useRef<number | null>(null);
 
@@ -45,9 +50,6 @@ function MenuPage() {
     setToastMessage(message);
     setTimeout(() => setToastMessage(null), 3000);
   };
-
-  // Sort categories alphabetically
-  const sortedCategories = [...categories].sort((a, b) => a.name.localeCompare(b.name));
 
   // Sort items: Deals numerically, others alphabetically
   const sortedItems = [...items].sort((a, b) => {
@@ -91,14 +93,17 @@ function MenuPage() {
     };
   }, []);
 
-  // Deep links check on initial mount
+  // Deep links check on initial mount: fallback to first category
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const hash = window.location.hash.replace('#', '');
     const cat = params.get('cat') || hash;
-    if (cat && (cat === 'all' || sortedCategories.some(c => c.id === cat))) {
+    const targetCat = (cat && sortedCategories.some(c => c.id === cat)) 
+      ? cat 
+      : (sortedCategories[0]?.id || '');
+    if (targetCat) {
       setTimeout(() => {
-        scrollToSection(cat, false);
+        scrollToSection(targetCat, false);
       }, 150);
     }
   }, []);
@@ -122,22 +127,18 @@ function MenuPage() {
     isProgrammaticScrollRef.current = true;
     setActiveCategory(catId);
     activeCategoryRef.current = catId;
-    history.replaceState(null, '', catId === 'all' ? '#all' : `#${catId}`);
+    history.replaceState(null, '', `#${catId}`);
     centerChip(catId, shouldSmooth);
 
     const headerH = 64; // 4rem
     const fixedH = fixedHeaderHeightRef.current;
-    const targetOffset = headerH + fixedH + 12;
+    const targetOffset = headerH + fixedH + 8;
 
-    if (catId === 'all') {
-      window.scrollTo({ top: 0, behavior: shouldSmooth ? 'smooth' : 'auto' });
-    } else {
-      const section = document.getElementById(catId);
-      if (section) {
-        const rect = section.getBoundingClientRect();
-        const targetTop = window.scrollY + rect.top - targetOffset;
-        window.scrollTo({ top: Math.max(0, targetTop), behavior: shouldSmooth ? 'smooth' : 'auto' });
-      }
+    const section = document.getElementById(catId);
+    if (section) {
+      const rect = section.getBoundingClientRect();
+      const targetTop = window.scrollY + rect.top - targetOffset;
+      window.scrollTo({ top: Math.max(0, targetTop), behavior: shouldSmooth ? 'smooth' : 'auto' });
     }
 
     clearTimeout(scrollLockTimerRef.current);
@@ -162,7 +163,7 @@ function MenuPage() {
         const scrollY = window.scrollY;
         const headerH = 64;
         const fixedH = fixedHeaderHeightRef.current;
-        const triggerThreshold = headerH + fixedH + 16;
+        const triggerThreshold = headerH + fixedH + 8;
 
         // At page bottom: last section active
         const scrollBottom = window.innerHeight + scrollY;
@@ -177,23 +178,9 @@ function MenuPage() {
           return;
         }
 
-        // If top section is still below fixed block, 'all' is active
+        // Section whose top is the last one <= triggerThreshold is active (first section if none)
         const firstCat = sortedCategories[0];
-        const firstEl = firstCat ? document.getElementById(firstCat.id) : null;
-        if (firstEl) {
-          const firstRect = firstEl.getBoundingClientRect();
-          if (firstRect.top > triggerThreshold) {
-            if (activeCategoryRef.current !== 'all') {
-              setActiveCategory('all');
-              activeCategoryRef.current = 'all';
-              centerChip('all', true);
-            }
-            return;
-          }
-        }
-
-        // Section whose top is the last one <= triggerThreshold is active
-        let matchedCat = 'all';
+        let matchedCat = firstCat ? firstCat.id : '';
         for (const cat of sortedCategories) {
           const el = document.getElementById(cat.id);
           if (el) {
@@ -206,7 +193,7 @@ function MenuPage() {
           }
         }
 
-        if (matchedCat !== activeCategoryRef.current) {
+        if (matchedCat && matchedCat !== activeCategoryRef.current) {
           setActiveCategory(matchedCat);
           activeCategoryRef.current = matchedCat;
           centerChip(matchedCat, true);
@@ -280,19 +267,6 @@ function MenuPage() {
             className="flex items-center gap-2 overflow-x-auto overscroll-x-contain snap-x py-1"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
-            <a 
-              href="#all"
-              data-chip="all"
-              aria-current={activeCategory === 'all' ? 'true' : undefined}
-              onClick={(e) => { e.preventDefault(); scrollToSection('all'); }}
-              className={`min-h-[44px] h-[44px] sm:min-h-[40px] sm:h-[40px] px-5 flex items-center justify-center rounded-full font-bold text-sm whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shrink-0 select-none ${
-                activeCategory === 'all' 
-                  ? 'bg-primary text-primary-foreground shadow-sm' 
-                  : 'bg-card text-muted-foreground border border-border hover:bg-accent hover:text-foreground'
-              }`}
-            >
-              All
-            </a>
             {sortedCategories.map(cat => (
               <a 
                 key={cat.id}
