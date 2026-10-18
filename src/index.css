@@ -39,12 +39,6 @@
   }
 }
 
-@media (max-height: 520px) {
-  .menu-title-block {
-    display: none !important;
-  }
-}
-
 @layer utilities {
   .gradient-primary {
     background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8));

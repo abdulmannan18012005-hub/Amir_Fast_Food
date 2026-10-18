@@ -29,9 +29,9 @@ function MenuPage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Measured height of fixed header block (fallback 118px avoids CLS)
-  const [fixedHeaderHeight, setFixedHeaderHeight] = useState<number>(118);
+  const [fixedHeaderHeight, setFixedHeaderHeight] = useState<number>(56);
   const fixedHeaderRef = useRef<HTMLDivElement>(null);
-  const fixedHeaderHeightRef = useRef<number>(118);
+  const fixedHeaderHeightRef = useRef<number>(56);
   fixedHeaderHeightRef.current = fixedHeaderHeight;
 
   const chipsContainerRef = useRef<HTMLDivElement>(null);
@@ -65,12 +65,7 @@ function MenuPage() {
     if (!el) return;
 
     const measure = () => {
-      const isShort = window.innerHeight <= 520;
-      let h = el.offsetHeight;
-      if (isShort) {
-        const chipBar = el.querySelector('.menu-chip-bar') as HTMLElement | null;
-        h = chipBar ? chipBar.offsetHeight : 56;
-      }
+      const h = el.offsetHeight || 56;
       setFixedHeaderHeight(h);
       fixedHeaderHeightRef.current = h;
       document.documentElement.style.setProperty('--menu-fixed-h', `${h}px`);
@@ -259,21 +254,21 @@ function MenuPage() {
         onAddToCart={handleModalAdd} 
       />
       
-      {/* Fixed Header Section: Title + Subtitle + Category Chips all in ONE sticky container */}
+      {/* Page Title & Subtitle in normal flow (scrolls away) */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-2">
+        <header>
+          <h1 className="text-3xl sm:text-5xl font-extrabold text-foreground tracking-tight">Our Menu</h1>
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">
+            Crispy Broast, Gourmet Smash Burgers &amp; Loaded Deals.
+          </p>
+        </header>
+      </div>
+
+      {/* Sticky Chip Row Only (Title scrolls away) */}
       <div 
         ref={fixedHeaderRef}
         className="menu-fixed-wrapper sticky top-16 z-40 w-full bg-background border-b border-border shadow-sm"
       >
-        {/* Title and Subtitle */}
-        <div className="menu-title-block max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 sm:pt-4 pb-1">
-          <header>
-            <h1 className="text-2xl sm:text-4xl font-extrabold text-foreground tracking-tight">Our Menu</h1>
-            <p className="text-muted-foreground mt-0.5 sm:mt-1 text-xs sm:text-base truncate max-sm:max-w-[90vw]">
-              Crispy Broast, Gourmet Smash Burgers &amp; Loaded Deals.
-            </p>
-          </header>
-        </div>
-
         {/* Compact Chip Row */}
         <nav aria-label="Menu categories" className="menu-chip-bar max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 relative">
           <div 
@@ -315,7 +310,7 @@ function MenuPage() {
       </div>
 
       {/* All Sections Rendered in Order with Dynamic Measured Scroll-Margin-Top */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-16 pb-[85vh]">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-16 pb-12">
         {sortedCategories.map((cat, catIdx) => {
           const catItems = sortedItems.filter(i => i.category_id === cat.id);
           if (catItems.length === 0) return null;
@@ -326,7 +321,7 @@ function MenuPage() {
               aria-labelledby={`h-${cat.id}`}
               className="space-y-6"
               style={{
-                scrollMarginTop: `calc(4rem + var(--menu-fixed-h, 118px) + 0.75rem)`
+                scrollMarginTop: `calc(4rem + var(--menu-fixed-h, 56px) + 0.75rem)`
               }}
             >
               <div className="flex items-baseline gap-4">
