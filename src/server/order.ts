@@ -335,7 +335,11 @@ export const updateOrderStatus = createServerFn({ method: 'POST' })
       }
     }
 
-    const updates: Record<string, any> = { status: data.status };
+    const nowIso = new Date().toISOString();
+    const updates: Record<string, any> = { 
+      status: data.status,
+      status_changed_at: nowIso,
+    };
     let cancelReason = '';
     let riderName = '';
 
@@ -345,6 +349,7 @@ export const updateOrderStatus = createServerFn({ method: 'POST' })
         throw new UserFacingError('Cancellation reason must be 5 to 200 characters.', 'validation');
       }
       updates.cancel_reason = cancelReason;
+      updates.canceled_at = nowIso;
     }
     if (data.status === 'out_for_delivery') {
       riderName = String(data.riderName ?? '').replace(/<[^>]*>/g, '').trim().slice(0, 40);
@@ -456,7 +461,11 @@ export const getPublicOrders = createServerFn({ method: "POST" })
       .select('id, status, created_at, status_changed_at, canceled_at, payment_method, total_amount, delivery_fee, customer_name, delivery_address, rider_name, rider_phone, cancel_reason, order_items(*, menu_items(name))')
       .in('id', validIds);
       
-    if (error || !orders) return [];
+    if (error) {
+      console.error("[Database getPublicOrders Error]:", error);
+      throw new UserFacingError("Unable to load order status due to a server error. Please check your connection.");
+    }
+    if (!orders) return [];
     
     return orders.map(order => ({
       id: order.id,

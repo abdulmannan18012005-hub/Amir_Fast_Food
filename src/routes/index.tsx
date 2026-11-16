@@ -153,38 +153,6 @@ function Index() {
         </div>
       </section>
 
-      {/* How it works Section */}
-      <section className="bg-card border-y border-border">
-        <div className="container mx-auto px-4 py-16 sm:py-20 md:py-28">
-          <div className="text-center mb-10 sm:mb-14">
-            <span className="text-sm font-medium text-primary uppercase tracking-wider">Simple</span>
-            <h2 className="font-display text-2xl sm:text-3xl font-bold mt-2 md:text-4xl text-foreground">How it works</h2>
-          </div>
-          <div className="grid gap-8 grid-cols-1 sm:grid-cols-3 max-w-3xl mx-auto">
-            <div className="text-center">
-              <div className="mx-auto mb-4 h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/20">
-                <span className="font-display text-xl sm:text-2xl font-bold text-primary-foreground">01</span>
-              </div>
-              <h3 className="font-display text-base sm:text-lg font-semibold text-foreground">Browse the menu</h3>
-              <p className="mt-2 text-xs sm:text-sm text-muted-foreground">Explore shawarma, burgers, and combo deals</p>
-            </div>
-            <div className="text-center">
-              <div className="mx-auto mb-4 h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/20">
-                <span className="font-display text-xl sm:text-2xl font-bold text-primary-foreground">02</span>
-              </div>
-              <h3 className="font-display text-base sm:text-lg font-semibold text-foreground">Build your order</h3>
-              <p className="mt-2 text-xs sm:text-sm text-muted-foreground">Choose items, customize extras and add to cart</p>
-            </div>
-            <div className="text-center">
-              <div className="mx-auto mb-4 h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/20">
-                <span className="font-display text-xl sm:text-2xl font-bold text-primary-foreground">03</span>
-              </div>
-              <h3 className="font-display text-base sm:text-lg font-semibold text-foreground">Track live delivery</h3>
-              <p className="mt-2 text-xs sm:text-sm text-muted-foreground">Track your order live, we deliver it to your address</p>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* Hungry Section CTA */}
       <section className="container mx-auto px-4 pb-16 sm:pb-20 mt-16">

@@ -5,8 +5,8 @@ export const SHOP_LNG = 74.259939;
 export const SHOP_PHONE_DISPLAY = '+92 301 4265785';
 export const SHOP_PHONE_LOCAL = '0301 4265785';
 export const SHOP_WHATSAPP = '923014265785';
-export const SHOP_HOURS_DISPLAY = 'Every day, 4:05 PM – 2:00 AM';
-export const SHOP_HOURS_OPEN = '16:05';
+export const SHOP_HOURS_DISPLAY = 'Every day, 6:00 PM – 2:00 AM';
+export const SHOP_HOURS_OPEN = '18:00';
 export const SHOP_HOURS_CLOSE = '02:00';
 export const SHOP_DELIVERY_RADIUS_FREE_KM = 5;
 export const SHOP_DELIVERY_FEE_PER_KM = 100;
@@ -25,24 +25,30 @@ export interface ShopStatus {
 }
 
 export function getShopStatus(now: Date = new Date()): ShopStatus {
-  // Compute time in Pakistan Time (Asia/Karachi, UTC+5, no DST)
-  const pktTime = new Date(now.getTime() + (5 * 60 * 60 * 1000));
-  const hours = pktTime.getUTCHours();
-  const minutes = pktTime.getUTCMinutes();
-  const currentMinutes = hours * 60 + minutes;
+  // Compute time in Pakistan Time (Asia/Karachi, UTC+5, no DST) using Intl for exactness
+  const formatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Karachi',
+    hour12: false,
+    hour: 'numeric',
+    minute: 'numeric',
+  });
+  const parts = formatter.formatToParts(now);
+  const hour = Number(parts.find(p => p.type === 'hour')?.value || 0);
+  const minute = Number(parts.find(p => p.type === 'minute')?.value || 0);
+  const currentMinutes = hour * 60 + minute;
 
-  const [openH, openM] = SHOP_HOURS_OPEN.split(':').map(Number);
-  const [closeH, closeM] = SHOP_HOURS_CLOSE.split(':').map(Number);
-  const openMinutes = openH * 60 + openM;    // 16:05 -> 965
-  const closeMinutes = closeH * 60 + closeM;  // 02:00 -> 120
+  const [openH, openM] = SHOP_HOURS_OPEN.split(':').map(Number);    // 18:00 -> 1080
+  const [closeH, closeM] = SHOP_HOURS_CLOSE.split(':').map(Number);  // 02:00 -> 120
+  const openMinutes = openH * 60 + openM;
+  const closeMinutes = closeH * 60 + closeM;
 
-  // Overnight wrap: open 16:05 to 02:00 next day (closing time exclusive)
-  // Shift is active if currentMinutes >= 16:05 OR currentMinutes < 02:00
+  // Overnight wrap: open 18:00 to 02:00 next day (closing time exclusive: at or after 02:00 is closed)
+  // Shift is active if currentMinutes >= 18:00 OR currentMinutes < 02:00
   const isOpen = currentMinutes >= openMinutes || currentMinutes < closeMinutes;
 
   return {
     open: isOpen,
-    opensAtLabel: '4:05 PM',
+    opensAtLabel: '6:00 PM',
     closesAtLabel: '2:00 AM'
   };
 }

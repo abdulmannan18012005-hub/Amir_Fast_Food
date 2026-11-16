@@ -105,6 +105,9 @@ export async function submitOrder(draft: OrderDraft, cart: CartItem[]): Promise<
       }
       window.dispatchEvent(new Event('cartUpdated'));
       window.dispatchEvent(new Event('orderPlaced'));
+      if (newOrderId) {
+        window.dispatchEvent(new CustomEvent('orderCompleted', { detail: { orderId: newOrderId } }));
+      }
     }
 
     return {

@@ -55,11 +55,14 @@ function resolveActions(text: string): { cleanReply: string; actions: any[] } {
       const qty = parts.length > 1 ? parseInt(parts[1], 10) : 1;
       const validQty = isNaN(qty) || qty < 1 ? 1 : Math.min(qty, 20);
 
-      let item = cachedMenu.find(m => m.id === idOrName);
-      if (!item) {
+      const genericWords = ['drink', 'drinks', 'cold drink', 'cold drinks', 'beverage', 'beverages', 'food', 'item', 'items', 'deal', 'deals'];
+      const isGeneric = genericWords.includes(idOrName.toLowerCase());
+
+      let item = !isGeneric ? cachedMenu.find(m => m.id === idOrName) : undefined;
+      if (!item && !isGeneric) {
         item = cachedMenu.find(m => m.name.toLowerCase() === idOrName.toLowerCase());
       }
-      if (!item) {
+      if (!item && !isGeneric && idOrName.length >= 4) {
         item = cachedMenu.find(m => m.name.toLowerCase().includes(idOrName.toLowerCase()));
       }
 
@@ -188,6 +191,55 @@ export const chatWithAmirBot = createServerFn({ method: 'POST' })
         actions: []
       };
     }
+    if (
+      inputLower === 'terms' ||
+      inputLower === 'terms and conditions' ||
+      inputLower === 'policy' ||
+      inputLower === 'cancellation policy' ||
+      inputLower === 'rules'
+    ) {
+      return {
+        reply: `Operating hours: ${SHOP_HOURS_DISPLAY} PKT. Free delivery within ${SHOP_DELIVERY_RADIUS_FREE_KM} km, then PKR ${SHOP_DELIVERY_FEE_PER_KM}/km up to ${SHOP_DELIVERY_MAX_KM} km max. ${SHOP_CANCELLATION_POLICY} Full terms: /terms`,
+        actions: []
+      };
+    }
+    if (
+      inputLower === 'checkout' ||
+      inputLower === 'proceed to checkout' ||
+      inputLower === 'go to checkout' ||
+      inputLower === 'place order' ||
+      inputLower === 'proceed'
+    ) {
+      return {
+        reply: "Let's complete your order right here! Please enter your contact details.",
+        actions: [{ type: 'GO_STEP', step: 2 }]
+      };
+    }
+
+    // Generic drinks inquiry disambiguation
+    const isGenericDrinkRequest = (
+      inputLower === 'drink' ||
+      inputLower === 'drinks' ||
+      inputLower === 'cold drink' ||
+      inputLower === 'cold drinks' ||
+      inputLower === 'add a drink' ||
+      inputLower === 'add drink' ||
+      inputLower === 'give me a drink' ||
+      inputLower === 'i want a drink' ||
+      inputLower === 'beverage' ||
+      inputLower === 'beverages'
+    );
+    if (isGenericDrinkRequest) {
+      await refreshMenuCache();
+      const drinks = cachedMenu.filter(m => (m.category_id === 'cat_drinks' || m.name.toLowerCase().includes('coke') || m.name.toLowerCase().includes('water')) && m.is_available);
+      if (drinks.length > 0) {
+        const listStr = drinks.map(d => `${d.name} (PKR ${d.price})`).join(', ');
+        return {
+          reply: `We have the following drinks available: ${listStr}. Which one would you like me to add?`,
+          actions: []
+        };
+      }
+    }
 
     if (!process.env.GROQ_API_KEY) {
       return { reply: 'AmirBot is currently sleeping. Please call us at 0301-4265785 to order!', actions: [] };
@@ -254,7 +306,9 @@ STRICT RULES (Zero Hallucination):
 8. If they want to proceed to checkout or enter details, append: [ACTION:GO_STEP:2]
 9. If they ask about their order status, append: [ACTION:TRACK_ORDER] and explain the status.
 10. NEVER output HTML. Use plain text only.
-11. If unsure, say you are not sure and give ${SHOP_PHONE_LOCAL}; never state delivery times other than the estimated range (30–40 minutes).`;
+11. If unsure, say you are not sure and give ${SHOP_PHONE_LOCAL}; never state delivery times other than the estimated range (30–40 minutes).
+12. DRINK DISAMBIGUATION: If the customer asks for a "drink" or "cold drink" without specifying the exact drink name and size, DO NOT output [ACTION:ADD_ITEM:...]. List the available drinks with their exact prices and ask which one they prefer.
+13. REPLACING ITEMS: If the customer asks to swap or replace an item, ask which item to remove and what to add in its place.`;
 
     const primaryModel = process.env.GROQ_MODEL || 'openai/gpt-oss-20b';
     const fallbackModel = process.env.GROQ_FALLBACK_MODEL || 'openai/gpt-oss-120b';

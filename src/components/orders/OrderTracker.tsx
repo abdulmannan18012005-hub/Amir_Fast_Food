@@ -66,33 +66,15 @@ export function OrderTracker() {
     }
   }, [error, orderId]);
 
-  // Handle delivery / cancel auto-removal
+  // Handle cancellation long-term auto-removal (delivered orders stay until explicitly dismissed)
   useEffect(() => {
     clearTimeout(vanishTimerRef.current);
     if (!order || !orderId) return;
 
-    if (order.status === 'delivered') {
-      const deliveredAt = new Date(order.status_changed_at || order.created_at).getTime();
-      const elapsed = Date.now() - deliveredAt;
-      
-      // If already delivered > 2 minutes ago on load: remove silently
-      if (elapsed > 120000) {
-        const remaining = removeActiveOrder(orderId);
-        setOrderId(remaining[0]?.id ?? null);
-        setIsExpanded(false);
-        return;
-      }
-
-      // Show for 8 seconds, then auto-vanish
-      vanishTimerRef.current = setTimeout(() => {
-        setIsExpanded(false);
-        const remaining = removeActiveOrder(orderId);
-        setOrderId(remaining[0]?.id ?? null);
-      }, 8000);
-    } else if (order.status === 'canceled') {
+    if (order.status === 'canceled') {
       const canceledAt = new Date(order.canceled_at || order.status_changed_at || order.created_at).getTime();
       const elapsed = Date.now() - canceledAt;
-      // Auto-remove 30 minutes after cancellation
+      // Auto-remove 30 minutes after cancellation if not dismissed manually
       if (elapsed > 30 * 60000) {
         const remaining = removeActiveOrder(orderId);
         setOrderId(remaining[0]?.id ?? null);
@@ -210,12 +192,21 @@ export function OrderTracker() {
               >
                  Full Page
               </Link>
-              <button 
-                 onClick={() => setIsExpanded(false)}
-                 className="flex-1 py-3 font-bold text-primary-foreground bg-primary hover:bg-primary/90 rounded-xl transition-colors"
-              >
-                 Close
-              </button>
+              {isFinal ? (
+                <button 
+                   onClick={handleDismiss}
+                   className="flex-1 py-3 font-bold text-primary-foreground bg-primary hover:bg-primary/90 rounded-xl transition-colors"
+                >
+                   Dismiss
+                </button>
+              ) : (
+                <button 
+                   onClick={() => setIsExpanded(false)}
+                   className="flex-1 py-3 font-bold text-primary-foreground bg-primary hover:bg-primary/90 rounded-xl transition-colors"
+                >
+                   Close
+                </button>
+              )}
             </div>
           </div>
         </>

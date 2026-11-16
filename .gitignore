@@ -26,6 +26,9 @@ FINAL_REPORT_V10.md
 V11_PROGRESS.md
 FINAL_REPORT_V11.md
 
+# V16 workspace (temporary)
+.v16/
+
 # Tool folders (GSD, planning)
 .agent/
 .planning/

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ChefHat } from 'lucide-react';
-import { loginAdminFn } from '../../server/adminAuthApi';
+import { loginAdminFn, validateAdminSessionFn } from '../../server/adminAuthApi';
 import { getAdminToken, setAdminToken, clearAdminSession } from '../../lib/adminSession';
 import { getErrorCode } from '../../lib/errors';
 
@@ -12,12 +12,35 @@ export function PinGate({ children, onUnlock }: { children: React.ReactNode, onU
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Hydrate authentication state on client mount only to prevent SSR mismatch
+    // Validate stored session token against server
     const token = getAdminToken();
     if (token) {
-      setIsAuthenticated(true);
+      validateAdminSessionFn({ data: { token } })
+        .then((res: any) => {
+          if (res && res.valid) {
+            setIsAuthenticated(true);
+          } else {
+            clearAdminSession();
+            setIsAuthenticated(false);
+            if (res && res.error) {
+              setError(res.error);
+            } else {
+              setError('Your session has expired. Please enter the PIN again.');
+            }
+          }
+        })
+        .catch(() => {
+          clearAdminSession();
+          setIsAuthenticated(false);
+          setError('Could not verify admin session. Please enter the PIN again.');
+        })
+        .finally(() => {
+          setIsReady(true);
+        });
+    } else {
+      setIsAuthenticated(false);
+      setIsReady(true);
     }
-    setIsReady(true);
 
     const onExpired = (e: any) => {
       setIsAuthenticated(false);
@@ -36,7 +59,7 @@ export function PinGate({ children, onUnlock }: { children: React.ReactNode, onU
     setLoading(true);
     setError('');
     try {
-      const res = await loginAdminFn({ data: { pin } });
+      const res = await loginAdminFn({ data: { pin: pin.trim() } });
       if (res.success && res.token) {
         setAdminToken(res.token);
         setIsAuthenticated(true);

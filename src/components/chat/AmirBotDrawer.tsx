@@ -11,7 +11,7 @@ import { reverseGeocodeFn } from '../../server/location';
 import { quoteDeliveryFn } from '../../server/pricingApi';
 import { 
   addToCart, getCart, removeItem, updateItemQuantity, 
-  clearCart, getCartSubtotal, lineTotal 
+  clearCart, getCartSubtotal, lineTotal, areVariantsEqual 
 } from '../../lib/cart';
 import { useOrderDraft, clearDraft } from '../../lib/orderDraft';
 import { submitOrder } from '../../lib/orderSubmit';
@@ -111,6 +111,15 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
   const [selectedDrink, setSelectedDrink] = useState('Pepsi');
   const [selectedSide, setSelectedSide] = useState('Regular Fries');
   const [selectedUpgrades, setSelectedUpgrades] = useState<ItemVariant[]>([]);
+
+  // Pending confirmation for cart mutations
+  const [pendingAction, setPendingAction] = useState<{
+    type: 'ADD_ITEM' | 'SET_QTY' | 'REMOVE_ITEM' | 'CLEAR_CART';
+    title: string;
+    description: string;
+    confirmLabel?: string;
+    execute: () => void;
+  } | null>(null);
 
   // Start Over modal state
   const [confirmReset, setConfirmReset] = useState(false);
@@ -240,6 +249,7 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
     clearDraft();
     setMessages(DEFAULT_MSG);
     setActiveOptionItem(null);
+    setPendingAction(null);
     setReviewConsent(false);
     setConfirmReset(false);
     setSuccessOrderId('');
@@ -261,43 +271,79 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
             setActiveOptionItem(action);
             addToast(`Choose options for ${action.name}`, 'info');
           } else {
-            const cartItem: CartItem = {
-              menu_item_id: action.menu_item_id,
-              name: action.name,
-              image_url: action.image_url || '/placeholder.webp',
-              quantity: action.qty || 1,
-              price: action.price,
-              variants: [],
-            };
-            addToCart(cartItem);
-            playSuccessChime();
-            addToast(`Added ${action.qty || 1}x ${action.name}`, 'success');
+            setPendingAction({
+              type: 'ADD_ITEM',
+              title: `Add ${action.qty || 1}x ${action.name}?`,
+              description: `PKR ${(action.price || 0) * (action.qty || 1)}`,
+              confirmLabel: 'Confirm Add',
+              execute: () => {
+                const cartItem: CartItem = {
+                  menu_item_id: action.menu_item_id,
+                  name: action.name,
+                  image_url: action.image_url || '/placeholder.webp',
+                  quantity: action.qty || 1,
+                  price: action.price,
+                  variants: [],
+                };
+                addToCart(cartItem);
+                playSuccessChime();
+                addToast(`Added ${action.qty || 1}x ${action.name}`, 'success');
+              }
+            });
           }
           break;
         }
         case 'SET_QTY': {
           const cart = getCart();
-          const item = cart.find(i => i.menu_item_id === action.menu_item_id);
+          const item = action.variants && Array.isArray(action.variants)
+            ? cart.find(i => i.menu_item_id === action.menu_item_id && areVariantsEqual(i.variants, action.variants))
+            : cart.find(i => i.menu_item_id === action.menu_item_id);
           if (item) {
-            updateItemQuantity(item.menu_item_id, item.variants, action.qty || 1);
-            addToast(`Updated quantity for ${item.name}`, 'info');
+            setPendingAction({
+              type: 'SET_QTY',
+              title: `Update ${item.name} quantity to ${action.qty || 1}?`,
+              description: `Current quantity: ${item.quantity}`,
+              confirmLabel: 'Confirm Update',
+              execute: () => {
+                updateItemQuantity(item.menu_item_id, item.variants, action.qty || 1);
+                addToast(`Updated quantity for ${item.name}`, 'info');
+              }
+            });
           }
           break;
         }
         case 'REMOVE_ITEM': {
           const cart = getCart();
-          const item = cart.find(i => i.menu_item_id === action.menu_item_id);
+          const item = action.variants && Array.isArray(action.variants)
+            ? cart.find(i => i.menu_item_id === action.menu_item_id && areVariantsEqual(i.variants, action.variants))
+            : cart.find(i => i.menu_item_id === action.menu_item_id);
           if (item) {
-            removeItem(item.menu_item_id, item.variants);
-            addToast(`Removed ${item.name}`, 'info');
+            setPendingAction({
+              type: 'REMOVE_ITEM',
+              title: `Remove ${item.name} from your cart?`,
+              description: `This line will be removed.`,
+              confirmLabel: 'Confirm Remove',
+              execute: () => {
+                removeItem(item.menu_item_id, item.variants);
+                addToast(`Removed ${item.name}`, 'info');
+              }
+            });
           } else {
             addToast('That item is not in your cart.', 'info');
           }
           break;
         }
         case 'CLEAR_CART': {
-          clearCart();
-          addToast('Cart cleared.', 'info');
+          setPendingAction({
+            type: 'CLEAR_CART',
+            title: 'Clear your entire cart?',
+            description: 'All items will be removed from your order.',
+            confirmLabel: 'Confirm Clear',
+            execute: () => {
+              clearCart();
+              addToast('Cart cleared.', 'info');
+            }
+          });
           break;
         }
         case 'SHOW_CART': {
@@ -335,6 +381,41 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
   const handleSend = async () => {
     const txt = input.trim();
     if (!txt || isTyping || txt.length > 500) return;
+
+    // Check if there is an active pending confirmation
+    if (pendingAction) {
+      const lower = txt.toLowerCase().trim();
+      const affirmative = ['yes', 'yeah', 'yep', 'y', 'haan', 'sure', 'ok', 'okay', 'confirm', 'add', 'add it', 'do it', 'please add'];
+      const negative = ['no', 'nope', 'n', 'nahi', 'cancel', 'stop', 'dont', "don't", 'nevermind'];
+
+      if (affirmative.includes(lower)) {
+        setInput('');
+        const act = pendingAction;
+        setPendingAction(null);
+        setMessages(prev => [
+          ...prev,
+          { role: 'user', text: txt },
+          { role: 'bot', text: 'Confirmed! I have updated your cart.' }
+        ]);
+        act.execute();
+        return;
+      }
+
+      if (negative.includes(lower)) {
+        setInput('');
+        setPendingAction(null);
+        setMessages(prev => [
+          ...prev,
+          { role: 'user', text: txt },
+          { role: 'bot', text: 'No problem, action canceled!' }
+        ]);
+        addToast('Action canceled', 'info');
+        return;
+      }
+
+      // If user typed a new question or message, clear the pending action and proceed
+      setPendingAction(null);
+    }
 
     setInput('');
     const userMsg: Msg = { role: 'user', text: txt };
@@ -1011,6 +1092,14 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
                           >
                             <Plus size={12} />
                           </button>
+                          <button
+                            type="button"
+                            aria-label={`Remove ${item.name}`}
+                            onClick={() => removeItem(item.menu_item_id, item.variants)}
+                            className="w-6 h-6 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive flex items-center justify-center transition-colors ml-0.5"
+                          >
+                            <Trash2 size={12} />
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -1609,6 +1698,39 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
 
         {/* Bottom Input Area */}
         <div className="p-3 bg-card border-t border-border shrink-0">
+          {/* Pending Action Confirmation Card */}
+          {pendingAction && (
+            <div className="p-2.5 bg-primary/10 border border-primary/30 rounded-2xl mb-2 flex items-center justify-between gap-2 shadow-sm animate-in fade-in">
+              <div className="text-xs">
+                <p className="font-bold text-foreground">{pendingAction.title}</p>
+                <p className="text-[11px] text-muted-foreground">{pendingAction.description}</p>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPendingAction(null);
+                    addToast('Action canceled', 'info');
+                  }}
+                  className="px-2.5 py-1.5 rounded-xl bg-accent text-foreground text-xs font-semibold hover:bg-accent/80 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const act = pendingAction;
+                    setPendingAction(null);
+                    act.execute();
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold shadow-md transition-colors"
+                >
+                  {pendingAction.confirmLabel || 'Confirm'}
+                </button>
+              </div>
+            </div>
+          )}
+
           <form 
             onSubmit={e => { e.preventDefault(); handleSend(); }} 
             className="flex items-center gap-2"

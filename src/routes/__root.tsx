@@ -7,7 +7,9 @@ const CartDrawer = React.lazy(() => import('../components/cart/CartDrawer').then
 import { MobileBottomNav } from '../components/navigation/MobileBottomNav';
 import { ThemeSwitcher } from '../components/ThemeSwitcher';
 const HeaderSearch = React.lazy(() => import('../components/navigation/HeaderSearch').then(m => ({ default: m.HeaderSearch })));
-import { getCartSubtotal } from '../lib/cart';
+import { CustomerInstallPrompt } from '../components/pwa/CustomerInstallPrompt';
+import { getCartSubtotal, updateItemQuantity, removeItem, clearCart, areVariantsEqual } from '../lib/cart';
+import type { ItemVariant } from '../types';
 import '../index.css';
 
 export const Route = createRootRoute({
@@ -49,34 +51,41 @@ function RootComponent() {
     const handleOpenBot = () => setChatOpen(true);
     window.addEventListener('openAmirBot', handleOpenBot);
 
+    // Early capture of PWA beforeinstallprompt
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      (window as any).__deferredPwaPrompt = e;
+      window.dispatchEvent(new Event('pwaPromptReady'));
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+
+    // Early service worker registration for PWA installability and push
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+
     return () => {
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('cartUpdated', handleStorage);
       window.removeEventListener('openCart', handleOpenCart);
       window.removeEventListener('openAmirBot', handleOpenBot);
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
     };
   }, []);
 
-  const handleUpdateQuantity = (id: string, delta: number) => {
-    const updated = cartItems.map((item: any) => {
-      if (item.menu_item_id === id) {
-        return { ...item, quantity: Math.max(1, item.quantity + delta) };
-      }
-      return item;
-    });
-    localStorage.setItem('cart', JSON.stringify(updated));
-    window.dispatchEvent(new Event('cartUpdated'));
+  const handleUpdateQuantity = (id: string, variants: ItemVariant[], delta: number) => {
+    const item = cartItems.find((i: any) => i.menu_item_id === id && areVariantsEqual(i.variants, variants));
+    if (item) {
+      updateItemQuantity(id, variants, item.quantity + delta);
+    }
   };
 
-  const handleRemoveItem = (id: string) => {
-    const updated = cartItems.filter((item: any) => item.menu_item_id !== id);
-    localStorage.setItem('cart', JSON.stringify(updated));
-    window.dispatchEvent(new Event('cartUpdated'));
+  const handleRemoveItem = (id: string, variants: ItemVariant[]) => {
+    removeItem(id, variants);
   };
 
   const handleClearCart = () => {
-    localStorage.setItem('cart', JSON.stringify([]));
-    window.dispatchEvent(new Event('cartUpdated'));
+    clearCart();
     setIsCartOpen(false);
   };
 
@@ -120,7 +129,7 @@ function RootComponent() {
               {
                 "@type": "OpeningHoursSpecification",
                 "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-                "opens": "16:05",
+                "opens": "18:00",
                 "closes": "02:00"
               }
             ]
@@ -248,6 +257,7 @@ function RootComponent() {
               onOpenBot={() => setChatOpen(true)}
             />
             <React.Suspense fallback={null}><OrderTracker /></React.Suspense>
+            <CustomerInstallPrompt />
             <React.Suspense fallback={null}>
               <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} items={cartItems} onUpdateQuantity={handleUpdateQuantity} onRemoveItem={handleRemoveItem} onClearCart={handleClearCart} />
             </React.Suspense>

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { MapPin, XCircle, Phone, Bell } from 'lucide-react';
 import { LiveOrder } from '../../hooks/useLiveOrder';
+import { SHOP_PHONE_LOCAL } from '../../lib/shop';
 
 export function OrderStatusView({ order, onNotify }: { order: LiveOrder, onNotify?: () => void }) {
   const [now, setNow] = useState(Date.now());
@@ -10,6 +11,9 @@ export function OrderStatusView({ order, onNotify }: { order: LiveOrder, onNotif
     return () => clearInterval(timer);
   }, []);
 
+  const elapsedMinutes = (now - new Date(order.created_at).getTime()) / 60000;
+  const isExpired = elapsedMinutes > 40;
+
   const getProgress = () => {
     if (order.status === 'canceled') return 100;
     if (order.status === 'delivered') return 100;
@@ -18,16 +22,19 @@ export function OrderStatusView({ order, onNotify }: { order: LiveOrder, onNotif
     const elapsed = now - statusChangedAt;
     
     if (order.status === 'received') {
+      if (isExpired) return 15;
       const expected = 3 * 60000;
       const fraction = Math.min(0.95, elapsed / expected);
       return 0 + (15 - 0) * fraction;
     }
     if (order.status === 'preparing') {
+      if (isExpired) return 60;
       const expected = 15 * 60000;
       const fraction = Math.min(0.95, elapsed / expected);
       return 15 + (60 - 15) * fraction;
     }
     if (order.status === 'out_for_delivery') {
+      if (isExpired) return 95;
       const expected = 15 * 60000;
       const fraction = Math.min(0.95, elapsed / expected);
       return 60 + (95 - 60) * fraction;
@@ -36,9 +43,19 @@ export function OrderStatusView({ order, onNotify }: { order: LiveOrder, onNotif
   };
   
   const getEta = () => {
-    const elapsedMinutes = (now - new Date(order.created_at).getTime()) / 60000;
-    if (elapsedMinutes > 40) {
-      return "Taking longer than usual; call 0301 4265785 if you need help";
+    if (order.status === 'delivered') return 'Delivered';
+    if (order.status === 'canceled') return 'Canceled';
+
+    if (isExpired) {
+      if (order.status === 'out_for_delivery') {
+        return "Your order is coming soon. Rider is on the way.";
+      }
+      if (order.status === 'received') {
+        return `Estimate has passed. Order received; call ${SHOP_PHONE_LOCAL} for an update.`;
+      }
+      if (order.status === 'preparing') {
+        return `Estimate has passed. Food is being prepared; call ${SHOP_PHONE_LOCAL} for an update.`;
+      }
     }
     return "Estimated 30–40 minutes";
   };

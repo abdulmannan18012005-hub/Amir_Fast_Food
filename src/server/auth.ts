@@ -43,9 +43,15 @@ export function getClientIp(): string {
 }
 
 function getAdminSigningKey(): Buffer {
-  const pin = process.env.ADMIN_PIN || '';
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'aff-admin-secret-key-salt-32-chars-long';
-  return crypto.createHmac('sha256', serviceKey).update(`admin-session|${pin}`).digest();
+  const pin = process.env.ADMIN_PIN;
+  if (!pin) {
+    throw new UserFacingError('Admin access is not configured on the server. Please set ADMIN_PIN.', 'auth');
+  }
+  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.ADMIN_SESSION_SECRET;
+  if (!secret) {
+    throw new UserFacingError('Admin server secret missing. Please configure SUPABASE_SERVICE_ROLE_KEY or ADMIN_SESSION_SECRET.', 'auth');
+  }
+  return crypto.createHmac('sha256', secret).update(`admin-session|${pin}`).digest();
 }
 
 export function signAdminToken(): string {
@@ -95,7 +101,7 @@ export function requireAdmin(tokenOrPin?: string): boolean {
 export function verifyAdminPin(providedPin?: string): boolean {
   if (!process.env.ADMIN_PIN) {
     console.warn('[AUTH] Admin is not configured.');
-    throw new UserFacingError('Admin is not configured.', 'auth');
+    throw new UserFacingError('Admin access is not configured on the server. Please set ADMIN_PIN.', 'auth');
   }
 
   if (!providedPin) {
@@ -107,21 +113,29 @@ export function verifyAdminPin(providedPin?: string): boolean {
   const record = attempts.get(ip) || { count: 0, lockUntil: 0 };
 
   if (record.lockUntil > now) {
-    throw new UserFacingError('Too many attempts. Please wait 15 minutes and try again.', 'rate_limited');
+    const remainingMins = Math.ceil((record.lockUntil - now) / 60000);
+    throw new UserFacingError(`Too many attempts. Please wait ${remainingMins} minutes and try again.`, 'rate_limited');
   }
 
-  const expectedPin = process.env.ADMIN_PIN;
+  const expectedPin = String(process.env.ADMIN_PIN);
+  const unquotedExpected = expectedPin.replace(/^["']|["']$/g, '').trim();
+  const providedStr = String(providedPin);
+  const unquotedProvided = providedStr.replace(/^["']|["']$/g, '').trim();
 
-  let isMatch = false;
-  try {
-    const expectedBuffer = Buffer.from(expectedPin);
-    const providedBuffer = Buffer.from(String(providedPin));
-    if (expectedBuffer.length === providedBuffer.length) {
-      isMatch = crypto.timingSafeEqual(expectedBuffer, providedBuffer);
+  const timingSafeMatch = (a: string, b: string): boolean => {
+    try {
+      const bufA = Buffer.from(a);
+      const bufB = Buffer.from(b);
+      return bufA.length === bufB.length && crypto.timingSafeEqual(bufA, bufB);
+    } catch {
+      return false;
     }
-  } catch (e) {
-    isMatch = false;
-  }
+  };
+
+  const isMatch = timingSafeMatch(expectedPin, providedStr) ||
+                  timingSafeMatch(unquotedExpected, unquotedProvided) ||
+                  timingSafeMatch(unquotedExpected, providedStr) ||
+                  timingSafeMatch(expectedPin, unquotedProvided);
 
   if (isMatch) {
     attempts.delete(ip);
