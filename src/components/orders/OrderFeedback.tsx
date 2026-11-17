@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Star, CheckCircle2, MessageSquareHeart, Loader2, Sparkles, Check } from 'lucide-react';
+import { Star, CheckCircle2, MessageSquareHeart, Loader2, Sparkles, Check, X } from 'lucide-react';
 import { 
   submitFeedbackFn, 
   getFeedbackForOrderFn, 
@@ -19,12 +19,22 @@ export function OrderFeedback({ orderId, status }: Props) {
   }
 
   const storageKey = `order_feedback_${orderId}`;
+  const skipKey = `order_feedback_skipped_${orderId}`;
 
   const [rating, setRating] = useState<number>(5);
   const [hoverRating, setHoverRating] = useState<number | null>(null);
   const [selectedChips, setSelectedChips] = useState<string[]>([]);
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [isSkipped, setIsSkipped] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        return localStorage.getItem(skipKey) === 'true';
+      } catch { /* ignore */ }
+    }
+    return false;
+  });
+
   const [submittedData, setSubmittedData] = useState<FeedbackData | null>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -50,6 +60,7 @@ export function OrderFeedback({ orderId, status }: Props) {
           setSubmittedData(res.feedback);
           try {
             localStorage.setItem(storageKey, JSON.stringify(res.feedback));
+            localStorage.removeItem(skipKey);
           } catch { /* ignore */ }
         }
       })
@@ -62,6 +73,20 @@ export function OrderFeedback({ orderId, status }: Props) {
       isMounted = false;
     };
   }, [orderId]);
+
+  const handleSkip = () => {
+    setIsSkipped(true);
+    try {
+      localStorage.setItem(skipKey, 'true');
+    } catch { /* ignore */ }
+  };
+
+  const handleUnskip = () => {
+    setIsSkipped(false);
+    try {
+      localStorage.removeItem(skipKey);
+    } catch { /* ignore */ }
+  };
 
   const toggleChip = (chip: string) => {
     if (submittedData || submitting) return;
@@ -96,8 +121,10 @@ export function OrderFeedback({ orderId, status }: Props) {
 
       if (res.success && res.feedback) {
         setSubmittedData(res.feedback);
+        setIsSkipped(false);
         try {
           localStorage.setItem(storageKey, JSON.stringify(res.feedback));
+          localStorage.removeItem(skipKey);
         } catch { /* ignore */ }
       } else {
         setErrorMessage(res.error || 'Failed to submit feedback. Please try again.');
@@ -112,7 +139,7 @@ export function OrderFeedback({ orderId, status }: Props) {
   const activeRating = hoverRating !== null ? hoverRating : rating;
   const isSubmitDisabled = submitting || (selectedChips.length === 0 && comment.trim().length === 0);
 
-  // Render Already Submitted State
+  // 1. Render Already Submitted State
   if (submittedData) {
     return (
       <div className="bg-card border border-emerald-500/30 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4 animate-in fade-in">
@@ -168,9 +195,33 @@ export function OrderFeedback({ orderId, status }: Props) {
     );
   }
 
-  // Render Feedback Form
+  // 2. Render Compact "Leave Feedback Later" option if customer chose "Not Now"
+  if (isSkipped) {
+    return (
+      <div className="bg-card border border-border rounded-3xl p-4 sm:p-5 flex items-center justify-between gap-3 shadow-sm animate-in fade-in">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+            <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-foreground">How was your order?</p>
+            <p className="text-xs text-muted-foreground">Leave a quick review whenever you are ready</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={handleUnskip}
+          className="px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-2xl text-xs sm:text-sm font-bold transition-all shadow-sm active:scale-95 whitespace-nowrap"
+        >
+          Leave Feedback
+        </button>
+      </div>
+    );
+  }
+
+  // 3. Render Full Feedback Form
   return (
-    <div className="bg-card border border-border rounded-3xl p-5 sm:p-6 shadow-sm space-y-5">
+    <div className="bg-card border border-border rounded-3xl p-5 sm:p-6 shadow-sm space-y-5 animate-in fade-in">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center">
@@ -178,12 +229,23 @@ export function OrderFeedback({ orderId, status }: Props) {
           </div>
           <div>
             <h3 className="font-bold text-foreground text-base sm:text-lg">How was your order?</h3>
-            <p className="text-xs text-muted-foreground">Rate your experience with Amir Fast Food</p>
+            <p className="text-xs text-muted-foreground">Feedback is completely optional and appreciated</p>
           </div>
         </div>
-        {fetchingExisting && (
-          <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />
-        )}
+        <div className="flex items-center gap-2">
+          {fetchingExisting && (
+            <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />
+          )}
+          <button
+            type="button"
+            onClick={handleSkip}
+            aria-label="Skip feedback for now"
+            className="text-muted-foreground hover:text-foreground p-1.5 rounded-full hover:bg-muted transition-colors text-xs inline-flex items-center gap-1"
+          >
+            <span className="hidden sm:inline">Not Now</span>
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -281,28 +343,37 @@ export function OrderFeedback({ orderId, status }: Props) {
           </div>
         )}
 
-        {/* Submit Button */}
-        <button
-          type="submit"
-          disabled={isSubmitDisabled}
-          className={`w-full py-3 px-5 rounded-2xl font-bold text-sm sm:text-base flex items-center justify-center gap-2 transition-all shadow-md ${
-            isSubmitDisabled
-              ? 'bg-muted text-muted-foreground cursor-not-allowed opacity-60'
-              : 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary/20 active:scale-[0.99]'
-          }`}
-        >
-          {submitting ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Submitting Feedback...</span>
-            </>
-          ) : (
-            <>
-              <Check className="w-4 h-4" />
-              <span>Submit Feedback</span>
-            </>
-          )}
-        </button>
+        {/* Action Buttons: Not Now + Submit Feedback */}
+        <div className="flex items-center gap-3 pt-1">
+          <button
+            type="button"
+            onClick={handleSkip}
+            className="py-3 px-5 rounded-2xl font-bold text-sm border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors active:scale-[0.99]"
+          >
+            Not Now
+          </button>
+          <button
+            type="submit"
+            disabled={isSubmitDisabled}
+            className={`flex-1 py-3 px-5 rounded-2xl font-bold text-sm sm:text-base flex items-center justify-center gap-2 transition-all shadow-md ${
+              isSubmitDisabled
+                ? 'bg-muted text-muted-foreground cursor-not-allowed opacity-60'
+                : 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary/20 active:scale-[0.99]'
+            }`}
+          >
+            {submitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Submitting Feedback...</span>
+              </>
+            ) : (
+              <>
+                <Check className="w-4 h-4" />
+                <span>Submit Feedback</span>
+              </>
+            )}
+          </button>
+        </div>
       </form>
     </div>
   );

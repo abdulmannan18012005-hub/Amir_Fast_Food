@@ -50,6 +50,7 @@ export function AdminNav() {
         <Link to="/admin/kitchen" className="[&.active]:text-primary hover:text-primary transition-colors">Kitchen</Link>
         <Link to="/admin/menu" className="[&.active]:text-primary hover:text-primary transition-colors">Menu</Link>
         <Link to="/admin/history" className="[&.active]:text-primary hover:text-primary transition-colors">History</Link>
+        <Link to="/admin/feedback" className="[&.active]:text-primary hover:text-primary transition-colors">Feedback</Link>
       </div>
       
       <div className="flex items-center gap-3">

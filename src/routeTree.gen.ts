@@ -17,6 +17,7 @@ import { Route as LocationsRouteImport } from './routes/locations'
 import { Route as MenuRouteImport } from './routes/menu'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as AdminFeedbackRouteImport } from './routes/admin/feedback'
 import { Route as AdminHistoryRouteImport } from './routes/admin/history'
 import { Route as AdminKitchenRouteImport } from './routes/admin/kitchen'
 import { Route as AdminMenuRouteImport } from './routes/admin/menu'
@@ -62,6 +63,11 @@ const TermsRoute = TermsRouteImport.update({
   path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminFeedbackRoute = AdminFeedbackRouteImport.update({
+  id: '/admin/feedback',
+  path: '/admin/feedback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminHistoryRoute = AdminHistoryRouteImport.update({
   id: '/admin/history',
   path: '/admin/history',
@@ -92,6 +98,7 @@ export interface FileRoutesByFullPath {
   '/menu': typeof MenuRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
+  '/admin/feedback': typeof AdminFeedbackRoute
   '/admin/history': typeof AdminHistoryRoute
   '/admin/kitchen': typeof AdminKitchenRoute
   '/admin/menu': typeof AdminMenuRoute
@@ -106,6 +113,7 @@ export interface FileRoutesByTo {
   '/menu': typeof MenuRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
+  '/admin/feedback': typeof AdminFeedbackRoute
   '/admin/history': typeof AdminHistoryRoute
   '/admin/kitchen': typeof AdminKitchenRoute
   '/admin/menu': typeof AdminMenuRoute
@@ -121,6 +129,7 @@ export interface FileRoutesById {
   '/menu': typeof MenuRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
+  '/admin/feedback': typeof AdminFeedbackRoute
   '/admin/history': typeof AdminHistoryRoute
   '/admin/kitchen': typeof AdminKitchenRoute
   '/admin/menu': typeof AdminMenuRoute
@@ -137,6 +146,7 @@ export interface FileRouteTypes {
     | '/menu'
     | '/privacy'
     | '/terms'
+    | '/admin/feedback'
     | '/admin/history'
     | '/admin/kitchen'
     | '/admin/menu'
@@ -151,6 +161,7 @@ export interface FileRouteTypes {
     | '/menu'
     | '/privacy'
     | '/terms'
+    | '/admin/feedback'
     | '/admin/history'
     | '/admin/kitchen'
     | '/admin/menu'
@@ -165,6 +176,7 @@ export interface FileRouteTypes {
     | '/menu'
     | '/privacy'
     | '/terms'
+    | '/admin/feedback'
     | '/admin/history'
     | '/admin/kitchen'
     | '/admin/menu'
@@ -180,6 +192,7 @@ export interface RootRouteChildren {
   MenuRoute: typeof MenuRoute
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
+  AdminFeedbackRoute: typeof AdminFeedbackRoute
   AdminHistoryRoute: typeof AdminHistoryRoute
   AdminKitchenRoute: typeof AdminKitchenRoute
   AdminMenuRoute: typeof AdminMenuRoute
@@ -244,6 +257,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/feedback': {
+      id: '/admin/feedback'
+      path: '/admin/feedback'
+      fullPath: '/admin/feedback'
+      preLoaderRoute: typeof AdminFeedbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/history': {
       id: '/admin/history'
       path: '/admin/history'
@@ -284,6 +304,7 @@ const rootRouteChildren: RootRouteChildren = {
   MenuRoute: MenuRoute,
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
+  AdminFeedbackRoute: AdminFeedbackRoute,
   AdminHistoryRoute: AdminHistoryRoute,
   AdminKitchenRoute: AdminKitchenRoute,
   AdminMenuRoute: AdminMenuRoute,

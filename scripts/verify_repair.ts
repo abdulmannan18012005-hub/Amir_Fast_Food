@@ -212,4 +212,15 @@ assert.strictEqual(PREDEFINED_FEEDBACK_CHIPS[5], 'The delivery service was good.
 assert.strictEqual(PREDEFINED_FEEDBACK_CHIPS[6], 'Everything was great. I enjoyed my meal.');
 console.log('✓ PASS: Customer Feedback Predefined Chips Verified');
 
+// TEST 8: Admin Feedback Privacy & Phone Masking
+console.log('Testing: Admin Feedback Privacy & Phone Masking...');
+import { maskPhone } from '../src/server/feedbackApi';
+
+assert.strictEqual(maskPhone('03014265785'), '0301-***-5785', 'Phone number must be masked in the middle');
+assert.strictEqual(maskPhone('+923014265785'), '+923-***-5785', 'International phone must be masked properly');
+assert.strictEqual(maskPhone(null), '—', 'Null phone should return dash');
+assert.strictEqual(maskPhone(''), '—', 'Empty phone should return dash');
+assert.strictEqual(maskPhone('123'), '123', 'Very short strings should not crash');
+console.log('✓ PASS: Admin Feedback Privacy & Phone Masking Verified');
+
 console.log('--- ALL VERIFICATION TESTS PASSED SUCCESSFULLY ---');
