@@ -3,7 +3,7 @@ import { useNavigate, Link } from '@tanstack/react-router';
 import { 
   Bot, X, Send, Trash2, Check, ArrowRight, ArrowLeft, 
   RotateCcw, Plus, Minus, ShoppingBag, MapPin, CreditCard, 
-  AlertCircle, CheckCircle2, ExternalLink, Edit2
+  AlertCircle, CheckCircle2, ExternalLink, Edit2, Clock
 } from 'lucide-react';
 import { playSuccessChime } from '../../lib/sound';
 import { chatWithAmirBot } from '../../server/chat';
@@ -655,6 +655,25 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
     setSuccessOrderId(res.orderId || '');
     setIsSubmitting(false);
     setStep(7);
+
+    const shortCode = (res.orderId || '').slice(0, 8).toUpperCase();
+    if (draft.payment.method === 'online_transfer') {
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'bot',
+          text: `Your order #${shortCode} has been submitted! It is currently awaiting admin payment review. Our team is checking your transaction before the kitchen accepts it.`,
+        }
+      ]);
+    } else {
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'bot',
+          text: `Your order #${shortCode} has been placed successfully and sent to our kitchen! You can track it live anytime.`,
+        }
+      ]);
+    }
   };
 
   // Add Item with options from Option Card
@@ -1649,13 +1668,30 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
             {/* STEP 7: ORDER SUCCESS & TRACKING CARD */}
             {step === 7 && (
               <div className="bg-card border border-border rounded-2xl p-4 shadow-sm text-center space-y-3 animate-in zoom-in-95">
-                <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
-                  <CheckCircle2 size={32} />
-                </div>
-                <h3 className="font-black text-base text-foreground">Order Placed Successfully!</h3>
-                <p className="text-xs text-muted-foreground">
-                  Order <span className="font-mono font-bold text-foreground">#{successOrderId.slice(0, 8).toUpperCase()}</span> has been sent to our kitchen.
-                </p>
+                {draft.payment.method === 'online_transfer' ? (
+                  <>
+                    <div className="w-14 h-14 bg-amber-100 dark:bg-amber-950/60 text-amber-600 rounded-full flex items-center justify-center mx-auto">
+                      <Clock size={30} />
+                    </div>
+                    <h3 className="font-black text-base text-foreground">Payment Verification Pending</h3>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Order <span className="font-mono font-bold text-foreground">#{successOrderId.slice(0, 8).toUpperCase()}</span> is waiting for admin payment review. Our team will verify your transaction before preparing your food.
+                    </p>
+                    <div className="p-2 bg-amber-500/10 border border-amber-500/30 rounded-xl text-[11px] text-amber-900 dark:text-amber-300 font-medium">
+                      Please do not submit the same order again while under review.
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+                      <CheckCircle2 size={32} />
+                    </div>
+                    <h3 className="font-black text-base text-foreground">Order Placed Successfully!</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Order <span className="font-mono font-bold text-foreground">#{successOrderId.slice(0, 8).toUpperCase()}</span> has been sent to our kitchen.
+                    </p>
+                  </>
+                )}
 
                 <div className="p-2.5 bg-accent/40 rounded-xl border border-border text-xs space-y-1">
                   <p className="font-semibold text-foreground">Permanent Tracking Link</p>

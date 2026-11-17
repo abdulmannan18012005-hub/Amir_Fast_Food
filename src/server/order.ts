@@ -20,6 +20,7 @@ export interface CreateOrderPayload {
   deliveryLng?: number | null;
   paymentMethod: 'cod' | 'online_transfer';
   paymentTrxId?: string;
+  idempotencyKey?: string;
   items: {
     menu_item_id: string;
     quantity: number;
@@ -208,6 +209,20 @@ export const createOrder = createServerFn({ method: "POST" })
       }
     }
 
+    // Idempotency guard: Prevent double-click or network retry duplicate orders
+    const idempotencyKey = payload.idempotencyKey?.trim() || null;
+    if (idempotencyKey) {
+      const { data: existingByKey } = await supabase
+        .from('orders')
+        .select('id')
+        .eq('idempotency_key', idempotencyKey)
+        .maybeSingle();
+
+      if (existingByKey?.id) {
+        return { success: true, orderId: existingByKey.id };
+      }
+    }
+
     // 4. Call RPC
     const p_email = payload.customerEmail?.trim() || '';
     
@@ -229,8 +244,11 @@ export const createOrder = createServerFn({ method: "POST" })
     }
 
     // 5. Update extra fields missing from RPC safely
+    const paymentReviewStatus = payload.paymentMethod === 'online_transfer' ? 'pending' : 'not_required';
     const extraFields: any = {
       payment_trx_id: payload.paymentMethod === 'online_transfer' ? normalizedTrx : null,
+      payment_review_status: paymentReviewStatus,
+      idempotency_key: idempotencyKey,
       delivery_lat: lat,
       delivery_lng: lng,
       distance_km: distanceKm,
@@ -238,16 +256,36 @@ export const createOrder = createServerFn({ method: "POST" })
       cod_fee: codFee
     };
     
-    const { error: updateErr } = await supabase
+    let { error: updateErr } = await supabase
       .from('orders')
       .update(extraFields)
       .eq('id', orderId);
       
+    if (updateErr && (updateErr.code === '42703' || updateErr.message?.includes('payment_review_status') || updateErr.message?.includes('idempotency_key'))) {
+      // Safe fallback if migration columns are not yet applied
+      const fallbackFields = {
+        payment_trx_id: payload.paymentMethod === 'online_transfer' ? normalizedTrx : null,
+        delivery_lat: lat,
+        delivery_lng: lng,
+        distance_km: distanceKm,
+        distance_fee: distanceFee,
+        cod_fee: codFee
+      };
+      const res = await supabase.from('orders').update(fallbackFields).eq('id', orderId);
+      updateErr = res.error;
+    }
+
     if (updateErr) {
       console.warn("Failed to save extra order fields:", updateErr);
       if (updateErr.code === '23505' || updateErr.message?.includes('orders_unique_active_trx')) {
         await supabase.from('orders').update({ status: 'canceled', cancel_reason: 'Duplicate TID' }).eq('id', orderId);
         throw new UserFacingError("This Transaction ID has already been used for another order. Please check the ID, or call us on 0301 4265785.", "tid_duplicate");
+      }
+      if (updateErr.code === '23505' && updateErr.message?.includes('orders_unique_idempotency_key')) {
+        if (idempotencyKey) {
+          const { data: collided } = await supabase.from('orders').select('id').eq('idempotency_key', idempotencyKey).maybeSingle();
+          if (collided?.id) return { success: true, orderId: collided.id };
+        }
       }
       if (payload.paymentMethod === 'online_transfer') {
         // Must reject if we can't save TID
@@ -280,7 +318,144 @@ export const createOrder = createServerFn({ method: "POST" })
   }
 });
 
-// Verify Online Payment (Admin)
+// Approve Online Payment (Admin)
+export const approvePaymentFn = createServerFn({ method: "POST" })
+  .validator((d: { orderId: string; pin?: string; token?: string }) => d)
+  .handler(async ({ data }) => {
+    requireAdmin(data.token || data.pin);
+    const supabase = getSupabaseServer();
+
+    const { data: currentOrder, error: fetchErr } = await supabase
+      .from('orders')
+      .select('id, payment_method, payment_review_status, payment_verified_at, status')
+      .eq('id', data.orderId)
+      .maybeSingle();
+
+    if (fetchErr || !currentOrder) {
+      throw new UserFacingError("Order not found.", "validation");
+    }
+    if (currentOrder.payment_method !== 'online_transfer') {
+      throw new UserFacingError("This is a COD order. Payment approval is not applicable.", "validation");
+    }
+    if (currentOrder.status === 'canceled') {
+      throw new UserFacingError("This order has already been canceled.", "validation");
+    }
+    if (currentOrder.payment_review_status === 'approved' || currentOrder.payment_verified_at) {
+      return { success: true, alreadyApproved: true };
+    }
+
+    const nowIso = new Date().toISOString();
+    const updates: any = {
+      payment_verified_at: nowIso,
+      payment_review_status: 'approved'
+    };
+
+    let { error: updateErr } = await supabase
+      .from('orders')
+      .update(updates)
+      .eq('id', data.orderId);
+
+    if (updateErr && (updateErr.code === '42703' || updateErr.message?.includes('payment_review_status'))) {
+      const fallback = await supabase
+        .from('orders')
+        .update({ payment_verified_at: nowIso })
+        .eq('id', data.orderId);
+      updateErr = fallback.error;
+    }
+
+    if (updateErr) {
+      console.error('[approvePaymentFn] DB error:', updateErr);
+      throw new UserFacingError("Failed to approve payment. Please try again.", "validation");
+    }
+
+    // Customer push notification
+    const code = data.orderId.slice(0, 8).toUpperCase();
+    await Promise.race([
+      sendOrderPush(
+        data.orderId,
+        'received',
+        'Amir Fast Food',
+        `Payment Verified! Your order #${code} has been approved and accepted by our kitchen.`
+      ),
+      new Promise(r => setTimeout(r, 4000))
+    ]).catch(() => {});
+
+    return { success: true };
+  });
+
+// Reject Online Payment & Cancel Order (Admin)
+export const rejectPaymentFn = createServerFn({ method: "POST" })
+  .validator((d: { orderId: string; reason: string; pin?: string; token?: string }) => d)
+  .handler(async ({ data }) => {
+    requireAdmin(data.token || data.pin);
+    const reason = String(data.reason || '').trim().replace(/<[^>]*>/g, '');
+    if (reason.length < 5 || reason.length > 250) {
+      throw new UserFacingError("Rejection reason must be between 5 and 250 characters.", "validation");
+    }
+
+    const supabase = getSupabaseServer();
+    const { data: currentOrder, error: fetchErr } = await supabase
+      .from('orders')
+      .select('id, payment_method, status')
+      .eq('id', data.orderId)
+      .maybeSingle();
+
+    if (fetchErr || !currentOrder) {
+      throw new UserFacingError("Order not found.", "validation");
+    }
+    if (currentOrder.status === 'canceled') {
+      throw new UserFacingError("This order is already canceled.", "validation");
+    }
+
+    const nowIso = new Date().toISOString();
+    const cancelText = `Payment rejected: ${reason}`;
+    const updates: any = {
+      status: 'canceled',
+      payment_review_status: 'rejected',
+      cancel_reason: cancelText,
+      canceled_at: nowIso,
+      status_changed_at: nowIso
+    };
+
+    let { error: updateErr } = await supabase
+      .from('orders')
+      .update(updates)
+      .eq('id', data.orderId);
+
+    if (updateErr && (updateErr.code === '42703' || updateErr.message?.includes('payment_review_status'))) {
+      const fallback = await supabase
+        .from('orders')
+        .update({
+          status: 'canceled',
+          cancel_reason: cancelText,
+          canceled_at: nowIso,
+          status_changed_at: nowIso
+        })
+        .eq('id', data.orderId);
+      updateErr = fallback.error;
+    }
+
+    if (updateErr) {
+      console.error('[rejectPaymentFn] DB error:', updateErr);
+      throw new UserFacingError("Failed to reject payment. Please try again.", "validation");
+    }
+
+    // Customer push notification
+    const code = data.orderId.slice(0, 8).toUpperCase();
+    await Promise.race([
+      sendOrderPush(
+        data.orderId,
+        'canceled',
+        'Amir Fast Food',
+        `Payment Could Not Be Verified: Order #${code} was canceled (${reason}). Call 0301-4265785 for assistance.`
+      ),
+      new Promise(r => setTimeout(r, 4000))
+    ]).catch(() => {});
+
+    return { success: true };
+  });
+
+// Verify Online Payment (Admin - Legacy compatibility)
 export const verifyPaymentFn = createServerFn({ method: "POST" })
   .validator((d: { orderId: string; pin?: string; token?: string }) => d)
   .handler(async ({ data }) => {
@@ -289,14 +464,22 @@ export const verifyPaymentFn = createServerFn({ method: "POST" })
     const nowIso = new Date().toISOString();
     const { error } = await supabase
       .from('orders')
-      .update({ payment_verified_at: nowIso })
+      .update({ payment_verified_at: nowIso, payment_review_status: 'approved' })
       .eq('id', data.orderId)
       .eq('payment_method', 'online_transfer');
 
     if (error) {
       console.warn('[verifyPaymentFn] DB error:', error.message);
-      if (error.code === '42703' || error.message?.includes('payment_verified_at')) {
-        return { success: false, code: 'db_migration_needed', message: 'Database update needed for payment verification (ask the developer)' };
+      if (error.code === '42703' || error.message?.includes('payment_review_status')) {
+        const fallback = await supabase
+          .from('orders')
+          .update({ payment_verified_at: nowIso })
+          .eq('id', data.orderId)
+          .eq('payment_method', 'online_transfer');
+        if (fallback.error) {
+          return { success: false, code: 'db_migration_needed', message: 'Database update needed for payment verification (ask the developer)' };
+        }
+        return { success: true };
       }
       throw new UserFacingError('Failed to verify payment.', 'validation');
     }
@@ -456,38 +639,69 @@ export const getPublicOrders = createServerFn({ method: "POST" })
     if (validIds.length === 0) return [];
     
     const supabase = getSupabaseServer();
-    const { data: orders, error } = await supabase
+    let orders: any[] | null = null;
+    
+    const { data: fullOrders, error } = await supabase
       .from('orders')
-      .select('id, status, created_at, status_changed_at, canceled_at, payment_method, total_amount, delivery_fee, customer_name, delivery_address, rider_name, rider_phone, cancel_reason, order_items(*, menu_items(name))')
+      .select('id, status, created_at, status_changed_at, canceled_at, payment_method, payment_review_status, payment_verified_at, payment_trx_id, total_amount, delivery_fee, customer_name, delivery_address, rider_name, rider_phone, cancel_reason, order_items(*, menu_items(name))')
       .in('id', validIds);
-      
-    if (error) {
+
+    if (error && (error.code === '42703' || error.message?.includes('payment_review_status'))) {
+      const fallback = await supabase
+        .from('orders')
+        .select('id, status, created_at, status_changed_at, canceled_at, payment_method, payment_verified_at, payment_trx_id, total_amount, delivery_fee, customer_name, delivery_address, rider_name, rider_phone, cancel_reason, order_items(*, menu_items(name))')
+        .in('id', validIds);
+      if (fallback.error) {
+        console.error("[Database getPublicOrders Error]:", fallback.error);
+        throw new UserFacingError("Unable to load order status due to a server error. Please check your connection.");
+      }
+      orders = fallback.data;
+    } else if (error) {
       console.error("[Database getPublicOrders Error]:", error);
       throw new UserFacingError("Unable to load order status due to a server error. Please check your connection.");
+    } else {
+      orders = fullOrders;
     }
+
     if (!orders) return [];
     
-    return orders.map(order => ({
-      id: order.id,
-      shortCode: order.id.slice(0, 8).toUpperCase(),
-      status: order.status as OrderStatus,
-      created_at: order.created_at,
-      status_changed_at: order.status_changed_at || order.created_at,
-      canceled_at: order.canceled_at,
-      payment_method: order.payment_method,
-      subtotal: order.total_amount,
-      delivery_fee: order.delivery_fee,
-      total: Number(order.total_amount) + Number(order.delivery_fee),
-      customer_name: order.customer_name?.split(' ')[0] || 'Customer',
-      delivery_address: order.delivery_address,
-      rider_name: order.rider_name,
-      rider_phone: order.rider_phone,
-      cancel_reason: order.cancel_reason,
-      items: order.order_items.map((i: any) => ({
-        name: i.menu_items?.name || 'Item',
-        quantity: i.quantity,
-        unit_price: i.unit_price,
-        variants: i.selected_variants
-      }))
-    }));
+    return orders.map(order => {
+      const computedReviewStatus = (order.payment_review_status as ('not_required' | 'pending' | 'approved' | 'rejected') | undefined) || (
+        order.payment_method === 'online_transfer'
+          ? (order.status === 'canceled' && order.cancel_reason?.toLowerCase().includes('payment')
+              ? 'rejected'
+              : (order.payment_verified_at ? 'approved' : 'pending'))
+          : 'not_required'
+      );
+      const maskedTid = order.payment_trx_id
+        ? (order.payment_trx_id.length > 4 ? `****${order.payment_trx_id.slice(-4)}` : '****')
+        : null;
+
+      return {
+        id: order.id,
+        shortCode: order.id.slice(0, 8).toUpperCase(),
+        status: order.status as OrderStatus,
+        payment_review_status: computedReviewStatus,
+        payment_verified_at: order.payment_verified_at || null,
+        payment_trx_id_masked: maskedTid,
+        created_at: order.created_at,
+        status_changed_at: order.status_changed_at || order.created_at,
+        canceled_at: order.canceled_at,
+        payment_method: order.payment_method,
+        subtotal: order.total_amount,
+        delivery_fee: order.delivery_fee,
+        total: Number(order.total_amount) + Number(order.delivery_fee),
+        customer_name: order.customer_name?.split(' ')[0] || 'Customer',
+        delivery_address: order.delivery_address,
+        rider_name: order.rider_name,
+        rider_phone: order.rider_phone,
+        cancel_reason: order.cancel_reason,
+        items: (order.order_items || []).map((i: any) => ({
+          name: i.menu_items?.name || 'Item',
+          quantity: i.quantity,
+          unit_price: i.unit_price,
+          variants: i.selected_variants
+        }))
+      };
+    });
   });

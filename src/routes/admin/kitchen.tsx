@@ -2,11 +2,11 @@ import { friendlyMessage } from '../../lib/errors';
 import { createFileRoute } from '@tanstack/react-router';
 import { seo } from '../../lib/seo';
 import React, { useEffect, useState, useRef } from 'react';
-import { updateOrderStatus, getKitchenOrders, verifyPaymentFn } from '../../server/order';
+import { updateOrderStatus, getKitchenOrders, verifyPaymentFn, approvePaymentFn, rejectPaymentFn } from '../../server/order';
 import { playKitchenDing, initAudio } from '../../lib/sound';
 import { PinGate } from '../../components/admin/PinGate';
 import { AdminNav } from '../../components/admin/AdminNav';
-import { Clock, CheckCircle, ChefHat, Truck, XCircle, Volume2, VolumeX, BellRing, Printer, AlertTriangle, Copy } from 'lucide-react';
+import { Clock, CheckCircle, ChefHat, Truck, XCircle, Volume2, VolumeX, BellRing, Printer, AlertTriangle, Copy, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import { subscribeAdminPushFn, sendTestAdminPushFn, getVapidPublicKeyFn } from '../../server/push';
 import { adminCall, clearAdminSession } from '../../lib/adminSession';
 
@@ -168,6 +168,12 @@ function KitchenKDS() {
   const [riderName, setRiderName] = useState('');
   const [riderPhone, setRiderPhone] = useState('');
 
+  // Payment Review State
+  const [rejectPaymentModalOpen, setRejectPaymentModalOpen] = useState<{ id: string; shortCode: string; amount: number; tid: string } | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [approvingPaymentId, setApprovingPaymentId] = useState<string | null>(null);
+  const [rejectingPaymentId, setRejectingPaymentId] = useState<string | null>(null);
+
   // Wake Lock
   useEffect(() => {
     let wakeLock: any = null;
@@ -310,13 +316,14 @@ function KitchenKDS() {
   const handleVerifyPayment = async (orderId: string) => {
     setVerifyingPaymentId(orderId);
     try {
-      const res = await adminCall(verifyPaymentFn, { orderId });
+      const res = await adminCall(approvePaymentFn, { orderId });
       if (res && (res as any).code === 'db_migration_needed') {
         setDbMigrationNeeded(true);
         showToast((res as any).message || 'Database update needed for payment verification', 'error');
       } else if (res && res.success) {
-        showToast('Payment verified successfully', 'success');
-        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, payment_verified_at: new Date().toISOString() } : o));
+        showToast('Payment verified & approved successfully', 'success');
+        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, payment_verified_at: new Date().toISOString(), payment_review_status: 'approved' } : o));
+        runPoll();
       } else {
         showToast('Failed to verify payment', 'error');
       }
@@ -324,6 +331,52 @@ function KitchenKDS() {
       showToast(friendlyMessage(e, 'Failed to verify payment'), 'error');
     } finally {
       setVerifyingPaymentId(null);
+    }
+  };
+
+  const handleApprovePayment = async (orderId: string) => {
+    setApprovingPaymentId(orderId);
+    try {
+      const res = await adminCall(approvePaymentFn, { orderId });
+      if (res && res.success) {
+        showToast('Payment approved! Order accepted and moved to kitchen queue.', 'success');
+        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, payment_review_status: 'approved', payment_verified_at: new Date().toISOString() } : o));
+        runPoll();
+      } else {
+        showToast('Failed to approve payment', 'error');
+      }
+    } catch (e: any) {
+      showToast(friendlyMessage(e, 'Failed to approve payment'), 'error');
+    } finally {
+      setApprovingPaymentId(null);
+    }
+  };
+
+  const handleRejectPayment = async () => {
+    if (!rejectPaymentModalOpen) return;
+    if (rejectReason.trim().length < 5) {
+      showToast('Please enter a rejection reason (at least 5 characters).', 'error');
+      return;
+    }
+    setRejectingPaymentId(rejectPaymentModalOpen.id);
+    try {
+      const res = await adminCall(rejectPaymentFn, {
+        orderId: rejectPaymentModalOpen.id,
+        reason: rejectReason.trim()
+      });
+      if (res && res.success) {
+        showToast('Payment rejected and order canceled.', 'info');
+        setOrders(prev => prev.filter(o => o.id !== rejectPaymentModalOpen.id));
+        setRejectPaymentModalOpen(null);
+        setRejectReason('');
+        runPoll();
+      } else {
+        showToast('Failed to reject payment', 'error');
+      }
+    } catch (e: any) {
+      showToast(friendlyMessage(e, 'Failed to reject payment'), 'error');
+    } finally {
+      setRejectingPaymentId(null);
     }
   };
 
@@ -523,7 +576,11 @@ function KitchenKDS() {
     );
   };
 
-  const received = orders.filter(o => o.status === 'received');
+  const isApproved = (o: any) => o.payment_review_status === 'approved' || Boolean(o.payment_verified_at);
+  const isOnlinePending = (o: any) => o.payment_method === 'online_transfer' && !isApproved(o) && o.status !== 'canceled';
+
+  const pendingPayments = orders.filter(isOnlinePending);
+  const received = orders.filter(o => o.status === 'received' && (o.payment_method === 'cod' || isApproved(o)));
   const preparing = orders.filter(o => o.status === 'preparing');
   const outForDelivery = orders.filter(o => o.status === 'out_for_delivery');
 
@@ -550,6 +607,12 @@ function KitchenKDS() {
             <div role="alert" className="px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 bg-red-700 text-white shadow-md animate-pulse">
               <div className="w-2 h-2 rounded-full bg-white" />
               <span>Offline — orders may be out of date</span>
+            </div>
+          )}
+          {pendingPayments.length > 0 && (
+            <div className="px-3 py-1 rounded-full text-xs font-black flex items-center gap-1.5 bg-amber-500 text-slate-950 shadow animate-pulse">
+              <ShieldAlert size={15} />
+              <span>{pendingPayments.length} Pending Review</span>
             </div>
           )}
           {wakeLockEnabled && (
@@ -589,6 +652,145 @@ function KitchenKDS() {
           <span>Offline — orders may be out of date. Reconnecting automatically...</span>
         </div>
       )}
+
+      {/* PENDING PAYMENT REVIEW SECTION */}
+      <section className="px-6 pt-4 pb-2">
+        <div className="bg-slate-800/90 rounded-2xl border-2 border-amber-600/70 p-5 shadow-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-4 border-b border-slate-700/80 gap-2">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400">
+                <ShieldAlert size={26} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xl font-black text-white tracking-wide">PENDING PAYMENT REVIEW</h2>
+                  <span className="bg-amber-500 text-slate-950 font-black px-2.5 py-0.5 rounded-full text-xs">
+                    {pendingPayments.length} PENDING
+                  </span>
+                </div>
+                <p className="text-xs text-amber-200/90 mt-0.5 font-medium">
+                  Check the Transaction ID and exact amount in your EasyPaisa/JazzCash account before approving this order.
+                </p>
+              </div>
+            </div>
+            {pendingPayments.length > 0 && (
+              <span className="text-xs text-slate-400 self-start sm:self-auto font-medium">
+                Orders remain blocked from kitchen preparation until approved.
+              </span>
+            )}
+          </div>
+
+          {pendingPayments.length === 0 ? (
+            <div className="text-center py-5 text-slate-400 text-sm">
+              <p className="font-semibold text-slate-300">No pending online payments.</p>
+              <p className="text-xs text-slate-500 mt-1">All online-transfer orders have been reviewed.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {pendingPayments.map(order => {
+                const total = Number(order.total_amount) + Number(order.delivery_fee);
+                const shortCode = order.id.slice(0, 8).toUpperCase();
+                return (
+                  <div key={order.id} className="bg-slate-900/95 border border-amber-500/40 rounded-xl p-4 flex flex-col justify-between shadow-md space-y-3">
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs font-bold text-amber-300 bg-amber-950/80 border border-amber-700/60 px-2 py-0.5 rounded">
+                              #{shortCode}
+                            </span>
+                            <span className="text-[11px] font-bold uppercase bg-slate-800 text-slate-300 px-2 py-0.5 rounded">
+                              Online Transfer
+                            </span>
+                          </div>
+                          <h3 className="font-bold text-white text-base mt-1">{order.customer_name}</h3>
+                          <a href={`tel:${order.customer_phone}`} className="text-xs text-primary hover:underline flex items-center gap-1 font-mono">
+                            <span>{order.customer_phone}</span>
+                          </a>
+                        </div>
+                        <div className="flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded bg-slate-800 text-slate-300">
+                          <Clock size={12} /> {timeAgo(order.created_at)}
+                        </div>
+                      </div>
+
+                      {/* Items */}
+                      <div className="bg-slate-800/60 rounded-lg p-2.5 text-xs text-slate-300 space-y-1 max-h-28 overflow-y-auto">
+                        {(order.order_items || []).map((item: any, idx: number) => (
+                          <div key={idx} className="flex justify-between">
+                            <span><strong className="text-primary">{item.quantity}x</strong> {item.menu_items?.name || 'Item'}</span>
+                            {item.selected_variants?.length > 0 && (
+                              <span className="text-[11px] text-slate-400">({item.selected_variants.map((v: any) => v.name).join(', ')})</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* TID & Amount verification box */}
+                      <div className="bg-amber-950/40 border border-amber-600/50 rounded-xl p-3 text-xs space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-300 text-[11px] font-medium">Submitted TID:</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (order.payment_trx_id) {
+                                navigator.clipboard?.writeText(order.payment_trx_id);
+                                setCopiedTid(order.id);
+                                setTimeout(() => setCopiedTid(null), 2000);
+                              }
+                            }}
+                            className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded border border-amber-700/60 font-semibold text-[11px] flex items-center gap-1 transition-colors"
+                          >
+                            <Copy size={12} />
+                            <span>{copiedTid === order.id ? 'Copied!' : 'Copy TID'}</span>
+                          </button>
+                        </div>
+                        <div className="font-mono font-bold text-amber-300 text-base select-all tracking-wider break-all bg-slate-900/90 p-2 rounded border border-slate-700">
+                          {order.payment_trx_id || 'NO TID PROVIDED'}
+                        </div>
+                        <div className="flex justify-between items-center pt-1 border-t border-amber-800/40 text-xs">
+                          <span className="text-slate-300">Total Payable:</span>
+                          <span className="font-black text-white text-sm">PKR {total}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-2 pt-2 border-t border-slate-800">
+                      <button
+                        type="button"
+                        disabled={approvingPaymentId === order.id || rejectingPaymentId === order.id}
+                        onClick={() => handleApprovePayment(order.id)}
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors shadow"
+                      >
+                        <CheckCircle2 size={15} />
+                        <span>{approvingPaymentId === order.id ? 'Approving...' : 'Approve & Accept'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={approvingPaymentId === order.id || rejectingPaymentId === order.id}
+                        onClick={() => {
+                          setRejectPaymentModalOpen({
+                            id: order.id,
+                            shortCode,
+                            amount: total,
+                            tid: order.payment_trx_id || 'N/A'
+                          });
+                          setRejectReason('');
+                        }}
+                        className="bg-slate-800 hover:bg-red-950/60 border border-slate-700 text-red-400 hover:text-red-300 font-bold py-2.5 px-3 rounded-xl text-xs transition-colors flex items-center gap-1"
+                        title="Reject payment and cancel order"
+                      >
+                        <XCircle size={15} />
+                        <span>Reject</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* Kanban Board */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start p-6">
@@ -696,6 +898,45 @@ function KitchenKDS() {
                </button>
              </div>
            </div>
+        </div>
+      )}
+      {/* Reject Payment Modal */}
+      {rejectPaymentModalOpen && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl border border-red-500/50">
+            <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+              <XCircle className="text-red-500" /> Reject Payment / Cancel Order
+            </h3>
+            <p className="text-sm text-slate-300 mb-3">
+              Order <strong className="text-white">#{rejectPaymentModalOpen.shortCode}</strong> (PKR {rejectPaymentModalOpen.amount}) with TID: <span className="font-mono text-amber-300">{rejectPaymentModalOpen.tid}</span>
+            </p>
+            <p className="text-xs text-red-300 mb-4">
+              Enter the reason why this transaction could not be verified. The customer will see this reason on their tracking screen.
+            </p>
+            <textarea 
+              value={rejectReason}
+              onChange={e => setRejectReason(e.target.value)}
+              placeholder="e.g., TID not found in EasyPaisa account, amount mismatch, duplicate TID..."
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white mb-4 min-h-[100px] focus:border-red-500 outline-none text-sm"
+              disabled={rejectingPaymentId !== null}
+            />
+            <div className="flex gap-3">
+              <button 
+                disabled={rejectingPaymentId !== null}
+                onClick={() => { setRejectPaymentModalOpen(null); setRejectReason(''); }} 
+                className="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 rounded-xl text-sm transition-colors"
+              >
+                Back
+              </button>
+              <button 
+                disabled={rejectingPaymentId !== null}
+                onClick={handleRejectPayment} 
+                className="flex-1 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-bold py-2.5 rounded-xl text-sm transition-colors shadow"
+              >
+                {rejectingPaymentId !== null ? 'Rejecting...' : 'Confirm Rejection'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { MapPin, XCircle, Phone, Bell } from 'lucide-react';
+import { MapPin, XCircle, Phone, Bell, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import { LiveOrder } from '../../hooks/useLiveOrder';
 import { SHOP_PHONE_LOCAL } from '../../lib/shop';
 import { OrderFeedback } from './OrderFeedback';
@@ -15,9 +15,22 @@ export function OrderStatusView({ order, onNotify }: { order: LiveOrder, onNotif
   const elapsedMinutes = (now - new Date(order.created_at).getTime()) / 60000;
   const isExpired = elapsedMinutes > 40;
 
+  const isOnline = order.payment_method === 'online_transfer';
+  const reviewStatus = order.payment_review_status || (
+    isOnline
+      ? (order.status === 'canceled' && order.cancel_reason?.toLowerCase().includes('payment')
+          ? 'rejected'
+          : (order.payment_verified_at ? 'approved' : 'pending'))
+      : 'not_required'
+  );
+  const isPendingReview = isOnline && reviewStatus === 'pending' && order.status !== 'canceled';
+  const isApprovedPayment = isOnline && (reviewStatus === 'approved' || Boolean(order.payment_verified_at));
+  const isRejectedPayment = isOnline && (reviewStatus === 'rejected' || (order.status === 'canceled' && order.cancel_reason?.toLowerCase().includes('payment')));
+
   const getProgress = () => {
     if (order.status === 'canceled') return 100;
     if (order.status === 'delivered') return 100;
+    if (isPendingReview) return 8;
     
     const statusChangedAt = new Date(order.status_changed_at || order.created_at).getTime();
     const elapsed = now - statusChangedAt;
@@ -46,6 +59,7 @@ export function OrderStatusView({ order, onNotify }: { order: LiveOrder, onNotif
   const getEta = () => {
     if (order.status === 'delivered') return 'Delivered';
     if (order.status === 'canceled') return 'Canceled';
+    if (isPendingReview) return 'Awaiting Payment Verification';
 
     if (isExpired) {
       if (order.status === 'out_for_delivery') {
@@ -71,15 +85,21 @@ export function OrderStatusView({ order, onNotify }: { order: LiveOrder, onNotif
         <div className="flex justify-between items-center mb-4">
           <div>
             <h2 className="text-xl font-black text-foreground">
-              {order.status === 'received' && (order.payment_method === 'online_transfer' ? "Verifying Payment" : 'Order Received')}
-              {order.status === 'preparing' && 'Preparing Food'}
-              {order.status === 'out_for_delivery' && 'Out for Delivery'}
-              {order.status === 'delivered' && 'Delivered - Enjoy!'}
-              {order.status === 'canceled' && 'Order Canceled'}
+              {isPendingReview
+                ? "Payment Verification Pending"
+                : order.status === 'received'
+                ? "Order Received"
+                : order.status === 'preparing'
+                ? "Preparing Food"
+                : order.status === 'out_for_delivery'
+                ? "Out for Delivery"
+                : order.status === 'delivered'
+                ? "Delivered - Enjoy!"
+                : "Order Canceled"}
             </h2>
             <p className="text-muted-foreground text-sm mt-0.5">
-              {order.status === 'received' && order.payment_method === 'online_transfer' 
-                ? "We have received your order. We're verifying your payment." 
+              {isPendingReview
+                ? "We have received your order details. Verifying payment..."
                 : `Order #${order.shortCode}`}
             </p>
           </div>
@@ -98,7 +118,13 @@ export function OrderStatusView({ order, onNotify }: { order: LiveOrder, onNotif
         <div className="w-full h-2 bg-muted rounded-full mb-3 overflow-hidden">
           <div 
              className={`h-full rounded-full transition-all duration-[10000ms] ease-linear motion-reduce:transition-none ${
-               order.status === 'canceled' ? 'bg-destructive' : order.status === 'delivered' ? 'bg-emerald-700' : 'bg-primary'
+               order.status === 'canceled'
+                 ? 'bg-destructive'
+                 : order.status === 'delivered'
+                 ? 'bg-emerald-700'
+                 : isPendingReview
+                 ? 'bg-amber-500 animate-pulse'
+                 : 'bg-primary'
              }`}
              style={{ width: `${progress}%` }}
           />
@@ -113,17 +139,73 @@ export function OrderStatusView({ order, onNotify }: { order: LiveOrder, onNotif
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
-        {order.status === 'canceled' && order.cancel_reason && (
-           <div className="bg-destructive/10 border border-destructive/20 rounded-2xl p-4 flex items-start gap-3">
-             <XCircle className="text-destructive flex-shrink-0 mt-0.5" />
-             <div>
-               <p className="font-bold text-destructive">Canceled by Restaurant</p>
-               <p className="text-sm text-foreground/90 mt-1">{order.cancel_reason}</p>
-               {order.payment_method === 'online_transfer' && (
-                 <p className="text-xs text-muted-foreground mt-2 italic">Your online payment will be refunded shortly. Contact us for details.</p>
-               )}
-             </div>
-           </div>
+        {/* Pending Review Card */}
+        {isPendingReview && (
+          <div className="bg-amber-500/10 border-2 border-amber-500/50 rounded-2xl p-4 text-amber-950 dark:text-amber-200 space-y-3">
+            <div className="flex items-start gap-3">
+              <ShieldAlert className="text-amber-500 flex-shrink-0 mt-0.5" size={24} />
+              <div>
+                <h3 className="font-black text-base text-amber-600 dark:text-amber-400">Payment Verification Pending</h3>
+                <p className="text-xs text-foreground/80 mt-1 leading-relaxed">
+                  We have received your order details. Our team is checking your transaction. Your order will be accepted once payment is verified.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-card rounded-xl p-3 border border-border text-xs space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Order ID:</span>
+                <span className="font-mono font-bold text-foreground">#{order.shortCode}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Payment Method:</span>
+                <span className="font-semibold text-foreground">Online Transfer</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Amount for Verification:</span>
+                <span className="font-black text-primary text-sm">PKR {order.total}</span>
+              </div>
+              {order.payment_trx_id_masked && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Transaction ID:</span>
+                  <span className="font-mono font-bold text-foreground">{order.payment_trx_id_masked}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-amber-500/20 rounded-xl p-2.5 text-[11px] text-amber-900 dark:text-amber-300 font-medium text-center">
+              Please do not submit the same order again while it is under review.
+            </div>
+          </div>
+        )}
+
+        {/* Payment Approved Banner */}
+        {isApprovedPayment && order.status !== 'delivered' && (
+          <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-3.5 flex items-center gap-3">
+            <CheckCircle2 className="text-emerald-500 flex-shrink-0" size={22} />
+            <div>
+              <p className="font-bold text-sm text-emerald-700 dark:text-emerald-400">Payment Verified — Order Accepted</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Your payment was confirmed and your order is in our kitchen.</p>
+            </div>
+          </div>
+        )}
+
+        {/* Order Canceled / Rejected Card */}
+        {order.status === 'canceled' && (
+          <div className="bg-destructive/10 border border-destructive/20 rounded-2xl p-4 flex items-start gap-3">
+            <XCircle className="text-destructive flex-shrink-0 mt-0.5" size={24} />
+            <div>
+              <p className="font-bold text-destructive">
+                {isRejectedPayment ? "Payment Could Not Be Verified" : "Canceled by Restaurant"}
+              </p>
+              <p className="text-sm text-foreground/90 mt-1">{order.cancel_reason || "Your order was canceled."}</p>
+              <div className="mt-3 flex items-center gap-2">
+                <a href={`tel:${SHOP_PHONE_LOCAL}`} className="inline-flex items-center gap-1.5 bg-destructive text-destructive-foreground text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-destructive/90 transition-colors">
+                  <Phone size={14} /> Call {SHOP_PHONE_LOCAL}
+                </a>
+              </div>
+            </div>
+          </div>
         )}
 
         {order.status === 'out_for_delivery' && order.rider_name && (

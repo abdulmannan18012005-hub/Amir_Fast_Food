@@ -94,7 +94,7 @@ export function PinGate({ children, onUnlock }: { children: React.ReactNode, onU
         <form onSubmit={handleLogin} className="bg-slate-800 p-8 rounded-2xl max-w-sm w-full text-center shadow-xl border border-slate-700">
           <ChefHat className="text-primary w-16 h-16 mx-auto mb-6" />
           <h1 className="text-2xl font-bold text-white mb-2">Admin Access</h1>
-          <p className="text-slate-400 text-sm mb-6">Enter your secure PIN to continue.</p>
+          <p className="text-slate-400 text-sm mb-6">Enter your admin passphrase or PIN to continue.</p>
           
           {error && <div className="mb-4 text-red-400 bg-red-400/10 p-3 rounded-xl text-sm" role="alert">{error}</div>}
           
@@ -102,8 +102,8 @@ export function PinGate({ children, onUnlock }: { children: React.ReactNode, onU
             type="password" 
             value={pin}
             onChange={e => setPin(e.target.value)}
-            placeholder="Enter PIN / Passphrase"
-            maxLength={64}
+            placeholder="Enter Passphrase or PIN"
+            maxLength={128}
             autoComplete="current-password"
             className="w-full bg-slate-900 border border-slate-700 text-white text-center text-lg rounded-xl py-3 mb-4 focus:outline-none focus:border-primary"
             autoFocus

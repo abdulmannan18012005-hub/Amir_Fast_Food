@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/react-start';
-import { verifyAdminPin, signAdminToken, verifyAdminToken } from './auth';
+import { verifyAdminPin, signAdminToken, verifyAdminToken, revokeAdminToken, getAdminCredential } from './auth';
 import { toSafeError } from './errors';
 
 export const loginAdminFn = createServerFn({ method: "POST" })
@@ -11,6 +11,19 @@ export const loginAdminFn = createServerFn({ method: "POST" })
       return { success: true, token };
     } catch (e: any) {
       return { success: false, error: toSafeError(e) };
+    }
+  });
+
+export const logoutAdminFn = createServerFn({ method: "POST" })
+  .validator((d: { token?: string }) => d)
+  .handler(async ({ data }) => {
+    try {
+      if (data.token) {
+        revokeAdminToken(data.token);
+      }
+      return { success: true };
+    } catch {
+      return { success: true };
     }
   });
 
@@ -29,9 +42,15 @@ export const validateAdminSessionFn = createServerFn({ method: "POST" })
   .validator((d: { token?: string }) => d)
   .handler(async ({ data }) => {
     try {
-      const isConfigured = Boolean(process.env.ADMIN_PIN);
+      let isConfigured = false;
+      try {
+        isConfigured = Boolean(getAdminCredential());
+      } catch {
+        isConfigured = false;
+      }
+
       if (!isConfigured) {
-        return { valid: false, configured: false, error: 'Admin access is not configured on the server.' };
+        return { valid: false, configured: false, error: 'Admin access is not configured on the server. Please set ADMIN_PASSPHRASE or ADMIN_PIN.' };
       }
       if (!data.token) {
         return { valid: false, configured: true };

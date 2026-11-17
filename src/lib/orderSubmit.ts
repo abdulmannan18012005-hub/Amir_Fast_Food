@@ -10,6 +10,7 @@ import type { CartItem } from '../types';
 export interface SubmitOrderResult {
   success: boolean;
   orderId?: string;
+  paymentMethod?: 'cod' | 'online_transfer';
   code?: ErrorCode;
   error?: string;
 }
@@ -54,6 +55,9 @@ export async function submitOrder(draft: OrderDraft, cart: CartItem[]): Promise<
 
   const subtotal = getCartSubtotal(cart);
 
+  // Generate or reuse client-side idempotency key for this draft attempt
+  const idempotencyKey = (draft as any).idempotencyKey || `ord_idemp_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+
   try {
     const res = await createOrder({
       data: {
@@ -66,6 +70,7 @@ export async function submitOrder(draft: OrderDraft, cart: CartItem[]): Promise<
         deliveryLng: draft.delivery.lng,
         paymentMethod: draft.payment.method,
         paymentTrxId: finalTid,
+        idempotencyKey,
         items: cart,
         subtotal
       }
@@ -75,6 +80,7 @@ export async function submitOrder(draft: OrderDraft, cart: CartItem[]): Promise<
       const code = (res as any).code || 'validation';
       return {
         success: false,
+        paymentMethod: draft.payment.method,
         code,
         error: friendlyMessage(res.error)
       };
@@ -112,7 +118,8 @@ export async function submitOrder(draft: OrderDraft, cart: CartItem[]): Promise<
 
     return {
       success: true,
-      orderId: newOrderId
+      orderId: newOrderId,
+      paymentMethod: draft.payment.method
     };
   } catch (err: any) {
     return {

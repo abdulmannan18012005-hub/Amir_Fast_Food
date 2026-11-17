@@ -65,14 +65,14 @@ export function validateAddress(address: string): { valid: boolean; normalized: 
 export function normalizeTid(raw: string): string {
   return (raw || '')
     .replace(/[\x00-\x1F\x7F]/g, '')
-    .replace(/\s+/g, '')
+    .replace(/[\s\-_]+/g, '')
     .toUpperCase();
 }
 
 export function validateTid(raw: string): { valid: boolean; normalized: string; error?: string } {
   const normalized = normalizeTid(raw);
-  // letters, digits, hyphen, underscore, 6 to 40 characters
-  if (/^[A-Z0-9_-]{6,40}$/.test(normalized)) {
+  // alphanumeric, 6 to 40 characters
+  if (/^[A-Z0-9]{6,40}$/.test(normalized)) {
     return { valid: true, normalized };
   }
   return {

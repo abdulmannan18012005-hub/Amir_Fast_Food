@@ -7,6 +7,9 @@ export type LiveOrder = {
   id: string;
   shortCode: string;
   status: OrderStatus;
+  payment_review_status?: 'not_required' | 'pending' | 'approved' | 'rejected';
+  payment_verified_at?: string | null;
+  payment_trx_id_masked?: string | null;
   created_at: string;
   status_changed_at: string;
   canceled_at: string | null;

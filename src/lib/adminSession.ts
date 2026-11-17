@@ -1,4 +1,5 @@
 import { getErrorCode } from './errors';
+import { logoutAdminFn } from '../server/adminAuthApi';
 
 export function getAdminToken(): string {
   if (typeof window === 'undefined') return '';
@@ -12,9 +13,13 @@ export function setAdminToken(token: string): void {
 
 export function clearAdminSession(): void {
   if (typeof window === 'undefined') return;
+  const token = sessionStorage.getItem('admin_session');
+  if (token) {
+    logoutAdminFn({ data: { token } }).catch(() => {});
+  }
   sessionStorage.removeItem('admin_session');
   window.dispatchEvent(new CustomEvent('adminSessionExpired', {
-    detail: { message: 'Your session has expired. Please enter the PIN again.' }
+    detail: { message: 'Your session has ended. Please enter your passphrase or PIN again.' }
   }));
 }
 

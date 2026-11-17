@@ -3,7 +3,10 @@ import { getRequestIP, getRequestHeaders } from '@tanstack/react-start/server';
 import { checkRateLimit } from './rateLimit';
 import { UserFacingError } from './errors';
 
-const attempts = new Map<string, { count: number, lockUntil: number }>();
+// Persistent tracking with in-memory lock fallback
+const attempts = new Map<string, { count: number; lockUntil: number }>();
+// In-memory revoked tokens blacklist
+const revokedTokens = new Set<string>();
 
 export function getClientIp(): string {
   try {
@@ -36,44 +39,84 @@ export function getClientIp(): string {
     const lang = headers['accept-language'] || '';
     const hash = crypto.createHash('sha256').update(`${ua}|${lang}`).digest('hex').slice(0, 16);
     return `fp_${hash}`;
-  } catch (e) {
+  } catch {
     // If not in request context, create a fingerprint from whatever is available
     return `fp_${crypto.randomBytes(8).toString('hex')}`;
   }
 }
 
-function getAdminSigningKey(): Buffer {
-  const pin = process.env.ADMIN_PIN;
-  if (!pin) {
-    throw new UserFacingError('Admin access is not configured on the server. Please set ADMIN_PIN.', 'auth');
+export function getAdminCredential(): string {
+  const credential = process.env.ADMIN_PASSPHRASE || process.env.ADMIN_PIN;
+  if (!credential) {
+    throw new UserFacingError(
+      'Admin access is not configured on the server. Please set ADMIN_PASSPHRASE or ADMIN_PIN in environment variables.',
+      'auth'
+    );
   }
+  return String(credential).replace(/^["']|["']$/g, '').trim();
+}
+
+function getAdminSigningKey(): Buffer {
+  const credential = getAdminCredential();
   const secret = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.ADMIN_SESSION_SECRET;
   if (!secret) {
-    throw new UserFacingError('Admin server secret missing. Please configure SUPABASE_SERVICE_ROLE_KEY or ADMIN_SESSION_SECRET.', 'auth');
+    throw new UserFacingError(
+      'Admin server secret missing. Please configure SUPABASE_SERVICE_ROLE_KEY or ADMIN_SESSION_SECRET.',
+      'auth'
+    );
   }
-  return crypto.createHmac('sha256', secret).update(`admin-session|${pin}`).digest();
+  return crypto.createHmac('sha256', secret).update(`admin-session|${credential}`).digest();
+}
+
+/**
+ * Constant-time timing-safe string comparison.
+ * Hashes inputs with SHA-256 first so buffer lengths are always identical (32 bytes),
+ * preventing string-length timing attacks.
+ */
+export function timingSafeCompare(a: string, b: string): boolean {
+  try {
+    const hashA = crypto.createHash('sha256').update(String(a)).digest();
+    const hashB = crypto.createHash('sha256').update(String(b)).digest();
+    return crypto.timingSafeEqual(hashA, hashB);
+  } catch {
+    return false;
+  }
 }
 
 export function signAdminToken(): string {
   const payload = {
     role: 'admin',
-    exp: Date.now() + 12 * 3600 * 1000 // 12 hours
+    exp: Date.now() + 12 * 3600 * 1000, // 12 hours max
+    nonce: crypto.randomBytes(8).toString('hex')
   };
   const payloadB64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
   const sig = crypto.createHmac('sha256', getAdminSigningKey()).update(payloadB64).digest('base64url');
   return `${payloadB64}.${sig}`;
 }
 
+export function revokeAdminToken(token?: string): void {
+  if (token && typeof token === 'string') {
+    revokedTokens.add(token);
+    // Limit memory size of revoked set
+    if (revokedTokens.size > 2000) {
+      const firstEntry = revokedTokens.values().next().value;
+      if (firstEntry) revokedTokens.delete(firstEntry);
+    }
+  }
+}
+
 export function verifyAdminToken(token: string): boolean {
-  if (!process.env.ADMIN_PIN) return false;
   if (!token || typeof token !== 'string') return false;
+  if (revokedTokens.has(token)) return false;
+
   const parts = token.split('.');
   if (parts.length !== 2) return false;
   const [payloadB64, sig] = parts;
+
   try {
     const expectedSig = crypto.createHmac('sha256', getAdminSigningKey()).update(payloadB64).digest('base64url');
-    if (expectedSig.length !== sig.length) return false;
-    if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expectedSig))) return false;
+    if (!timingSafeCompare(sig, expectedSig)) return false;
+
     const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
     if (!payload || payload.role !== 'admin' || typeof payload.exp !== 'number') return false;
     if (payload.exp < Date.now()) return false;
@@ -84,28 +127,23 @@ export function verifyAdminToken(token: string): boolean {
 }
 
 export function requireAdmin(tokenOrPin?: string): boolean {
-  if (!process.env.ADMIN_PIN) {
-    console.warn('[AUTH] Admin is not configured.');
-    throw new UserFacingError('Admin is not configured.', 'auth');
-  }
   if (!tokenOrPin) {
-    throw new UserFacingError('PIN is required. Please enter your admin PIN.', 'auth');
+    throw new UserFacingError('Admin authorization required. Please enter your passphrase or PIN.', 'auth');
   }
+
   if (tokenOrPin.includes('.')) {
     if (verifyAdminToken(tokenOrPin)) return true;
-    throw new UserFacingError('Your session has expired. Please enter the PIN again.', 'auth');
+    throw new UserFacingError('Your session has expired. Please log in again.', 'auth');
   }
+
   return verifyAdminPin(tokenOrPin);
 }
 
 export function verifyAdminPin(providedPin?: string): boolean {
-  if (!process.env.ADMIN_PIN) {
-    console.warn('[AUTH] Admin is not configured.');
-    throw new UserFacingError('Admin access is not configured on the server. Please set ADMIN_PIN.', 'auth');
-  }
+  const expected = getAdminCredential();
 
   if (!providedPin) {
-    throw new UserFacingError('PIN is required. Please enter your admin PIN.', 'auth');
+    throw new UserFacingError('Passphrase / PIN is required. Please enter your admin credentials.', 'auth');
   }
 
   const ip = getClientIp();
@@ -114,28 +152,14 @@ export function verifyAdminPin(providedPin?: string): boolean {
 
   if (record.lockUntil > now) {
     const remainingMins = Math.ceil((record.lockUntil - now) / 60000);
-    throw new UserFacingError(`Too many attempts. Please wait ${remainingMins} minutes and try again.`, 'rate_limited');
+    throw new UserFacingError(`Too many failed attempts. Please wait ${remainingMins} minute(s) and try again.`, 'rate_limited');
   }
 
-  const expectedPin = String(process.env.ADMIN_PIN);
-  const unquotedExpected = expectedPin.replace(/^["']|["']$/g, '').trim();
-  const providedStr = String(providedPin);
-  const unquotedProvided = providedStr.replace(/^["']|["']$/g, '').trim();
+  const unquotedExpected = expected.replace(/^["']|["']$/g, '').trim();
+  const providedStr = String(providedPin).replace(/^["']|["']$/g, '').trim();
 
-  const timingSafeMatch = (a: string, b: string): boolean => {
-    try {
-      const bufA = Buffer.from(a);
-      const bufB = Buffer.from(b);
-      return bufA.length === bufB.length && crypto.timingSafeEqual(bufA, bufB);
-    } catch {
-      return false;
-    }
-  };
-
-  const isMatch = timingSafeMatch(expectedPin, providedStr) ||
-                  timingSafeMatch(unquotedExpected, unquotedProvided) ||
-                  timingSafeMatch(unquotedExpected, providedStr) ||
-                  timingSafeMatch(expectedPin, unquotedProvided);
+  const isMatch = timingSafeCompare(expected, providedStr) ||
+                  timingSafeCompare(unquotedExpected, providedStr);
 
   if (isMatch) {
     attempts.delete(ip);
@@ -143,10 +167,14 @@ export function verifyAdminPin(providedPin?: string): boolean {
   } else {
     record.count++;
     if (record.count >= 5) {
-      record.lockUntil = now + 15 * 60 * 1000; // 15 minutes lock
+      record.lockUntil = now + 15 * 60 * 1000; // 15-minute lockout
       record.count = 0;
     }
     attempts.set(ip, record);
-    throw new UserFacingError('Incorrect PIN. Please try again.', 'auth');
+
+    // Call persistent rate limiter asynchronously (non-blocking failure log)
+    checkRateLimit(ip, 'admin_auth_fail', 5, 15 * 60 * 1000).catch(() => {});
+
+    throw new UserFacingError('Incorrect passphrase or PIN. Please try again.', 'auth');
   }
 }

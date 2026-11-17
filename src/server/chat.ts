@@ -308,7 +308,8 @@ STRICT RULES (Zero Hallucination):
 10. NEVER output HTML. Use plain text only.
 11. If unsure, say you are not sure and give ${SHOP_PHONE_LOCAL}; never state delivery times other than the estimated range (30–40 minutes).
 12. DRINK DISAMBIGUATION: If the customer asks for a "drink" or "cold drink" without specifying the exact drink name and size, DO NOT output [ACTION:ADD_ITEM:...]. List the available drinks with their exact prices and ask which one they prefer.
-13. REPLACING ITEMS: If the customer asks to swap or replace an item, ask which item to remove and what to add in its place.`;
+13. REPLACING ITEMS: If the customer asks to swap or replace an item, ask which item to remove and what to add in its place.
+14. PAYMENT REVIEW TRUTHFULNESS: Online-transfer orders are placed in "Payment Verification Pending" state and must be manually verified by the admin before food preparation begins. NEVER claim or pretend an online payment is already verified before admin approval. If a customer asks about their online payment status, truthfully explain that our team checks the transaction in our account before the order is accepted.`;
 
     const primaryModel = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
     const fallbackModel = process.env.GROQ_FALLBACK_MODEL || 'llama-3.1-8b-instant';

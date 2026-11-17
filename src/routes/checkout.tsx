@@ -497,15 +497,51 @@ function CheckoutPage() {
 
             {step === 3 && (
               <section className="animate-in fade-in zoom-in-95 text-center py-8">
-                <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <svg className="w-10 h-10 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <h2 className="text-3xl font-black text-slate-900 mb-4">Order Placed!</h2>
-                <p className="text-muted-foreground mb-8 text-lg">Your order #{successOrderId.slice(0,8).toUpperCase()} has been sent to the kitchen.</p>
+                {paymentMethod === 'online_transfer' ? (
+                  <>
+                    <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <svg className="w-10 h-10 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <h2 className="text-3xl font-black text-slate-900 mb-3">Payment Verification Pending</h2>
+                    <p className="text-muted-foreground mb-6 text-base max-w-md mx-auto">
+                      We have received your order details. Our team is checking your transaction. Your order will be accepted once payment is verified.
+                    </p>
+
+                    <div className="bg-amber-50/80 border border-amber-200/80 p-5 rounded-2xl text-left max-w-md mx-auto mb-6 text-sm space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Order ID:</span>
+                        <span className="font-mono font-bold text-slate-900">#{successOrderId.slice(0,8).toUpperCase()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Payment Method:</span>
+                        <span className="font-semibold text-slate-900">Online Transfer</span>
+                      </div>
+                      {trxId && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Transaction ID:</span>
+                          <span className="font-mono font-bold text-slate-900">{trxId}</span>
+                        </div>
+                      )}
+                      <p className="text-xs text-amber-800 font-medium pt-2 border-t border-amber-200/60">
+                        Please do not submit the same order again while it is under review.
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <svg className="w-10 h-10 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <h2 className="text-3xl font-black text-slate-900 mb-4">Order Placed!</h2>
+                    <p className="text-muted-foreground mb-8 text-lg">Your order #{successOrderId.slice(0,8).toUpperCase()} has been sent to the kitchen.</p>
+                  </>
+                )}
                 
-                <div className="bg-slate-50 p-6 rounded-2xl border border-border mb-8">
+                <div className="bg-slate-50 p-6 rounded-2xl border border-border mb-8 max-w-md mx-auto">
                   <p className="font-semibold text-slate-900 mb-2">Permanent Tracking Link:</p>
                   <Link to="/orders/$orderId" params={{ orderId: successOrderId }} className="text-primary hover:underline font-mono text-sm break-all">
                     https://amir-fast-food.vercel.app/orders/{successOrderId}
@@ -513,7 +549,7 @@ function CheckoutPage() {
                   <p className="text-xs text-muted-foreground mt-4">Save this link to track your order status with live updates.</p>
                 </div>
 
-                <Link to="/orders/$orderId" params={{ orderId: successOrderId }} className="inline-block w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl hover:bg-primary/90 shadow-lg shadow-primary/30 transition-all text-lg mb-4">
+                <Link to="/orders/$orderId" params={{ orderId: successOrderId }} className="inline-block w-full max-w-md bg-primary text-primary-foreground font-bold py-4 rounded-xl hover:bg-primary/90 shadow-lg shadow-primary/30 transition-all text-lg mb-4">
                   Track My Order Now
                 </Link>
               </section>
