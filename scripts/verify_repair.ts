@@ -180,4 +180,36 @@ const now = new Date().toISOString();
 assert(now.length > 10, 'ISO date string valid');
 console.log('✓ PASS: Timestamp updates validated');
 
+// TEST 6: Order Draft Snapshot Stability (Fix for AmirBot Crash)
+console.log('Testing: Order Draft Snapshot Reference Stability...');
+import { getDraft, updateDraft, clearDraft, getDefaultDraft } from '../src/lib/orderDraft';
+
+clearDraft();
+const draft1 = getDraft();
+const draft2 = getDraft();
+assert.strictEqual(draft1, draft2, 'getDraft() must return identical object reference when storage has not changed (prevents useSyncExternalStore loop)');
+
+updateDraft({ step: 2, contact: { name: 'Ali', phone: '03001234567', email: '' } });
+const draft3 = getDraft();
+assert.strictEqual(draft3.step, 2, 'Step should be updated to 2');
+assert.strictEqual(draft3.contact.name, 'Ali', 'Contact name should be Ali');
+
+const draft4 = getDraft();
+assert.strictEqual(draft3, draft4, 'Repeated getDraft() after update must return identical object reference');
+console.log('✓ PASS: Order Draft Snapshot Stability (AmirBot Safe)');
+
+// TEST 7: Predefined Feedback Chips & Rules (Customer Feedback Feature)
+console.log('Testing: Customer Feedback Predefined Chips & Validation...');
+import { PREDEFINED_FEEDBACK_CHIPS } from '../src/server/feedbackApi';
+
+assert.strictEqual(PREDEFINED_FEEDBACK_CHIPS.length, 7, 'Must have exactly 7 predefined feedback chips');
+assert.strictEqual(PREDEFINED_FEEDBACK_CHIPS[0], 'The food was fresh and delicious.');
+assert.strictEqual(PREDEFINED_FEEDBACK_CHIPS[1], 'The order arrived on time.');
+assert.strictEqual(PREDEFINED_FEEDBACK_CHIPS[2], 'The food was tasty and well-packed.');
+assert.strictEqual(PREDEFINED_FEEDBACK_CHIPS[3], 'The portion size was good.');
+assert.strictEqual(PREDEFINED_FEEDBACK_CHIPS[4], 'The ordering process was easy.');
+assert.strictEqual(PREDEFINED_FEEDBACK_CHIPS[5], 'The delivery service was good.');
+assert.strictEqual(PREDEFINED_FEEDBACK_CHIPS[6], 'Everything was great. I enjoyed my meal.');
+console.log('✓ PASS: Customer Feedback Predefined Chips Verified');
+
 console.log('--- ALL VERIFICATION TESTS PASSED SUCCESSFULLY ---');

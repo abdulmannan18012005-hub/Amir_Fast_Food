@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { MapPin, XCircle, Phone, Bell } from 'lucide-react';
 import { LiveOrder } from '../../hooks/useLiveOrder';
 import { SHOP_PHONE_LOCAL } from '../../lib/shop';
+import { OrderFeedback } from './OrderFeedback';
 
 export function OrderStatusView({ order, onNotify }: { order: LiveOrder, onNotify?: () => void }) {
   const [now, setNow] = useState(Date.now());
@@ -140,6 +141,11 @@ export function OrderStatusView({ order, onNotify }: { order: LiveOrder, onNotif
                </a>
              )}
            </div>
+        )}
+
+        {/* Customer Feedback Card (Only available once delivered) */}
+        {order.status === 'delivered' && (
+          <OrderFeedback orderId={order.id} status={order.status} />
         )}
 
         <div className="bg-card border border-border rounded-3xl p-5 shadow-sm">

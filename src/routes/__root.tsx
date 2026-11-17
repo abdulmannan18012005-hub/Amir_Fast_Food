@@ -12,6 +12,55 @@ import { getCartSubtotal, updateItemQuantity, removeItem, clearCart, areVariants
 import type { ItemVariant } from '../types';
 import '../index.css';
 
+class AmirBotErrorBoundary extends React.Component<
+  { children: React.ReactNode; onClose: () => void },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode; onClose: () => void }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error('[AmirBot] Error caught by boundary:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-card border border-border rounded-2xl max-w-sm w-full p-6 text-center shadow-2xl space-y-4">
+            <div className="w-12 h-12 bg-destructive/10 text-destructive rounded-full flex items-center justify-center mx-auto">
+              <span className="text-2xl" role="img" aria-label="Bot">🤖</span>
+            </div>
+            <h3 className="font-bold text-lg text-foreground">AmirBot Temporarily Unavailable</h3>
+            <p className="text-sm text-muted-foreground">
+              We encountered an issue opening the assistant. You can continue ordering directly from the menu or call us at <span className="font-semibold text-foreground">{SHOP_PHONE_DISPLAY}</span>.
+            </p>
+            <div className="pt-2 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  this.setState({ hasError: false });
+                  this.props.onClose();
+                }}
+                className="w-full py-2.5 px-4 bg-primary text-primary-foreground font-semibold rounded-xl hover:bg-primary/90 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export const Route = createRootRoute({
   component: RootComponent
 });
@@ -266,9 +315,11 @@ function RootComponent() {
 
         {/* AmirBot: rendered when open, hidden on admin routes */}
         {chatOpen && !isAdmin && (
-          <React.Suspense fallback={null}>
-            <AmirBotDrawer isOpen={chatOpen} onClose={() => setChatOpen(false)} />
-          </React.Suspense>
+          <AmirBotErrorBoundary onClose={() => setChatOpen(false)}>
+            <React.Suspense fallback={null}>
+              <AmirBotDrawer isOpen={chatOpen} onClose={() => setChatOpen(false)} />
+            </React.Suspense>
+          </AmirBotErrorBoundary>
         )}
 
         <ScrollRestoration />

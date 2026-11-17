@@ -32,11 +32,15 @@ export interface OrderDraft {
 const STORAGE_KEY = 'order_draft';
 const DRAFT_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-export function getDefaultDraft(): OrderDraft {
+let cachedRaw: string | null = null;
+let cachedSnapshot: OrderDraft | null = null;
+let defaultSnapshot: OrderDraft | null = null;
+
+function buildDefaultDraft(): OrderDraft {
   const profile = safeJson<Record<string, string>>('user_profile', {});
   return {
     v: 1,
-    updatedAt: Date.now(),
+    updatedAt: 0,
     step: 1,
     contact: {
       name: profile.name || '',
@@ -57,21 +61,41 @@ export function getDefaultDraft(): OrderDraft {
   };
 }
 
+export function getDefaultDraft(): OrderDraft {
+  if (!defaultSnapshot) {
+    defaultSnapshot = buildDefaultDraft();
+  }
+  return defaultSnapshot;
+}
+
 export function getDraft(): OrderDraft {
   if (typeof window === 'undefined') return getDefaultDraft();
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return getDefaultDraft();
+    if (!raw) {
+      cachedRaw = null;
+      cachedSnapshot = null;
+      return getDefaultDraft();
+    }
+    if (raw === cachedRaw && cachedSnapshot !== null) {
+      return cachedSnapshot;
+    }
     const parsed = JSON.parse(raw);
     if (!parsed || parsed.v !== 1 || !parsed.updatedAt) {
+      cachedRaw = null;
+      cachedSnapshot = null;
       return getDefaultDraft();
     }
     // Check 24-hour expiration
     if (Date.now() - parsed.updatedAt > DRAFT_EXPIRY_MS) {
       clearDraft();
+      cachedRaw = null;
+      cachedSnapshot = null;
       return getDefaultDraft();
     }
-    return {
+    
+    cachedRaw = raw;
+    cachedSnapshot = {
       v: 1,
       updatedAt: parsed.updatedAt,
       step: typeof parsed.step === 'number' ? parsed.step : 1,
@@ -92,7 +116,10 @@ export function getDraft(): OrderDraft {
         trxId: parsed.payment?.trxId || '',
       },
     };
+    return cachedSnapshot;
   } catch {
+    cachedRaw = null;
+    cachedSnapshot = null;
     return getDefaultDraft();
   }
 }
@@ -124,7 +151,10 @@ export function updateDraft(patch: Partial<{
   };
 
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    const raw = JSON.stringify(next);
+    localStorage.setItem(STORAGE_KEY, raw);
+    cachedRaw = raw;
+    cachedSnapshot = next;
     window.dispatchEvent(new Event('orderDraftUpdated'));
   } catch (e) {
     console.warn('Failed to save order draft to localStorage:', e);
@@ -137,6 +167,8 @@ export function clearDraft(): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.removeItem(STORAGE_KEY);
+    cachedRaw = null;
+    cachedSnapshot = null;
     window.dispatchEvent(new Event('orderDraftUpdated'));
   } catch (e) {
     console.warn('Failed to clear order draft:', e);

@@ -310,8 +310,8 @@ STRICT RULES (Zero Hallucination):
 12. DRINK DISAMBIGUATION: If the customer asks for a "drink" or "cold drink" without specifying the exact drink name and size, DO NOT output [ACTION:ADD_ITEM:...]. List the available drinks with their exact prices and ask which one they prefer.
 13. REPLACING ITEMS: If the customer asks to swap or replace an item, ask which item to remove and what to add in its place.`;
 
-    const primaryModel = process.env.GROQ_MODEL || 'openai/gpt-oss-20b';
-    const fallbackModel = process.env.GROQ_FALLBACK_MODEL || 'openai/gpt-oss-120b';
+    const primaryModel = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+    const fallbackModel = process.env.GROQ_FALLBACK_MODEL || 'llama-3.1-8b-instant';
 
     const callModel = async (model: string, retryLarger = false): Promise<string> => {
       const controller = new AbortController();
