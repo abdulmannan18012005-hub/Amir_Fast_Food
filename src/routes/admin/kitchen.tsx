@@ -6,6 +6,7 @@ import { updateOrderStatus, getKitchenOrders, verifyPaymentFn, approvePaymentFn,
 import { playKitchenDing, initAudio } from '../../lib/sound';
 import { PinGate } from '../../components/admin/PinGate';
 import { AdminNav } from '../../components/admin/AdminNav';
+import { AdminProvider, useAdminContext } from '../../components/admin/AdminContext';
 import { Clock, CheckCircle, ChefHat, Truck, XCircle, Volume2, VolumeX, BellRing, Printer, AlertTriangle, Copy, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import { subscribeAdminPushFn, sendTestAdminPushFn, getVapidPublicKeyFn } from '../../server/push';
 import { adminCall, clearAdminSession } from '../../lib/adminSession';
@@ -32,17 +33,19 @@ function KitchenColumn({
   renderCard: (o: any, s: string) => React.ReactNode;
   status: string;
 }) {
+  const { theme } = useAdminContext();
+  const isDark = theme === 'dark';
   return (
-    <div className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700">
-      <div className="flex justify-between items-center mb-4 pb-2 border-b border-slate-700">
-        <h2 className="font-bold text-lg text-white flex items-center gap-2">
+    <div className={`rounded-2xl p-4 border transition-colors ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200 shadow-sm'}`}>
+      <div className={`flex justify-between items-center mb-4 pb-2 border-b ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
+        <h2 className={`font-bold text-lg flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
           {icon} {title}
         </h2>
         <span className={`${badgeBg} ${badgeText} font-bold px-2.5 py-0.5 rounded-full text-sm`}>{count}</span>
       </div>
       <div className="space-y-4">
         {orders.map(o => renderCard(o, status))}
-        {orders.length === 0 && <p className="text-slate-500 text-sm text-center py-8 font-medium">{emptyText}</p>}
+        {orders.length === 0 && <p className={`${isDark ? 'text-slate-500' : 'text-slate-400'} text-sm text-center py-8 font-medium`}>{emptyText}</p>}
       </div>
     </div>
   );
@@ -57,38 +60,23 @@ export const Route = createFileRoute('/admin/kitchen')({
 function KitchenKDSRoute() {
   return (
     <PinGate>
-      <AdminNav />
-      <KitchenSoundGate>
+      <AdminProvider>
+        <AdminNav />
         <KitchenKDS />
-      </KitchenSoundGate>
+      </AdminProvider>
     </PinGate>
   );
 }
 
-function KitchenSoundGate({ children }: { children: React.ReactNode }) {
-  const [ready, setReady] = React.useState(false);
-  if (!ready) {
-    return (
-      <button type="button" onClick={() => { initAudio(); setReady(true); }}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900 text-white w-full">
-        <span className="text-center">
-          <Volume2 size={64} className="mx-auto mb-4 text-primary animate-pulse" aria-hidden="true" />
-          <span className="block text-3xl font-black">Tap to enable kitchen sound</span>
-        </span>
-      </button>
-    );
-  }
-  return <>{children}</>;
-}
-
 function KitchenKDS() {
+  const { soundEnabled, playNotificationSound, theme } = useAdminContext();
+  const isDark = theme === 'dark';
   const [orders, setOrders] = useState<any[]>([]);
   const [connStatus, setConnStatus] = useState<'live' | 'reconnecting' | 'offline'>('live');
   const [lastUpdatedTime, setLastUpdatedTime] = useState<string>('');
   const [dbMigrationNeeded, setDbMigrationNeeded] = useState(false);
   const [copiedTid, setCopiedTid] = useState<string | null>(null);
   const [verifyingPaymentId, setVerifyingPaymentId] = useState<string | null>(null);
-  const [soundEnabled, setSoundEnabled] = useState(true);
   const [now, setNow] = useState(Date.now());
   const [kitchenToast, setKitchenToast] = useState<{ msg: string; type: 'success' | 'error' | 'info' } | null>(null);
   const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'info') => {
@@ -440,34 +428,38 @@ function KitchenKDS() {
     const isLate = (currentStatus === 'received' && minElapsed > 5) || (currentStatus === 'preparing' && minElapsed > 25);
     
     return (
-      <div key={order.id} className={`bg-slate-800 rounded-xl p-4 border shadow-sm flex flex-col gap-3 transition-colors ${isLate ? 'border-red-500/50 bg-red-950/20' : 'border-slate-700'}`}>
+      <div key={order.id} className={`rounded-xl p-4 border shadow-sm flex flex-col gap-3 transition-colors ${
+        isLate 
+          ? isDark ? 'border-red-500/50 bg-red-950/20' : 'border-red-400 bg-red-50/60'
+          : isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'
+      }`}>
         <div className="flex justify-between items-start">
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-mono text-xs text-slate-400 bg-slate-900 px-2 py-0.5 rounded">#{order.id.slice(0, 8)}</span>
+              <span className={`font-mono text-xs px-2 py-0.5 rounded ${isDark ? 'text-slate-400 bg-slate-900' : 'text-slate-600 bg-slate-200'}`}>#{order.id.slice(0, 8)}</span>
               {order.payment_method === 'cod' ? (
-                <span className="text-xs bg-slate-900 text-slate-300 font-bold px-2 py-0.5 rounded">COD</span>
+                <span className={`text-xs font-bold px-2 py-0.5 rounded ${isDark ? 'bg-slate-900 text-slate-300' : 'bg-slate-200 text-slate-700'}`}>COD</span>
               ) : order.payment_verified_at ? (
                 <span className="text-xs bg-emerald-950/90 text-emerald-300 border border-emerald-700/60 font-bold px-2 py-0.5 rounded">ONLINE · verified</span>
               ) : (
                 <span className="text-xs bg-amber-950/90 text-amber-300 border border-amber-700/60 font-bold px-2 py-0.5 rounded">ONLINE · verify TID</span>
               )}
             </div>
-            <h3 className="font-bold text-white mt-1">{order.customer_name}</h3>
-            <p className="text-xs text-slate-400 mt-0.5">{order.delivery_address}</p>
-            {order.distance_km && <p className="text-xs text-blue-400 mt-0.5">~{order.distance_km.toFixed(1)} km</p>}
+            <h3 className={`font-bold mt-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>{order.customer_name}</h3>
+            <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{order.delivery_address}</p>
+            {order.distance_km && <p className="text-xs text-blue-500 mt-0.5">~{order.distance_km.toFixed(1)} km</p>}
           </div>
-          <div className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full ${isLate ? 'bg-red-500/20 text-red-400' : 'bg-slate-700 text-slate-300'}`}>
+          <div className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full ${isLate ? 'bg-red-500/20 text-red-400' : isDark ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-700'}`}>
             <Clock size={12} /> {timeAgo(order.created_at)}
           </div>
         </div>
 
         {order.payment_method === 'online_transfer' && (
-          <div className="bg-slate-900/90 border border-slate-700/80 rounded-lg p-2.5 text-xs text-slate-300 flex items-center justify-between gap-2 mt-1">
+          <div className={`border rounded-lg p-2.5 text-xs flex items-center justify-between gap-2 mt-1 ${isDark ? 'bg-slate-900/90 border-slate-700/80 text-slate-300' : 'bg-amber-50/70 border-amber-200 text-slate-800'}`}>
             <div>
-              <span className="text-slate-400 block text-[11px]">TID to match:</span>
-              <span className="font-mono font-bold text-amber-300 text-sm select-all tracking-wider">{order.payment_trx_id || 'N/A'}</span>
-              <span className="text-slate-400 block text-[11px] mt-0.5">Amount: <strong className="text-white">PKR {Number(order.total_amount) + Number(order.delivery_fee)}</strong></span>
+              <span className={`block text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>TID to match:</span>
+              <span className="font-mono font-bold text-amber-500 text-sm select-all tracking-wider">{order.payment_trx_id || 'N/A'}</span>
+              <span className={`block text-[11px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Amount: <strong className={isDark ? 'text-white' : 'text-slate-900'}>PKR {Number(order.total_amount) + Number(order.delivery_fee)}</strong></span>
             </div>
             {order.payment_trx_id && (
               <button
@@ -477,7 +469,9 @@ function KitchenKDS() {
                   setCopiedTid(order.id);
                   setTimeout(() => setCopiedTid(null), 2000);
                 }}
-                className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-600 font-semibold text-xs flex items-center gap-1 transition-colors"
+                className={`px-2.5 py-1.5 rounded border font-semibold text-xs flex items-center gap-1 transition-colors ${
+                  isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-600' : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300'
+                }`}
                 title="Copy TID"
               >
                 <Copy size={13} />
@@ -488,8 +482,8 @@ function KitchenKDS() {
         )}
 
         {currentStatus === 'received' && order.payment_method === 'online_transfer' && !order.payment_verified_at && (
-          <div className="bg-amber-950/30 border border-amber-800/60 rounded-lg p-2.5 text-xs text-amber-200 space-y-2 mt-1">
-            <p className="font-medium text-amber-300">Check this TID and amount in the EasyPaisa/JazzCash app first</p>
+          <div className={`border rounded-lg p-2.5 text-xs space-y-2 mt-1 ${isDark ? 'bg-amber-950/30 border-amber-800/60 text-amber-200' : 'bg-amber-50 border-amber-300 text-amber-900'}`}>
+            <p className="font-medium text-amber-600 dark:text-amber-300">Check this TID and amount in the EasyPaisa/JazzCash app first</p>
             <button
               type="button"
               disabled={verifyingPaymentId === order.id}
@@ -503,12 +497,12 @@ function KitchenKDS() {
 
         <div className="space-y-2 mt-2">
           {order.order_items.map((item: any, idx: number) => (
-            <div key={idx} className="flex justify-between text-sm text-slate-200">
+            <div key={idx} className={`flex justify-between text-sm ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
               <div>
                 <span className="font-bold text-primary mr-2">{item.quantity}x</span>
                 {item.menu_items?.name || 'Unknown Item'}
                 {item.selected_variants && item.selected_variants.length > 0 && (
-                  <div className="text-xs text-slate-400 ml-6">
+                  <div className={`text-xs ml-6 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                     {item.selected_variants.map((v:any) => v.name).join(', ')}
                   </div>
                 )}
@@ -517,10 +511,12 @@ function KitchenKDS() {
           ))}
         </div>
 
-        <div className="flex gap-2 mt-2 pt-3 border-t border-slate-700 flex-wrap">
+        <div className={`flex gap-2 mt-2 pt-3 border-t flex-wrap ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
           <button 
              onClick={() => handlePrint(order)}
-             className="bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-colors"
+             className={`font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-colors ${
+               isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-200' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+             }`}
           >
              <Printer size={16} />
           </button>
@@ -566,7 +562,9 @@ function KitchenKDS() {
 
           <button 
             onClick={() => setCancelModalOpen({ id: order.id, expected: currentStatus })}
-            className="bg-slate-700 hover:bg-red-900/50 text-red-400 hover:text-red-300 py-2 px-3 rounded-lg transition-colors"
+            className={`py-2 px-3 rounded-lg transition-colors ${
+              isDark ? 'bg-slate-700 hover:bg-red-950/50 text-red-400 hover:text-red-300' : 'bg-slate-100 hover:bg-red-50 text-red-600 border border-slate-200'
+            }`}
             title="Cancel"
           >
             <XCircle size={16} />
@@ -585,11 +583,13 @@ function KitchenKDS() {
   const outForDelivery = orders.filter(o => o.status === 'out_for_delivery');
 
   return (
-    <div className="min-h-[100dvh] bg-slate-900 text-slate-200">
-      <header className="bg-slate-800 border-b border-slate-700 px-6 py-4 flex justify-between items-center sticky top-0 z-10">
+    <div className={`min-h-[100dvh] transition-colors ${isDark ? 'bg-slate-900 text-slate-200' : 'bg-slate-50 text-slate-800'}`}>
+      <header className={`px-6 py-4 flex justify-between items-center sticky top-0 z-10 transition-colors border-b ${
+        isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200 shadow-sm'
+      }`}>
         <div className="flex items-center gap-4">
           <ChefHat className="text-primary" size={28} />
-          <h1 className="text-xl font-bold text-white hidden md:block">KDS | AMR Fast Food</h1>
+          <h1 className={`text-xl font-bold hidden md:block ${isDark ? 'text-white' : 'text-slate-900'}`}>KDS | AMR Fast Food</h1>
           
           {connStatus === 'live' && (
             <div className="px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 bg-emerald-950/80 text-emerald-300 border border-emerald-700/60">
@@ -616,28 +616,24 @@ function KitchenKDS() {
             </div>
           )}
           {wakeLockEnabled && (
-            <span className="text-xs bg-slate-700 px-2 py-0.5 rounded text-slate-300 hidden sm:block">
+            <span className={`text-xs px-2 py-0.5 rounded hidden sm:block ${isDark ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-700'}`}>
               Screen Awake
             </span>
           )}
         </div>
 
         <div className="flex items-center gap-3">
-          <button 
-            onClick={() => {
-              setSoundEnabled(!soundEnabled);
-              if (!soundEnabled) {
-                initAudio();
-                playKitchenDing();
-              }
-            }}
-            className={`p-2 rounded-full transition-colors ${soundEnabled ? 'bg-primary/20 text-primary' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}
-          >
-            {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
-          </button>
-          <button onClick={() => { clearAdminSession(); window.location.reload(); }} className="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg text-sm font-bold text-white transition-colors">
-            Lock
-          </button>
+          {pushStatus !== 'Enabled' && pushStatus !== 'Not Supported' && pushStatus !== 'Alerts not configured' && (
+            <button
+              type="button"
+              onClick={handleEnablePush}
+              className={`text-xs px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition-colors ${
+                isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-200' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+              }`}
+            >
+              <BellRing size={14} /> Enable Push
+            </button>
+          )}
         </div>
       </header>
 
@@ -655,35 +651,37 @@ function KitchenKDS() {
 
       {/* PENDING PAYMENT REVIEW SECTION */}
       <section className="px-6 pt-4 pb-2">
-        <div className="bg-slate-800/90 rounded-2xl border-2 border-amber-600/70 p-5 shadow-xl">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-4 border-b border-slate-700/80 gap-2">
+        <div className={`rounded-2xl border-2 p-5 shadow-xl transition-colors ${
+          isDark ? 'bg-slate-800/90 border-amber-600/70' : 'bg-white border-amber-400 shadow-sm'
+        }`}>
+          <div className={`flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-4 border-b gap-2 ${isDark ? 'border-slate-700/80' : 'border-amber-200'}`}>
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400">
+              <div className="p-2 rounded-xl bg-amber-500/20 text-amber-500">
                 <ShieldAlert size={26} />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-xl font-black text-white tracking-wide">PENDING PAYMENT REVIEW</h2>
+                  <h2 className={`text-xl font-black tracking-wide ${isDark ? 'text-white' : 'text-slate-900'}`}>PENDING PAYMENT REVIEW</h2>
                   <span className="bg-amber-500 text-slate-950 font-black px-2.5 py-0.5 rounded-full text-xs">
                     {pendingPayments.length} PENDING
                   </span>
                 </div>
-                <p className="text-xs text-amber-200/90 mt-0.5 font-medium">
+                <p className={`text-xs mt-0.5 font-medium ${isDark ? 'text-amber-200/90' : 'text-amber-800'}`}>
                   Check the Transaction ID and exact amount in your EasyPaisa/JazzCash account before approving this order.
                 </p>
               </div>
             </div>
             {pendingPayments.length > 0 && (
-              <span className="text-xs text-slate-400 self-start sm:self-auto font-medium">
+              <span className={`text-xs self-start sm:self-auto font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                 Orders remain blocked from kitchen preparation until approved.
               </span>
             )}
           </div>
 
           {pendingPayments.length === 0 ? (
-            <div className="text-center py-5 text-slate-400 text-sm">
-              <p className="font-semibold text-slate-300">No pending online payments.</p>
-              <p className="text-xs text-slate-500 mt-1">All online-transfer orders have been reviewed.</p>
+            <div className={`text-center py-5 text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+              <p className={`font-semibold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>No pending online payments.</p>
+              <p className={`text-xs mt-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>All online-transfer orders have been reviewed.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -691,44 +689,46 @@ function KitchenKDS() {
                 const total = Number(order.total_amount) + Number(order.delivery_fee);
                 const shortCode = order.id.slice(0, 8).toUpperCase();
                 return (
-                  <div key={order.id} className="bg-slate-900/95 border border-amber-500/40 rounded-xl p-4 flex flex-col justify-between shadow-md space-y-3">
+                  <div key={order.id} className={`border rounded-xl p-4 flex flex-col justify-between shadow-md space-y-3 transition-colors ${
+                    isDark ? 'bg-slate-900/95 border-amber-500/40' : 'bg-amber-50/40 border-amber-300'
+                  }`}>
                     <div className="space-y-2">
                       <div className="flex justify-between items-start">
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="font-mono text-xs font-bold text-amber-300 bg-amber-950/80 border border-amber-700/60 px-2 py-0.5 rounded">
+                            <span className="font-mono text-xs font-bold text-amber-500 bg-amber-950/20 border border-amber-600/40 px-2 py-0.5 rounded">
                               #{shortCode}
                             </span>
-                            <span className="text-[11px] font-bold uppercase bg-slate-800 text-slate-300 px-2 py-0.5 rounded">
+                            <span className={`text-[11px] font-bold uppercase px-2 py-0.5 rounded ${isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700'}`}>
                               Online Transfer
                             </span>
                           </div>
-                          <h3 className="font-bold text-white text-base mt-1">{order.customer_name}</h3>
+                          <h3 className={`font-bold text-base mt-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>{order.customer_name}</h3>
                           <a href={`tel:${order.customer_phone}`} className="text-xs text-primary hover:underline flex items-center gap-1 font-mono">
                             <span>{order.customer_phone}</span>
                           </a>
                         </div>
-                        <div className="flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded bg-slate-800 text-slate-300">
+                        <div className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded ${isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700'}`}>
                           <Clock size={12} /> {timeAgo(order.created_at)}
                         </div>
                       </div>
 
                       {/* Items */}
-                      <div className="bg-slate-800/60 rounded-lg p-2.5 text-xs text-slate-300 space-y-1 max-h-28 overflow-y-auto">
+                      <div className={`rounded-lg p-2.5 text-xs space-y-1 max-h-28 overflow-y-auto ${isDark ? 'bg-slate-800/60 text-slate-300' : 'bg-white border border-slate-200 text-slate-700'}`}>
                         {(order.order_items || []).map((item: any, idx: number) => (
                           <div key={idx} className="flex justify-between">
                             <span><strong className="text-primary">{item.quantity}x</strong> {item.menu_items?.name || 'Item'}</span>
                             {item.selected_variants?.length > 0 && (
-                              <span className="text-[11px] text-slate-400">({item.selected_variants.map((v: any) => v.name).join(', ')})</span>
+                              <span className={`text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>({item.selected_variants.map((v: any) => v.name).join(', ')})</span>
                             )}
                           </div>
                         ))}
                       </div>
 
                       {/* TID & Amount verification box */}
-                      <div className="bg-amber-950/40 border border-amber-600/50 rounded-xl p-3 text-xs space-y-2">
+                      <div className={`border rounded-xl p-3 text-xs space-y-2 ${isDark ? 'bg-amber-950/40 border-amber-600/50' : 'bg-amber-100/60 border-amber-300'}`}>
                         <div className="flex justify-between items-center">
-                          <span className="text-slate-300 text-[11px] font-medium">Submitted TID:</span>
+                          <span className={`text-[11px] font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Submitted TID:</span>
                           <button
                             type="button"
                             onClick={() => {
@@ -738,24 +738,28 @@ function KitchenKDS() {
                                 setTimeout(() => setCopiedTid(null), 2000);
                               }
                             }}
-                            className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded border border-amber-700/60 font-semibold text-[11px] flex items-center gap-1 transition-colors"
+                            className={`px-2 py-1 rounded border font-semibold text-[11px] flex items-center gap-1 transition-colors ${
+                              isDark ? 'bg-slate-800 hover:bg-slate-700 text-amber-300 border-amber-700/60' : 'bg-white hover:bg-slate-100 text-amber-700 border-amber-300'
+                            }`}
                           >
                             <Copy size={12} />
                             <span>{copiedTid === order.id ? 'Copied!' : 'Copy TID'}</span>
                           </button>
                         </div>
-                        <div className="font-mono font-bold text-amber-300 text-base select-all tracking-wider break-all bg-slate-900/90 p-2 rounded border border-slate-700">
+                        <div className={`font-mono font-bold text-amber-500 text-base select-all tracking-wider break-all p-2 rounded border ${
+                          isDark ? 'bg-slate-900/90 border-slate-700' : 'bg-white border-amber-200'
+                        }`}>
                           {order.payment_trx_id || 'NO TID PROVIDED'}
                         </div>
-                        <div className="flex justify-between items-center pt-1 border-t border-amber-800/40 text-xs">
-                          <span className="text-slate-300">Total Payable:</span>
-                          <span className="font-black text-white text-sm">PKR {total}</span>
+                        <div className={`flex justify-between items-center pt-1 border-t text-xs ${isDark ? 'border-amber-800/40' : 'border-amber-200'}`}>
+                          <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>Total Payable:</span>
+                          <span className={`font-black text-sm ${isDark ? 'text-white' : 'text-slate-900'}`}>PKR {total}</span>
                         </div>
                       </div>
                     </div>
 
                     {/* Actions */}
-                    <div className="flex gap-2 pt-2 border-t border-slate-800">
+                    <div className={`flex gap-2 pt-2 border-t ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
                       <button
                         type="button"
                         disabled={approvingPaymentId === order.id || rejectingPaymentId === order.id}
@@ -777,7 +781,9 @@ function KitchenKDS() {
                           });
                           setRejectReason('');
                         }}
-                        className="bg-slate-800 hover:bg-red-950/60 border border-slate-700 text-red-400 hover:text-red-300 font-bold py-2.5 px-3 rounded-xl text-xs transition-colors flex items-center gap-1"
+                        className={`font-bold py-2.5 px-3 rounded-xl text-xs transition-colors flex items-center gap-1 border ${
+                          isDark ? 'bg-slate-800 hover:bg-red-950/60 border-slate-700 text-red-400 hover:text-red-300' : 'bg-white hover:bg-red-50 border-slate-300 text-red-600'
+                        }`}
                         title="Reject payment and cancel order"
                       >
                         <XCircle size={15} />
@@ -834,19 +840,21 @@ function KitchenKDS() {
       {/* Cancel Modal */}
       {cancelModalOpen && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-           <div className="bg-slate-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-700">
-             <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+           <div className={`rounded-2xl p-6 max-w-sm w-full shadow-2xl border transition-colors ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'}`}>
+             <h3 className={`text-xl font-bold mb-2 flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
                <AlertTriangle className="text-red-500" /> Cancel Order
              </h3>
-             <p className="text-sm text-slate-400 mb-4">Are you sure you want to cancel this order? The customer will see this reason.</p>
+             <p className={`text-sm mb-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Are you sure you want to cancel this order? The customer will see this reason.</p>
              <textarea 
                value={cancelReason}
                onChange={e => setCancelReason(e.target.value)}
                placeholder="e.g., Rider unavailable, Item out of stock..."
-               className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white mb-4 min-h-[100px] focus:border-red-500 outline-none"
+               className={`w-full border rounded-xl p-3 mb-4 min-h-[100px] focus:border-red-500 outline-none ${
+                 isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+               }`}
              />
              <div className="flex gap-3">
-               <button onClick={() => { setCancelModalOpen(null); setCancelReason(''); }} className="flex-1 bg-slate-700 text-white font-bold py-2 rounded-xl">Back</button>
+               <button onClick={() => { setCancelModalOpen(null); setCancelReason(''); }} className={`flex-1 font-bold py-2 rounded-xl ${isDark ? 'bg-slate-700 text-white' : 'bg-slate-200 text-slate-800'}`}>Back</button>
                <button 
                  onClick={() => {
                    if (cancelReason.trim().length < 5) return showToast("Please enter a valid reason (at least 5 characters).", "error");
@@ -866,25 +874,25 @@ function KitchenKDS() {
       {/* Dispatch Modal */}
       {dispatchModalOpen && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-           <div className="bg-slate-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-700">
-             <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+           <div className={`rounded-2xl p-6 max-w-sm w-full shadow-2xl border transition-colors ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'}`}>
+             <h3 className={`text-xl font-bold mb-2 flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
                <Truck className="text-blue-500" /> Dispatch Rider
              </h3>
-             <p className="text-sm text-slate-400 mb-4">Enter rider details so the customer can track or call them.</p>
+             <p className={`text-sm mb-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Enter rider details so the customer can track or call them.</p>
              <div className="space-y-3 mb-6">
                <input 
                  type="text" value={riderName} onChange={e => setRiderName(e.target.value)}
                  placeholder="Rider Name (e.g. Ali)"
-                 className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-blue-500"
+                 className={`w-full border rounded-xl p-3 outline-none focus:border-blue-500 ${isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'}`}
                />
                <input 
                  type="tel" value={riderPhone} onChange={e => setRiderPhone(e.target.value)}
                  placeholder="Rider Phone (Optional)"
-                 className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-blue-500"
+                 className={`w-full border rounded-xl p-3 outline-none focus:border-blue-500 ${isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'}`}
                />
              </div>
              <div className="flex gap-3">
-               <button onClick={() => { setDispatchModalOpen(null); setRiderName(''); setRiderPhone(''); }} className="flex-1 bg-slate-700 text-white font-bold py-2 rounded-xl">Back</button>
+               <button onClick={() => { setDispatchModalOpen(null); setRiderName(''); setRiderPhone(''); }} className={`flex-1 font-bold py-2 rounded-xl ${isDark ? 'bg-slate-700 text-white' : 'bg-slate-200 text-slate-800'}`}>Back</button>
                <button 
                  onClick={() => {
                    // Rider name optional
@@ -903,28 +911,30 @@ function KitchenKDS() {
       {/* Reject Payment Modal */}
       {rejectPaymentModalOpen && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl border border-red-500/50">
-            <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+          <div className={`rounded-2xl p-6 max-w-md w-full shadow-2xl border transition-colors ${isDark ? 'bg-slate-800 border-red-500/50 text-white' : 'bg-white border-red-400 text-slate-900'}`}>
+            <h3 className={`text-xl font-bold mb-2 flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
               <XCircle className="text-red-500" /> Reject Payment / Cancel Order
             </h3>
-            <p className="text-sm text-slate-300 mb-3">
-              Order <strong className="text-white">#{rejectPaymentModalOpen.shortCode}</strong> (PKR {rejectPaymentModalOpen.amount}) with TID: <span className="font-mono text-amber-300">{rejectPaymentModalOpen.tid}</span>
+            <p className={`text-sm mb-3 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+              Order <strong className={isDark ? 'text-white' : 'text-slate-900'}>#{rejectPaymentModalOpen.shortCode}</strong> (PKR {rejectPaymentModalOpen.amount}) with TID: <span className="font-mono text-amber-500">{rejectPaymentModalOpen.tid}</span>
             </p>
-            <p className="text-xs text-red-300 mb-4">
+            <p className="text-xs text-red-500 mb-4">
               Enter the reason why this transaction could not be verified. The customer will see this reason on their tracking screen.
             </p>
             <textarea 
               value={rejectReason}
               onChange={e => setRejectReason(e.target.value)}
               placeholder="e.g., TID not found in EasyPaisa account, amount mismatch, duplicate TID..."
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white mb-4 min-h-[100px] focus:border-red-500 outline-none text-sm"
+              className={`w-full border rounded-xl p-3 mb-4 min-h-[100px] focus:border-red-500 outline-none text-sm ${
+                isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+              }`}
               disabled={rejectingPaymentId !== null}
             />
             <div className="flex gap-3">
               <button 
                 disabled={rejectingPaymentId !== null}
                 onClick={() => { setRejectPaymentModalOpen(null); setRejectReason(''); }} 
-                className="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 rounded-xl text-sm transition-colors"
+                className={`flex-1 font-bold py-2.5 rounded-xl text-sm transition-colors ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-slate-200 hover:bg-slate-300 text-slate-800'}`}
               >
                 Back
               </button>

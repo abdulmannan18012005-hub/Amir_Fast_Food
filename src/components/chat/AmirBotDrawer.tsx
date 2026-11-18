@@ -112,17 +112,19 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
   const [selectedSide, setSelectedSide] = useState('Regular Fries');
   const [selectedUpgrades, setSelectedUpgrades] = useState<ItemVariant[]>([]);
 
-  // Pending confirmation for cart mutations
-  const [pendingAction, setPendingAction] = useState<{
+  // Sequential Action Queue for cart mutations
+  const [actionQueue, setActionQueue] = useState<{
+    id: string;
     type: 'ADD_ITEM' | 'SET_QTY' | 'REMOVE_ITEM' | 'CLEAR_CART';
     title: string;
     description: string;
     confirmLabel?: string;
     execute: () => void;
-  } | null>(null);
+  }[]>([]);
 
-  // Start Over modal state
+  // Start Over & Clear Chat modal states
   const [confirmReset, setConfirmReset] = useState(false);
+  const [confirmClearChat, setConfirmClearChat] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const toastIdRef = useRef(0);
@@ -192,6 +194,8 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
       if (e.key === 'Escape') {
         if (activeOptionItem) {
           setActiveOptionItem(null);
+        } else if (confirmClearChat) {
+          setConfirmClearChat(false);
         } else if (confirmReset) {
           setConfirmReset(false);
         } else {
@@ -201,7 +205,7 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, activeOptionItem, confirmReset, onClose]);
+  }, [isOpen, activeOptionItem, confirmReset, confirmClearChat, onClose]);
 
   // Re-quote delivery when delivery address/coordinates/subtotal/payment method changes
   useEffect(() => {
@@ -244,20 +248,46 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
   };
 
+  const handleClearChat = () => {
+    setMessages(DEFAULT_MSG);
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.removeItem(STORAGE_KEY);
+      } catch { /* ignore */ }
+    }
+    setConfirmClearChat(false);
+    addToast('Chat messages cleared. Cart and order kept.', 'info');
+  };
+
   const handleStartOver = () => {
     clearCart();
     clearDraft();
     setMessages(DEFAULT_MSG);
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.removeItem(STORAGE_KEY);
+      } catch { /* ignore */ }
+    }
     setActiveOptionItem(null);
-    setPendingAction(null);
+    setActionQueue([]);
     setReviewConsent(false);
     setConfirmReset(false);
+    setConfirmClearChat(false);
     setSuccessOrderId('');
     addToast('Started over with a fresh cart.', 'info');
   };
 
   const executeActions = (actions: any[]) => {
     if (!actions || !Array.isArray(actions)) return;
+
+    const newPendingItems: {
+      id: string;
+      type: 'ADD_ITEM' | 'SET_QTY' | 'REMOVE_ITEM' | 'CLEAR_CART';
+      title: string;
+      description: string;
+      confirmLabel?: string;
+      execute: () => void;
+    }[] = [];
 
     for (const action of actions.slice(0, 5)) {
       switch (action.type) {
@@ -271,7 +301,8 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
             setActiveOptionItem(action);
             addToast(`Choose options for ${action.name}`, 'info');
           } else {
-            setPendingAction({
+            newPendingItems.push({
+              id: `${Date.now()}-${Math.random()}`,
               type: 'ADD_ITEM',
               title: `Add ${action.qty || 1}x ${action.name}?`,
               description: `PKR ${(action.price || 0) * (action.qty || 1)}`,
@@ -299,7 +330,8 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
             ? cart.find(i => i.menu_item_id === action.menu_item_id && areVariantsEqual(i.variants, action.variants))
             : cart.find(i => i.menu_item_id === action.menu_item_id);
           if (item) {
-            setPendingAction({
+            newPendingItems.push({
+              id: `${Date.now()}-${Math.random()}`,
               type: 'SET_QTY',
               title: `Update ${item.name} quantity to ${action.qty || 1}?`,
               description: `Current quantity: ${item.quantity}`,
@@ -318,7 +350,8 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
             ? cart.find(i => i.menu_item_id === action.menu_item_id && areVariantsEqual(i.variants, action.variants))
             : cart.find(i => i.menu_item_id === action.menu_item_id);
           if (item) {
-            setPendingAction({
+            newPendingItems.push({
+              id: `${Date.now()}-${Math.random()}`,
               type: 'REMOVE_ITEM',
               title: `Remove ${item.name} from your cart?`,
               description: `This line will be removed.`,
@@ -334,7 +367,8 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
           break;
         }
         case 'CLEAR_CART': {
-          setPendingAction({
+          newPendingItems.push({
+            id: `${Date.now()}-${Math.random()}`,
             type: 'CLEAR_CART',
             title: 'Clear your entire cart?',
             description: 'All items will be removed from your order.',
@@ -376,45 +410,49 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
         }
       }
     }
+
+    if (newPendingItems.length > 0) {
+      setActionQueue(prev => [...prev, ...newPendingItems]);
+    }
   };
 
   const handleSend = async () => {
     const txt = input.trim();
     if (!txt || isTyping || txt.length > 500) return;
 
-    // Check if there is an active pending confirmation
-    if (pendingAction) {
+    // Check if there is an active pending confirmation in the queue
+    if (actionQueue.length > 0) {
+      const currentAction = actionQueue[0];
       const lower = txt.toLowerCase().trim();
       const affirmative = ['yes', 'yeah', 'yep', 'y', 'haan', 'sure', 'ok', 'okay', 'confirm', 'add', 'add it', 'do it', 'please add'];
       const negative = ['no', 'nope', 'n', 'nahi', 'cancel', 'stop', 'dont', "don't", 'nevermind'];
 
       if (affirmative.includes(lower)) {
         setInput('');
-        const act = pendingAction;
-        setPendingAction(null);
+        setActionQueue(prev => prev.slice(1));
         setMessages(prev => [
           ...prev,
           { role: 'user', text: txt },
-          { role: 'bot', text: 'Confirmed! I have updated your cart.' }
+          { role: 'bot', text: `Confirmed: ${currentAction.title}` }
         ]);
-        act.execute();
+        currentAction.execute();
         return;
       }
 
       if (negative.includes(lower)) {
         setInput('');
-        setPendingAction(null);
+        setActionQueue(prev => prev.slice(1));
         setMessages(prev => [
           ...prev,
           { role: 'user', text: txt },
-          { role: 'bot', text: 'No problem, action canceled!' }
+          { role: 'bot', text: `Action canceled: ${currentAction.title}` }
         ]);
         addToast('Action canceled', 'info');
         return;
       }
 
-      // If user typed a new question or message, clear the pending action and proceed
-      setPendingAction(null);
+      // If user typed something else, clear the queue and proceed with the normal message
+      setActionQueue([]);
     }
 
     setInput('');
@@ -712,6 +750,32 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
     (draft.payment.method === 'online_transfer' && validateTid(draft.payment.trxId).valid)
   );
 
+  const isOnline = draft.payment.method === 'online_transfer';
+  const isOrderingActive = Boolean(successOrderId) || cartItems.length > 0 || step > 1 || Boolean(draft.contact.name) || Boolean(draft.delivery.address);
+
+  const stages = isOnline
+    ? [
+        { name: 'Cart', completed: isCartValid, stepTarget: 1 },
+        { name: 'Contact', completed: isContactValid, stepTarget: 2 },
+        { name: 'Delivery', completed: isDeliveryValid, stepTarget: 3 },
+        { name: 'Payment', completed: Boolean(draft.payment.chosen), stepTarget: 4 },
+        { name: 'Trx ID', completed: validateTid(draft.payment.trxId).valid, stepTarget: 4 },
+        { name: 'Review', completed: reviewConsent || Boolean(successOrderId) || step >= 6, stepTarget: 5 },
+        { name: 'Done', completed: Boolean(successOrderId), stepTarget: 7 },
+      ]
+    : [
+        { name: 'Cart', completed: isCartValid, stepTarget: 1 },
+        { name: 'Contact', completed: isContactValid, stepTarget: 2 },
+        { name: 'Delivery', completed: isDeliveryValid, stepTarget: 3 },
+        { name: 'Payment', completed: Boolean(draft.payment.chosen), stepTarget: 4 },
+        { name: 'Review', completed: reviewConsent || Boolean(successOrderId) || step >= 6, stepTarget: 5 },
+        { name: 'Done', completed: Boolean(successOrderId), stepTarget: 7 },
+      ];
+
+  const totalStages = stages.length;
+  const completedStages = Math.min(stages.filter(s => s.completed).length, totalStages);
+  const progressPercent = Math.min(100, Math.round((completedStages / totalStages) * 100));
+
   const getStepSummary = (s: number): string => {
     switch (s) {
       case 1:
@@ -789,6 +853,22 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
           <div className="flex items-center gap-1">
             <button 
               type="button"
+              onClick={() => {
+                if (messages.length > 1) {
+                  setConfirmClearChat(true);
+                } else {
+                  handleClearChat();
+                }
+              }} 
+              aria-label="Clear chat messages" 
+              className="p-2 hover:bg-white/20 rounded-full transition-colors text-white text-xs font-semibold flex items-center gap-1"
+              title="Clear chat messages (keeps your cart)"
+            >
+              <Trash2 size={16} />
+              <span className="hidden sm:inline text-xs">Clear</span>
+            </button>
+            <button 
+              type="button"
               onClick={() => setConfirmReset(true)} 
               aria-label="Start over" 
               className="p-2 hover:bg-white/20 rounded-full transition-colors text-white text-xs font-semibold flex items-center gap-1"
@@ -808,56 +888,82 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
           </div>
         </div>
 
-        {/* 7-Segment Progress Header */}
-        <div className="px-4 py-2.5 bg-accent/60 border-b border-border shrink-0">
-          <div className="flex justify-between items-center mb-1.5">
-            <span className="text-xs font-bold text-foreground">
-              Step {step} of 7 · {STEP_LABELS[step - 1]}
-            </span>
-            <span className="text-[11px] text-muted-foreground font-medium">
-              {getStepSummary(step)}
-            </span>
+        {/* Compact Progress Header (Shown only during active ordering) */}
+        {isOrderingActive && (
+          <div className="px-4 py-2.5 bg-accent/60 border-b border-border shrink-0 animate-in fade-in">
+            <div className="flex justify-between items-center mb-1.5">
+              <span className="text-xs font-bold text-foreground">
+                Step {Math.min(step, totalStages)} of {totalStages} · {STEP_LABELS[Math.min(step - 1, STEP_LABELS.length - 1)]}
+              </span>
+              <span className="text-[11px] text-muted-foreground font-medium">
+                {completedStages}/{totalStages} complete ({progressPercent}%)
+              </span>
+            </div>
+
+            {/* Stepper Segments */}
+            <div className="flex gap-1.5" role="tablist" aria-label="Order progress">
+              {stages.map((stageItem, idx) => {
+                const stepIdx = idx + 1;
+                const isCurrent = step === stageItem.stepTarget;
+                const isCompleted = stageItem.completed;
+                const canNavigate = isCompleted || step >= stageItem.stepTarget || stageItem.stepTarget === 1;
+
+                return (
+                  <button
+                    key={`${stageItem.name}-${idx}`}
+                    type="button"
+                    role="tab"
+                    aria-selected={isCurrent}
+                    aria-label={`Step ${stepIdx}: ${stageItem.name}`}
+                    onClick={() => {
+                      if (canNavigate) {
+                        setStep(stageItem.stepTarget);
+                      }
+                    }}
+                    disabled={!canNavigate}
+                    className={`h-2 flex-1 rounded-full transition-all ${
+                      isCurrent 
+                        ? 'bg-primary ring-2 ring-primary/30' 
+                        : isCompleted 
+                        ? 'bg-emerald-600 hover:opacity-80 cursor-pointer' 
+                        : 'bg-muted-foreground/20 cursor-not-allowed'
+                    }`}
+                    title={`${stageItem.name}: ${isCompleted ? 'Completed (click to view)' : isCurrent ? 'Active' : 'Pending'}`}
+                  />
+                );
+              })}
+            </div>
           </div>
+        )}
 
-          {/* Stepper Segments */}
-          <div className="flex gap-1.5" role="tablist" aria-label="Order progress">
-            {STEP_LABELS.map((label, idx) => {
-              const stepIdx = idx + 1;
-              const isCurrent = step === stepIdx;
-              const isPast = step > stepIdx;
-              const isValid = 
-                (stepIdx === 1 && isCartValid) ||
-                (stepIdx === 2 && isContactValid) ||
-                (stepIdx === 3 && isDeliveryValid) ||
-                (stepIdx === 4 && isPaymentValid) ||
-                (stepIdx === 5 && isCartValid && isContactValid && isDeliveryValid && isPaymentValid);
-
-              return (
+        {/* Clear Chat Confirmation Modal */}
+        {confirmClearChat && (
+          <div className="absolute inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+            <div className="bg-card border border-border p-5 rounded-2xl max-w-xs w-full shadow-2xl text-center space-y-3">
+              <Trash2 size={32} className="text-primary mx-auto" />
+              <h3 className="font-bold text-base text-foreground">Clear Chat?</h3>
+              <p className="text-xs text-muted-foreground">
+                This will clear conversation messages only. Your cart items and order draft will remain intact.
+              </p>
+              <div className="flex gap-2 pt-2">
                 <button
-                  key={label}
                   type="button"
-                  role="tab"
-                  aria-selected={isCurrent}
-                  aria-label={`Step ${stepIdx}: ${label}`}
-                  onClick={() => {
-                    if (isValid || isPast || stepIdx === 1) {
-                      setStep(stepIdx);
-                    }
-                  }}
-                  disabled={!isValid && !isPast && stepIdx !== 1}
-                  className={`h-2 flex-1 rounded-full transition-all ${
-                    isCurrent 
-                      ? 'bg-primary ring-2 ring-primary/30' 
-                      : isPast || isValid 
-                      ? 'bg-emerald-600 hover:opacity-80 cursor-pointer' 
-                      : 'bg-muted-foreground/20 cursor-not-allowed'
-                  }`}
-                  title={`${label}: ${isValid ? 'Completed (click to edit)' : isCurrent ? 'Active' : 'Incomplete'}`}
-                />
-              );
-            })}
+                  onClick={() => setConfirmClearChat(false)}
+                  className="flex-1 bg-accent text-foreground font-semibold py-2 rounded-xl text-xs hover:bg-accent/80"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearChat}
+                  className="flex-1 bg-primary text-primary-foreground font-semibold py-2 rounded-xl text-xs hover:bg-primary/90"
+                >
+                  Clear Chat
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Start Over Confirmation Modal */}
         {confirmReset && (
@@ -1734,38 +1840,48 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
 
         {/* Bottom Input Area */}
         <div className="p-3 bg-card border-t border-border shrink-0">
-          {/* Pending Action Confirmation Card */}
-          {pendingAction && (
-            <div className="p-2.5 bg-primary/10 border border-primary/30 rounded-2xl mb-2 flex items-center justify-between gap-2 shadow-sm animate-in fade-in">
-              <div className="text-xs">
-                <p className="font-bold text-foreground">{pendingAction.title}</p>
-                <p className="text-[11px] text-muted-foreground">{pendingAction.description}</p>
+          {/* Sequential Action Confirmation Card */}
+          {actionQueue.length > 0 && (() => {
+            const currentAction = actionQueue[0];
+            const remaining = actionQueue.length;
+            return (
+              <div className="p-2.5 bg-primary/10 border border-primary/30 rounded-2xl mb-2 flex items-center justify-between gap-2 shadow-sm animate-in fade-in">
+                <div className="text-xs flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <p className="font-bold text-foreground">{currentAction.title}</p>
+                    {remaining > 1 && (
+                      <span className="text-[10px] bg-primary text-primary-foreground font-bold px-1.5 py-0.5 rounded-full">
+                        1 of {remaining}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">{currentAction.description}</p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActionQueue(prev => prev.slice(1));
+                      addToast('Action canceled', 'info');
+                    }}
+                    className="px-2.5 py-1.5 rounded-xl bg-accent text-foreground text-xs font-semibold hover:bg-accent/80 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActionQueue(prev => prev.slice(1));
+                      currentAction.execute();
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold shadow-md transition-colors"
+                  >
+                    {currentAction.confirmLabel || 'Confirm'}
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPendingAction(null);
-                    addToast('Action canceled', 'info');
-                  }}
-                  className="px-2.5 py-1.5 rounded-xl bg-accent text-foreground text-xs font-semibold hover:bg-accent/80 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const act = pendingAction;
-                    setPendingAction(null);
-                    act.execute();
-                  }}
-                  className="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold shadow-md transition-colors"
-                >
-                  {pendingAction.confirmLabel || 'Confirm'}
-                </button>
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           <form 
             onSubmit={e => { e.preventDefault(); handleSend(); }} 

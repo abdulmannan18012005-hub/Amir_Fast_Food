@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { PinGate } from '../../components/admin/PinGate';
 import { AdminNav } from '../../components/admin/AdminNav';
+import { AdminProvider, useAdminContext } from '../../components/admin/AdminContext';
 import { adminCall } from '../../lib/adminSession';
 import { 
   getAdminFeedbackListFn, 
@@ -33,8 +34,10 @@ export const Route = createFileRoute('/admin/feedback')({
 function AdminFeedbackRoute() {
   return (
     <PinGate>
-      <AdminNav />
-      <AdminFeedbackPage />
+      <AdminProvider>
+        <AdminNav />
+        <AdminFeedbackPage />
+      </AdminProvider>
     </PinGate>
   );
 }
@@ -58,6 +61,8 @@ CREATE POLICY "Allow public read customer_feedback" ON public.customer_feedback 
 CREATE INDEX IF NOT EXISTS idx_customer_feedback_order_id ON public.customer_feedback(order_id);`;
 
 function AdminFeedbackPage() {
+  const { theme } = useAdminContext();
+  const isDark = theme === 'dark';
   const [items, setItems] = useState<AdminFeedbackItem[]>([]);
   const [stats, setStats] = useState<AdminFeedbackStats>({
     totalCount: 0,
@@ -174,17 +179,19 @@ function AdminFeedbackPage() {
   const hasActiveFilters = appliedSearch !== '' || ratingFilter !== 'all' || dateFilter !== '' || sortOrder !== 'newest';
 
   return (
-    <div className="min-h-[100dvh] bg-slate-50 pb-20 text-slate-900">
+    <div className={`min-h-[100dvh] pb-20 transition-colors ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-4 sticky top-0 z-10 shadow-sm">
+      <header className={`px-4 sm:px-6 py-4 sticky top-0 z-10 transition-colors border-b ${
+        isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200 shadow-sm'
+      }`}>
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
               <MessageSquareHeart className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900">Customer Feedback</h1>
-              <p className="text-xs text-slate-500">Live ratings and reviews submitted for delivered orders</p>
+              <h1 className={`text-xl sm:text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>Customer Feedback</h1>
+              <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Live ratings and reviews submitted for delivered orders</p>
             </div>
           </div>
 
@@ -192,7 +199,9 @@ function AdminFeedbackPage() {
             <button
               onClick={() => fetchFeedback(true)}
               disabled={isLoading || isRefreshing}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 ${
+                isDark ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+              }`}
             >
               <RefreshCcw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-primary' : ''}`} />
               <span>Refresh</span>
@@ -245,29 +254,33 @@ function AdminFeedbackPage() {
         {/* SUMMARY CARDS */}
         <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Card 1: Total Feedback */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm space-y-2">
+          <div className={`rounded-2xl p-4 sm:p-5 shadow-sm space-y-2 border transition-colors ${
+            isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'
+          }`}>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Reviews</span>
+              <span className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Total Reviews</span>
               <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
                 <MessageCircle className="w-4 h-4" />
               </div>
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-slate-900">
+            <div className={`text-2xl sm:text-3xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
               {stats.totalCount}
             </div>
             <p className="text-[11px] text-slate-400">Total submissions recorded</p>
           </div>
 
           {/* Card 2: Average Rating */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm space-y-2">
+          <div className={`rounded-2xl p-4 sm:p-5 shadow-sm space-y-2 border transition-colors ${
+            isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'
+          }`}>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Average Rating</span>
+              <span className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Average Rating</span>
               <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center">
                 <Star className="w-4 h-4 fill-amber-500" />
               </div>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl sm:text-3xl font-black text-slate-900">
+              <span className={`text-2xl sm:text-3xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
                 {stats.totalCount > 0 ? stats.averageRating : '—'}
               </span>
               {stats.totalCount > 0 && (
@@ -281,7 +294,7 @@ function AdminFeedbackPage() {
                   className={`w-3.5 h-3.5 ${
                     star <= Math.round(stats.averageRating)
                       ? 'text-amber-500 fill-amber-500'
-                      : 'text-slate-200'
+                      : isDark ? 'text-slate-700' : 'text-slate-200'
                   }`}
                 />
               ))}
@@ -289,17 +302,19 @@ function AdminFeedbackPage() {
           </div>
 
           {/* Card 3: 5-Star Reviews */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm space-y-2">
+          <div className={`rounded-2xl p-4 sm:p-5 shadow-sm space-y-2 border transition-colors ${
+            isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'
+          }`}>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">5-Star Reviews</span>
+              <span className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>5-Star Reviews</span>
               <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
                 <ThumbsUp className="w-4 h-4" />
               </div>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl sm:text-3xl font-black text-slate-900">{stats.fiveStarCount}</span>
+              <span className={`text-2xl sm:text-3xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{stats.fiveStarCount}</span>
               {stats.totalCount > 0 && (
-                <span className="text-xs font-semibold text-emerald-600">
+                <span className="text-xs font-semibold text-emerald-500">
                   {Math.round((stats.fiveStarCount / stats.totalCount) * 100)}%
                 </span>
               )}
@@ -308,18 +323,20 @@ function AdminFeedbackPage() {
           </div>
 
           {/* Card 4: Low Ratings (1-2 Stars) */}
-          <div className={`bg-white border rounded-2xl p-4 sm:p-5 shadow-sm space-y-2 ${
-            stats.lowRatingCount > 0 ? 'border-rose-300 bg-rose-50/30' : 'border-slate-200'
+          <div className={`rounded-2xl p-4 sm:p-5 shadow-sm space-y-2 border transition-colors ${
+            stats.lowRatingCount > 0 
+              ? isDark ? 'border-rose-800 bg-rose-950/20' : 'border-rose-300 bg-rose-50/30' 
+              : isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'
           }`}>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Low Ratings (1-2★)</span>
+              <span className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Low Ratings (1-2★)</span>
               <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                stats.lowRatingCount > 0 ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-400'
+                stats.lowRatingCount > 0 ? 'bg-rose-100 text-rose-600' : isDark ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-400'
               }`}>
                 <AlertTriangle className="w-4 h-4" />
               </div>
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-slate-900">
+            <div className={`text-2xl sm:text-3xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
               {stats.lowRatingCount}
             </div>
             <p className="text-[11px] text-slate-400">
@@ -329,17 +346,21 @@ function AdminFeedbackPage() {
         </section>
 
         {/* SEARCH & FILTERS BAR */}
-        <section className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
+        <section className={`rounded-2xl p-4 sm:p-5 shadow-sm space-y-4 border transition-colors ${
+          isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'
+        }`}>
           <div className="flex flex-col lg:flex-row gap-3">
             {/* Search Input */}
             <form onSubmit={handleSearchSubmit} className="relative flex-1">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <Search className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} size={18} />
               <input
                 type="text"
                 placeholder="Search by customer name, order ID, or comment..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-20 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:bg-white transition-all"
+                className={`w-full pl-10 pr-20 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all ${
+                  isDark ? 'bg-slate-900 border-slate-700 text-white placeholder-slate-400' : 'bg-slate-50 border-slate-200 text-slate-900'
+                }`}
               />
               <button
                 type="submit"
@@ -351,14 +372,16 @@ function AdminFeedbackPage() {
 
             {/* Rating Filter */}
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">Rating:</span>
+              <span className={`text-xs font-bold uppercase tracking-wider hidden sm:inline ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Rating:</span>
               <select
                 value={ratingFilter}
                 onChange={(e) => {
                   setPage(1);
                   setRatingFilter(e.target.value);
                 }}
-                className="py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className={`py-2.5 px-3 border rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/40 ${
+                  isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                }`}
               >
                 <option value="all">All Ratings (1–5★)</option>
                 <option value="5">⭐⭐⭐⭐⭐ (5 Stars)</option>
@@ -372,7 +395,7 @@ function AdminFeedbackPage() {
 
             {/* Date Filter */}
             <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <Calendar className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} size={16} />
               <input
                 type="date"
                 value={dateFilter}
@@ -380,7 +403,9 @@ function AdminFeedbackPage() {
                   setPage(1);
                   setDateFilter(e.target.value);
                 }}
-                className="pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className={`pl-9 pr-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 ${
+                  isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                }`}
               />
             </div>
 
@@ -388,7 +413,9 @@ function AdminFeedbackPage() {
             <select
               value={sortOrder}
               onChange={(e) => setSortOrder(e.target.value as 'newest' | 'oldest')}
-              className="py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className={`py-2.5 px-3 border rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/40 ${
+                isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+              }`}
             >
               <option value="newest">Newest First</option>
               <option value="oldest">Oldest First</option>
@@ -399,7 +426,7 @@ function AdminFeedbackPage() {
               <button
                 type="button"
                 onClick={handleResetFilters}
-                className="py-2.5 px-3 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl border border-rose-200 transition-colors whitespace-nowrap"
+                className="py-2.5 px-3 text-xs font-bold text-rose-500 hover:bg-rose-50/10 rounded-xl border border-rose-300 transition-colors whitespace-nowrap"
               >
                 Reset Filters
               </button>
@@ -408,12 +435,16 @@ function AdminFeedbackPage() {
         </section>
 
         {/* FEEDBACK LIST SECTION */}
-        <section className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-            <h2 className="font-bold text-base text-slate-800">
+        <section className={`rounded-2xl shadow-sm overflow-hidden border transition-colors ${
+          isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'
+        }`}>
+          <div className={`px-5 py-4 border-b flex items-center justify-between ${
+            isDark ? 'border-slate-700 text-white' : 'border-slate-100 text-slate-800'
+          }`}>
+            <h2 className="font-bold text-base">
               {hasActiveFilters ? `Filtered Results (${totalFiltered})` : `All Feedback (${totalFiltered})`}
             </h2>
-            <span className="text-xs text-slate-400">
+            <span className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
               Page {page} of {totalPages}
             </span>
           </div>
@@ -425,11 +456,13 @@ function AdminFeedbackPage() {
             </div>
           ) : items.length === 0 ? (
             <div className="py-16 px-4 text-center space-y-3">
-              <div className="w-14 h-14 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto">
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto ${
+                isDark ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-400'
+              }`}>
                 <MessageSquareHeart className="w-7 h-7" />
               </div>
-              <h3 className="font-bold text-lg text-slate-800">No Feedback Found</h3>
-              <p className="text-sm text-slate-500 max-w-sm mx-auto">
+              <h3 className={`font-bold text-lg ${isDark ? 'text-white' : 'text-slate-800'}`}>No Feedback Found</h3>
+              <p className={`text-sm max-w-sm mx-auto ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                 {hasActiveFilters
                   ? 'No feedback entries matched your current search and filter criteria.'
                   : 'Customer feedback will appear here as soon as orders are delivered and rated.'}
@@ -437,7 +470,9 @@ function AdminFeedbackPage() {
               {hasActiveFilters && (
                 <button
                   onClick={handleResetFilters}
-                  className="mt-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors"
+                  className={`mt-2 px-4 py-2 text-xs font-bold rounded-xl transition-colors ${
+                    isDark ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                  }`}
                 >
                   Clear All Filters
                 </button>
@@ -448,7 +483,9 @@ function AdminFeedbackPage() {
               {/* DESKTOP TABLE VIEW (hidden on small mobile) */}
               <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-xs font-bold uppercase tracking-wider text-slate-500">
+                  <thead className={`border-b text-xs font-bold uppercase tracking-wider ${
+                    isDark ? 'bg-slate-900/60 border-slate-700 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-500'
+                  }`}>
                     <tr>
                       <th className="py-3.5 px-5">Rating</th>
                       <th className="py-3.5 px-5">Customer & Order</th>
@@ -457,9 +494,9 @@ function AdminFeedbackPage() {
                       <th className="py-3.5 px-5 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className={`divide-y ${isDark ? 'divide-slate-700/60' : 'divide-slate-100'}`}>
                     {items.map((item) => (
-                      <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                      <tr key={item.id} className={`transition-colors ${isDark ? 'hover:bg-slate-700/30' : 'hover:bg-slate-50/80'}`}>
                         {/* Rating column */}
                         <td className="py-4 px-5 align-top whitespace-nowrap">
                           <div className="flex items-center gap-1.5">
@@ -470,18 +507,18 @@ function AdminFeedbackPage() {
                                   className={`w-4 h-4 ${
                                     star <= item.rating
                                       ? 'text-amber-500 fill-amber-500'
-                                      : 'text-slate-200'
+                                      : isDark ? 'text-slate-700' : 'text-slate-200'
                                   }`}
                                 />
                               ))}
                             </div>
-                            <span className="font-black text-sm text-slate-900 ml-1">{item.rating}/5</span>
+                            <span className={`font-black text-sm ml-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>{item.rating}/5</span>
                           </div>
                         </td>
 
                         {/* Customer & Order */}
                         <td className="py-4 px-5 align-top">
-                          <div className="font-bold text-slate-900">{item.customerName}</div>
+                          <div className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{item.customerName}</div>
                           <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-2">
                             <span>Order #{item.orderShortCode}</span>
                             <span>•</span>
@@ -512,7 +549,9 @@ function AdminFeedbackPage() {
 
                           {/* Written Comment */}
                           {item.comment ? (
-                            <p className="text-xs text-slate-700 italic bg-slate-50 p-2.5 rounded-xl border border-slate-100 line-clamp-3">
+                            <p className={`text-xs italic p-2.5 rounded-xl border line-clamp-3 ${
+                              isDark ? 'bg-slate-900/60 border-slate-700 text-slate-300' : 'bg-slate-50 border-slate-100 text-slate-700'
+                            }`}>
                               &ldquo;{item.comment}&rdquo;
                             </p>
                           ) : (
@@ -521,7 +560,7 @@ function AdminFeedbackPage() {
                         </td>
 
                         {/* Date */}
-                        <td className="py-4 px-5 align-top text-xs text-slate-500 whitespace-nowrap">
+                        <td className={`py-4 px-5 align-top text-xs whitespace-nowrap ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                           {formatDate(item.createdAt)}
                         </td>
 
@@ -529,7 +568,9 @@ function AdminFeedbackPage() {
                         <td className="py-4 px-5 align-top text-right whitespace-nowrap">
                           <button
                             onClick={() => setActiveModalItem(item)}
-                            className="px-3 py-1.5 bg-slate-100 hover:bg-primary hover:text-white text-slate-700 text-xs font-semibold rounded-lg transition-colors"
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                              isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-200 border-slate-600' : 'bg-slate-100 hover:bg-primary hover:text-white text-slate-700 border-slate-200'
+                            }`}
                           >
                             View Details
                           </button>
@@ -541,7 +582,7 @@ function AdminFeedbackPage() {
               </div>
 
               {/* MOBILE CARDS VIEW (visible on small mobile) */}
-              <div className="block md:hidden divide-y divide-slate-100">
+              <div className={`block md:hidden divide-y ${isDark ? 'divide-slate-700/60' : 'divide-slate-100'}`}>
                 {items.map((item) => (
                   <div key={item.id} className="p-4 space-y-3">
                     <div className="flex items-center justify-between">
@@ -558,13 +599,13 @@ function AdminFeedbackPage() {
                             />
                           ))}
                         </div>
-                        <span className="font-black text-sm text-slate-900 ml-1">{item.rating}/5</span>
+                        <span className={`font-black text-sm ml-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>{item.rating}/5</span>
                       </div>
                       <span className="text-[11px] text-slate-400">{formatDate(item.createdAt)}</span>
                     </div>
 
                     <div>
-                      <div className="font-bold text-slate-900 text-sm">{item.customerName}</div>
+                      <div className={`font-bold text-sm ${isDark ? 'text-white' : 'text-slate-900'}`}>{item.customerName}</div>
                       <div className="text-xs text-slate-400 flex items-center gap-2 mt-0.5">
                         <span>Order #{item.orderShortCode}</span>
                         <span>•</span>
@@ -592,7 +633,7 @@ function AdminFeedbackPage() {
                     )}
 
                     {item.comment && (
-                      <p className="text-xs text-slate-700 italic bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                      <p className={`text-xs italic p-2.5 rounded-xl border ${isDark ? 'bg-slate-900/60 border-slate-700 text-slate-300' : 'bg-slate-50 border-slate-100 text-slate-700'}`}>
                         &ldquo;{item.comment}&rdquo;
                       </p>
                     )}
@@ -600,7 +641,7 @@ function AdminFeedbackPage() {
                     <div className="pt-1 flex justify-end">
                       <button
                         onClick={() => setActiveModalItem(item)}
-                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-colors"
+                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
                       >
                         View Full Details
                       </button>
@@ -611,7 +652,7 @@ function AdminFeedbackPage() {
 
               {/* PAGINATION */}
               {totalPages > 1 && (
-                <div className="p-4 border-t border-slate-100 flex items-center justify-between">
+                <div className={`p-4 border-t flex items-center justify-between transition-colors ${isDark ? 'border-slate-700 text-slate-400' : 'border-slate-100 text-slate-500'}`}>
                   <span className="text-xs text-slate-500">
                     Showing {items.length} of {totalFiltered} entries
                   </span>
@@ -619,18 +660,18 @@ function AdminFeedbackPage() {
                     <button
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
                       disabled={page <= 1}
-                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold disabled:opacity-40 transition-colors flex items-center gap-1"
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-40 transition-colors flex items-center gap-1 ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
                     >
                       <ChevronLeft size={14} />
                       <span>Prev</span>
                     </button>
-                    <span className="text-xs font-bold px-2 text-slate-700">
+                    <span className={`text-xs font-bold px-2 ${isDark ? 'text-white' : 'text-slate-700'}`}>
                       {page} / {totalPages}
                     </span>
                     <button
                       onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                       disabled={page >= totalPages}
-                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold disabled:opacity-40 transition-colors flex items-center gap-1"
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-40 transition-colors flex items-center gap-1 ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
                     >
                       <span>Next</span>
                       <ChevronRight size={14} />
@@ -646,27 +687,31 @@ function AdminFeedbackPage() {
       {/* DETAIL MODAL */}
       {activeModalItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-5 animate-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+          <div className={`border rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-5 animate-in zoom-in-95 transition-colors ${
+            isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            <div className={`flex items-center justify-between border-b pb-4 ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>
               <div className="flex items-center gap-2.5">
                 <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center">
                   <MessageSquareHeart className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-lg text-slate-900">Feedback Details</h3>
+                  <h3 className={`font-bold text-lg ${isDark ? 'text-white' : 'text-slate-900'}`}>Feedback Details</h3>
                   <p className="text-xs text-slate-400">Order #{activeModalItem.orderShortCode}</p>
                 </div>
               </div>
               <button
                 onClick={() => setActiveModalItem(null)}
-                className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+                className={`p-1.5 rounded-full transition-colors ${isDark ? 'hover:bg-slate-700 text-slate-400 hover:text-white' : 'hover:bg-slate-100 text-slate-400 hover:text-slate-600'}`}
               >
                 <X size={20} />
               </button>
             </div>
 
             {/* Rating */}
-            <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 flex items-center justify-between">
+            <div className={`border rounded-2xl p-4 flex items-center justify-between ${
+              isDark ? 'bg-slate-900/60 border-slate-700' : 'bg-slate-50 border-slate-100'
+            }`}>
               <div>
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1">
                   Customer Rating
@@ -678,26 +723,30 @@ function AdminFeedbackPage() {
                       className={`w-6 h-6 ${
                         star <= activeModalItem.rating
                           ? 'text-amber-500 fill-amber-500'
-                          : 'text-slate-200'
+                          : isDark ? 'text-slate-700' : 'text-slate-200'
                       }`}
                     />
                   ))}
                 </div>
               </div>
-              <span className="text-2xl font-black text-slate-900">{activeModalItem.rating}/5</span>
+              <span className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{activeModalItem.rating}/5</span>
             </div>
 
             {/* Customer & Order info */}
             <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-1">
+              <div className={`p-3 rounded-xl border space-y-1 ${
+                isDark ? 'bg-slate-900/60 border-slate-700' : 'bg-slate-50 border-slate-100'
+              }`}>
                 <span className="text-slate-400 font-semibold uppercase tracking-wider text-[10px] block">Customer</span>
-                <p className="font-bold text-slate-900 text-sm truncate">{activeModalItem.customerName}</p>
-                <p className="text-slate-500 font-mono">{activeModalItem.customerPhoneMasked}</p>
+                <p className={`font-bold text-sm truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>{activeModalItem.customerName}</p>
+                <p className="text-slate-400 font-mono">{activeModalItem.customerPhoneMasked}</p>
               </div>
 
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-1">
+              <div className={`p-3 rounded-xl border space-y-1 ${
+                isDark ? 'bg-slate-900/60 border-slate-700' : 'bg-slate-50 border-slate-100'
+              }`}>
                 <span className="text-slate-400 font-semibold uppercase tracking-wider text-[10px] block">Order Info</span>
-                <p className="font-bold text-slate-900 text-sm">Rs {activeModalItem.orderTotal}</p>
+                <p className={`font-bold text-sm ${isDark ? 'text-white' : 'text-slate-900'}`}>Rs {activeModalItem.orderTotal}</p>
                 <Link
                   to="/orders/$orderId"
                   params={{ orderId: activeModalItem.orderId }}
@@ -736,7 +785,9 @@ function AdminFeedbackPage() {
                 Customer Written Review
               </span>
               {activeModalItem.comment ? (
-                <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-800 leading-relaxed italic whitespace-pre-wrap">
+                <div className={`border rounded-2xl p-4 text-sm leading-relaxed italic whitespace-pre-wrap ${
+                  isDark ? 'bg-slate-900/60 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-100 text-slate-800'
+                }`}>
                   &ldquo;{activeModalItem.comment}&rdquo;
                 </div>
               ) : (
@@ -745,15 +796,19 @@ function AdminFeedbackPage() {
             </div>
 
             {/* Submission Time */}
-            <div className="text-[11px] text-slate-400 pt-2 border-t border-slate-100 flex items-center justify-between">
+            <div className={`text-[11px] text-slate-400 pt-2 border-t flex items-center justify-between ${
+              isDark ? 'border-slate-700' : 'border-slate-100'
+            }`}>
               <span>Submitted on {formatDate(activeModalItem.createdAt)}</span>
-              <span className="font-mono text-[10px] text-slate-300">ID: {activeModalItem.id.slice(0, 8)}</span>
+              <span className="font-mono text-[10px] text-slate-500">ID: {activeModalItem.id.slice(0, 8)}</span>
             </div>
 
             <div className="pt-2">
               <button
                 onClick={() => setActiveModalItem(null)}
-                className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-sm transition-colors"
+                className={`w-full py-2.5 px-4 font-bold rounded-xl text-sm transition-colors ${
+                  isDark ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-slate-900 hover:bg-slate-800 text-white'
+                }`}
               >
                 Close
               </button>

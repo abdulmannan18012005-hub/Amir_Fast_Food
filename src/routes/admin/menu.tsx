@@ -7,6 +7,7 @@ import { updateMenuItemFn, getCategoryImagesFn, updateCategoryImagesFn, getHighl
 import { ChefHat, Pencil, Check, X, Image as ImageIcon, Save } from 'lucide-react';
 import { PinGate } from '../../components/admin/PinGate';
 import { AdminNav } from '../../components/admin/AdminNav';
+import { AdminProvider, useAdminContext } from '../../components/admin/AdminContext';
 import { adminCall } from '../../lib/adminSession';
 import type { MenuItem } from '../../types';
 
@@ -25,17 +26,21 @@ function ImageConfigRow({
   labelWidth?: string;
   inputWidth?: string;
 }) {
+  const { theme } = useAdminContext();
+  const isDark = theme === 'dark';
   return (
     <div className="flex gap-4 items-center">
       <div className={labelWidth}>
-        <p className="font-bold text-slate-700 capitalize">{label}</p>
+        <p className={`font-bold capitalize ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{label}</p>
       </div>
       <div className={inputWidth}>
         <input 
           type="text" 
           value={value} 
           onChange={(e) => onChange(e.target.value)}
-          className="w-full bg-slate-50 border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-primary text-sm"
+          className={`w-full rounded-xl px-4 py-3 focus:outline-none focus:border-primary text-sm border transition-colors ${
+            isDark ? 'bg-slate-900 border-slate-700 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-300 text-slate-900'
+          }`}
           placeholder={placeholder}
         />
       </div>
@@ -51,13 +56,17 @@ export const Route = createFileRoute('/admin/menu')({
 function AdminMenuRoute() {
   return (
     <PinGate>
-      <AdminNav />
-      <AdminMenuEditor />
+      <AdminProvider>
+        <AdminNav />
+        <AdminMenuEditor />
+      </AdminProvider>
     </PinGate>
   );
 }
 
 function AdminMenuEditor() {
+  const { theme } = useAdminContext();
+  const isDark = theme === 'dark';
   const [items, setItems] = useState<MenuItem[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
@@ -143,22 +152,51 @@ function AdminMenuEditor() {
   const categories = Array.from(new Set(items.map(i => i.category_id))).sort();
 
   return (
-    <div className="min-h-[100dvh] bg-slate-50 text-slate-900 pb-20">
-      <header className="bg-white border-b border-border px-6 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
+    <div className={`min-h-[100dvh] pb-20 transition-colors ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+      <header className={`px-6 py-4 flex justify-between items-center sticky top-0 z-10 transition-colors border-b ${
+        isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200 shadow-sm'
+      }`}>
         <div className="flex items-center gap-4">
           <ChefHat className="text-primary" size={28} />
-          <h1 className="text-xl font-bold text-slate-900">Menu Editor</h1>
+          <h1 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Menu Editor</h1>
         </div>
-        <div className="flex bg-slate-100 rounded-lg p-1">
-          <button onClick={() => setActiveTab('items')} className={`px-4 py-2 rounded-md text-sm font-bold transition-colors ${activeTab === 'items' ? 'bg-white shadow text-primary' : 'text-slate-600 hover:bg-slate-200'}`}>Items</button>
-          <button onClick={() => setActiveTab('categories')} className={`px-4 py-2 rounded-md text-sm font-bold transition-colors ${activeTab === 'categories' ? 'bg-white shadow text-primary' : 'text-slate-600 hover:bg-slate-200'}`}>Categories</button>
-          <button onClick={() => setActiveTab('highlights')} className={`px-4 py-2 rounded-md text-sm font-bold transition-colors ${activeTab === 'highlights' ? 'bg-white shadow text-primary' : 'text-slate-600 hover:bg-slate-200'}`}>Highlights</button>
+        <div className={`flex rounded-lg p-1 transition-colors ${isDark ? 'bg-slate-900' : 'bg-slate-100'}`}>
+          <button 
+            onClick={() => setActiveTab('items')} 
+            className={`px-4 py-2 rounded-md text-sm font-bold transition-colors ${
+              activeTab === 'items' 
+                ? isDark ? 'bg-slate-800 shadow text-primary' : 'bg-white shadow text-primary' 
+                : isDark ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            Items
+          </button>
+          <button 
+            onClick={() => setActiveTab('categories')} 
+            className={`px-4 py-2 rounded-md text-sm font-bold transition-colors ${
+              activeTab === 'categories' 
+                ? isDark ? 'bg-slate-800 shadow text-primary' : 'bg-white shadow text-primary' 
+                : isDark ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            Categories
+          </button>
+          <button 
+            onClick={() => setActiveTab('highlights')} 
+            className={`px-4 py-2 rounded-md text-sm font-bold transition-colors ${
+              activeTab === 'highlights' 
+                ? isDark ? 'bg-slate-800 shadow text-primary' : 'bg-white shadow text-primary' 
+                : isDark ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            Highlights
+          </button>
         </div>
       </header>
 
       <div className="p-6 max-w-6xl mx-auto">
         {refreshError && (
-          <div role="alert" className="bg-amber-500/10 border border-amber-500/30 text-amber-700 px-4 py-2 rounded-xl text-xs font-semibold mb-4">
+          <div role="alert" className="bg-amber-500/10 border border-amber-500/30 text-amber-500 px-4 py-2 rounded-xl text-xs font-semibold mb-4">
             Could not refresh — retrying
           </div>
         )}
@@ -167,7 +205,11 @@ function AdminMenuEditor() {
             <div className="flex flex-wrap gap-2 mb-6">
                <button 
                  onClick={() => setActiveAdminCategory('all')}
-                 className={`px-4 py-2 rounded-full text-sm font-bold transition-colors border ${activeAdminCategory === 'all' ? 'bg-primary text-primary-foreground border-primary' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
+                 className={`px-4 py-2 rounded-full text-sm font-bold transition-colors border ${
+                   activeAdminCategory === 'all' 
+                     ? 'bg-primary text-primary-foreground border-primary' 
+                     : isDark ? 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                 }`}
                >
                  All Items
                </button>
@@ -175,7 +217,11 @@ function AdminMenuEditor() {
                  <button 
                    key={cat}
                    onClick={() => setActiveAdminCategory(cat)}
-                   className={`px-4 py-2 rounded-full text-sm font-bold transition-colors border ${activeAdminCategory === cat ? 'bg-primary text-primary-foreground border-primary' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
+                   className={`px-4 py-2 rounded-full text-sm font-bold transition-colors border ${
+                     activeAdminCategory === cat 
+                       ? 'bg-primary text-primary-foreground border-primary' 
+                       : isDark ? 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                   }`}
                  >
                    {cat.replace('cat_', '').replace(/_/g, ' ').toUpperCase()}
                  </button>
@@ -184,39 +230,57 @@ function AdminMenuEditor() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {items.filter(i => activeAdminCategory === 'all' || i.category_id === activeAdminCategory).map(item => (
-                <div key={item.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+                <div key={item.id} className={`rounded-2xl shadow-sm border overflow-hidden flex flex-col transition-colors ${
+                  isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'
+                }`}>
                   {editingId === item.id ? (
                     <div className="p-4 flex-1">
-                      <div className="mb-4 text-sm font-bold text-slate-500 uppercase">{item.category_id.replace('cat_', '')}</div>
-                      <h3 className="font-bold text-lg mb-4">{item.name}</h3>
+                      <div className="mb-4 text-sm font-bold text-slate-400 uppercase">{item.category_id.replace('cat_', '')}</div>
+                      <h3 className={`font-bold text-lg mb-4 ${isDark ? 'text-white' : 'text-slate-900'}`}>{item.name}</h3>
                       <div className="space-y-4">
                         <div>
-                          <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 flex">Price (PKR)</label>
-                          <input type="number" value={editPrice} onChange={e => setEditPrice(e.target.value)} className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-primary" />
+                          <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 flex">Price (PKR)</label>
+                          <input 
+                            type="number" 
+                            value={editPrice} 
+                            onChange={e => setEditPrice(e.target.value)} 
+                            className={`w-full border rounded-lg px-3 py-2 outline-none focus:border-primary ${
+                              isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                            }`} 
+                          />
                         </div>
                         <div>
-                          <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1"><ImageIcon size={14}/> Image URL</label>
-                          <input type="text" value={editImage} onChange={e => setEditImage(e.target.value)} className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-primary text-sm" />
+                          <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1"><ImageIcon size={14}/> Image URL</label>
+                          <input 
+                            type="text" 
+                            value={editImage} 
+                            onChange={e => setEditImage(e.target.value)} 
+                            className={`w-full border rounded-lg px-3 py-2 outline-none focus:border-primary text-sm ${
+                              isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                            }`} 
+                          />
                         </div>
                         <div>
                           <label className="flex items-center gap-2 cursor-pointer">
                             <input type="checkbox" checked={editIsAvailable} onChange={e => setEditIsAvailable(e.target.checked)} className="w-5 h-5 rounded border-slate-300 text-primary focus:ring-primary" />
-                            <span className="text-sm font-bold text-slate-700">In Stock</span>
+                            <span className={`text-sm font-bold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>In Stock</span>
                           </label>
                         </div>
                       </div>
                       <div className="flex gap-2 mt-6">
-                        <button onClick={() => setEditingId(null)} className="flex-1 bg-slate-100 text-slate-700 font-bold py-2 rounded-lg flex items-center justify-center gap-1"><X size={16}/> Cancel</button>
+                        <button onClick={() => setEditingId(null)} className={`flex-1 font-bold py-2 rounded-lg flex items-center justify-center gap-1 ${
+                          isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-200' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                        }`}><X size={16}/> Cancel</button>
                         <button onClick={() => handleSaveItem(item.id)} className="flex-1 bg-primary text-primary-foreground font-bold py-2 rounded-lg flex items-center justify-center gap-1"><Check size={16}/> Save</button>
                       </div>
                     </div>
                   ) : (
                     <>
-                      <div className="aspect-[4/3] w-full bg-slate-100 relative">
+                      <div className={`aspect-[4/3] w-full relative ${isDark ? 'bg-slate-900' : 'bg-slate-100'}`}>
                         {item.image_url ? (
                           <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-slate-400 flex-col gap-2">
+                          <div className={`w-full h-full flex items-center justify-center flex-col gap-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                             <ImageIcon size={32} />
                             <span className="text-sm font-medium">No Image</span>
                           </div>
@@ -231,9 +295,9 @@ function AdminMenuEditor() {
                          <div className="flex justify-between items-start mb-2">
                            <div>
                              <p className="text-xs font-black uppercase tracking-widest text-primary mb-1">{item.category_id.replace('cat_', '')}</p>
-                             <h3 className="font-bold text-slate-900 leading-tight">{item.name}</h3>
+                             <h3 className={`font-bold leading-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>{item.name}</h3>
                            </div>
-                           <p className="font-black text-slate-900 bg-slate-100 px-2 py-1 rounded-lg">Rs {item.price}</p>
+                           <p className={`font-black px-2 py-1 rounded-lg ${isDark ? 'text-white bg-slate-700' : 'text-slate-900 bg-slate-100'}`}>Rs {item.price}</p>
                          </div>
                          <button 
                            onClick={() => {
@@ -242,7 +306,11 @@ function AdminMenuEditor() {
                              setEditImage(item.image_url || '');
                              setEditIsAvailable(item.is_available);
                            }}
-                           className="mt-auto w-full border border-slate-200 hover:border-primary hover:text-primary text-slate-600 font-bold py-2 rounded-xl flex items-center justify-center gap-2 transition-colors"
+                           className={`mt-auto w-full border font-bold py-2 rounded-xl flex items-center justify-center gap-2 transition-colors ${
+                             isDark 
+                               ? 'border-slate-700 text-slate-300 hover:border-primary hover:text-primary hover:bg-slate-700/50' 
+                               : 'border-slate-200 hover:border-primary hover:text-primary text-slate-600'
+                           }`}
                          >
                            <Pencil size={16} /> Edit Details
                          </button>
@@ -257,14 +325,16 @@ function AdminMenuEditor() {
 
         {activeTab === 'categories' && (
           <div className="animate-in fade-in max-w-2xl mx-auto">
-            <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200">
+            <div className={`rounded-3xl p-6 md:p-8 shadow-sm border transition-colors ${
+              isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'
+            }`}>
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-black text-slate-900">Category Cover Images</h2>
+                <h2 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>Category Cover Images</h2>
                 <button onClick={handleSaveCategory} className="bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-xl font-bold flex items-center gap-2 transition-colors shadow-sm">
                   <Save size={18} /> Save Changes
                 </button>
               </div>
-              <p className="text-slate-500 mb-8">Set the 16:9 banner images shown at the top of the menu when a category is selected.</p>
+              <p className={`mb-8 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Set the 16:9 banner images shown at the top of the menu when a category is selected.</p>
               
               <div className="space-y-6">
                 {categories.map(cat => (
@@ -282,14 +352,16 @@ function AdminMenuEditor() {
 
         {activeTab === 'highlights' && (
           <div className="animate-in fade-in max-w-2xl mx-auto">
-            <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200">
+            <div className={`rounded-3xl p-6 md:p-8 shadow-sm border transition-colors ${
+              isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'
+            }`}>
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-black text-slate-900">Featured Highlight Carousel</h2>
+                <h2 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>Featured Highlight Carousel</h2>
                 <button onClick={handleSaveHighlights} className="bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-xl font-bold flex items-center gap-2 transition-colors shadow-sm">
                   <Save size={18} /> Save Carousel
                 </button>
               </div>
-              <p className="text-slate-500 mb-8">Set the 16:9 images shown in the auto-scrolling carousel on the home page.</p>
+              <p className={`mb-8 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Set the 16:9 images shown in the auto-scrolling carousel on the home page.</p>
               
               <div className="space-y-6">
                 {[1, 2, 3].map(num => (
