@@ -49,6 +49,8 @@ export interface MenuItem {
 }
 
 export type OrderStatus = 'received' | 'preparing' | 'out_for_delivery' | 'delivered' | 'canceled';
+export type RefundStatus = 'not_required' | 'pending_review' | 'approved' | 'paid' | 'rejected';
+export type CancellationSource = 'customer' | 'admin' | 'system';
 
 export interface Order {
   id: string;
@@ -58,12 +60,23 @@ export interface Order {
   payment_method: 'wallet' | 'cod' | 'online_transfer';
   payment_trx_id?: string | null;
   payment_verified_at?: string | null;
+  payment_review_status?: 'not_required' | 'pending' | 'approved' | 'rejected' | null;
   status: OrderStatus;
   delivery_address: string;
   customer_name: string;
   customer_phone: string;
   customer_email: string;
   created_at: string;
+  cancel_reason?: string | null;
+  canceled_at?: string | null;
+  cancellation_source?: CancellationSource | null;
+  cancellation_token_hash?: string | null;
+  refund_status?: RefundStatus | null;
+  refund_proof_path?: string | null;
+  refund_reviewed_at?: string | null;
+  refund_paid_at?: string | null;
+  refund_trx_ref?: string | null;
+  refund_admin_note?: string | null;
 }
 
 export interface OrderItem {

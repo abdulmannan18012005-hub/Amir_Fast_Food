@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from '@tanstack/react-router';
 import { 
   Bot, X, Send, Trash2, Check, ArrowRight, ArrowLeft, 
-  RotateCcw, Plus, Minus, ShoppingBag, MapPin, CreditCard, 
-  AlertCircle, CheckCircle2, ExternalLink, Edit2, Clock
+  RotateCcw, ShoppingBag, MapPin, CreditCard, 
+  AlertCircle, CheckCircle2, ExternalLink, Clock, Phone, Loader2
 } from 'lucide-react';
 import { playSuccessChime } from '../../lib/sound';
 import { chatWithAmirBot } from '../../server/chat';
@@ -11,7 +11,7 @@ import { reverseGeocodeFn } from '../../server/location';
 import { quoteDeliveryFn } from '../../server/pricingApi';
 import { 
   addToCart, getCart, removeItem, updateItemQuantity, 
-  clearCart, getCartSubtotal, lineTotal, areVariantsEqual 
+  clearCart, getCartSubtotal, lineTotal 
 } from '../../lib/cart';
 import { useOrderDraft, clearDraft } from '../../lib/orderDraft';
 import { submitOrder } from '../../lib/orderSubmit';
@@ -20,34 +20,33 @@ import { useShopStatus } from '../../hooks/useShopStatus';
 import { 
   SHOP_PHONE_LOCAL, SHOP_WHATSAPP, 
   SHOP_ESTIMATED_DELIVERY_TIME, SHOP_CANCELLATION_POLICY, 
-  SHOP_PAYMENT_VERIFICATION_NOTE 
+  SHOP_PAYMENT_VERIFICATION_NOTE, SHOP_COD_THRESHOLD, SHOP_COD_FEE 
 } from '../../lib/shop';
-import { 
-  DEFAULT_DRINKS, DEFAULT_SIDES, getAllAvailableUpgrades, 
-  detectInitialVariants, buildCompleteVariants 
-} from '../../lib/variants';
-import type { CartItem, ItemVariant } from '../../types';
+import type { CartItem } from '../../types';
 
-type Msg = { role: 'user' | 'bot' | 'system'; text: string; time?: string };
+export type Msg = { 
+  role: 'user' | 'bot' | 'system'; 
+  text: string; 
+  time?: string;
+  chips?: { label: string; action: () => void; primary?: boolean; destructive?: boolean }[];
+};
+
 type ToastInfo = { id: number; msg: string; type: 'success' | 'error' | 'info' };
 
 const STORAGE_KEY = 'amirbot_chat';
-const DEFAULT_MSG: Msg[] = [
-  { 
-    role: 'bot', 
-    text: 'Hi! I am AmirBot. I can help you build your cart, take your delivery and payment details, and place your order.' 
-  }
+const ORDERING_ACTIVE_KEY = 'amirbot_ordering_active';
+const STEP_KEY = 'amirbot_active_step';
+
+const STEP_NAMES = [
+  'Items & Cart',
+  'Contact Details',
+  'Delivery Details',
+  'Payment',
+  'Review Order',
+  'Confirm & Place Order'
 ];
 
-const STEP_LABELS = [
-  'Cart',
-  'Contact',
-  'Delivery',
-  'Payment',
-  'Review',
-  'Place order',
-  'Done'
-];
+const STEP_PERCENTAGES = [17, 33, 50, 67, 83, 100];
 
 interface Props {
   isOpen: boolean;
@@ -59,7 +58,7 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
   const shopStatus = useShopStatus();
   const [draft, updateDraft] = useOrderDraft();
 
-  // Cart State (hydrated via event listeners)
+  // Cart State (synced with actual website cart)
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
     if (typeof window !== 'undefined') return getCart();
     return [];
@@ -67,14 +66,66 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
 
   const subtotal = getCartSubtotal(cartItems);
 
-  // Active step (1 to 7)
-  const step = Math.min(Math.max(1, draft.step || 1), 7);
-  const setStep = (s: number) => {
-    updateDraft({ step: s });
+  // Ordering State Machine: strictly 6 steps
+  const [isOrderingActive, setIsOrderingActive] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem(ORDERING_ACTIVE_KEY) === 'true';
+    }
+    return false;
+  });
+
+  const [step, setStepState] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = parseInt(sessionStorage.getItem(STEP_KEY) || '1', 10);
+      return isNaN(saved) || saved < 1 ? 1 : Math.min(6, saved);
+    }
+    return 1;
+  });
+
+  const setStep = (newStep: number) => {
+    const clamped = Math.min(6, Math.max(1, newStep));
+    setStepState(clamped);
+    updateDraft({ step: clamped });
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(STEP_KEY, String(clamped));
+    }
+  };
+
+  const startOrdering = () => {
+    setIsOrderingActive(true);
+    setStep(1);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(ORDERING_ACTIVE_KEY, 'true');
+    }
+  };
+
+  const stopOrdering = () => {
+    setIsOrderingActive(false);
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem(ORDERING_ACTIVE_KEY);
+      sessionStorage.removeItem(STEP_KEY);
+    }
   };
 
   // Chat message state
-  const [messages, setMessages] = useState<Msg[]>(DEFAULT_MSG);
+  const [messages, setMessages] = useState<Msg[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = sessionStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch { /* ignore */ }
+    }
+    return [
+      { 
+        role: 'bot', 
+        text: 'Hi! I am AmirBot, your AI ordering assistant for Amir Fast Food in Lahore. How can I help you today?' 
+      }
+    ];
+  });
+
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [toasts, setToasts] = useState<ToastInfo[]>([]);
@@ -82,55 +133,29 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
   // Delivery quote state
   const [distanceKm, setDistanceKm] = useState(0);
   const [codFee, setCodFee] = useState(0);
-  const [distanceFee, setDistanceFee] = useState(0);
   const [totalDeliveryFee, setTotalDeliveryFee] = useState(0);
   const [deliveryError, setDeliveryError] = useState('');
   const [gettingLocation, setGettingLocation] = useState(false);
-  const [locMsg, setLocMsg] = useState('');
 
-  // Inline validation errors for form cards
-  const [contactErrors, setContactErrors] = useState<{ name?: string; phone?: string }>({});
-  const [deliveryInputError, setDeliveryInputError] = useState('');
-  const [paymentError, setPaymentError] = useState('');
-  const [reviewConsent, setReviewConsent] = useState(false);
-  const [submitError, setSubmitError] = useState('');
+  // Submitting state & order result
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successOrderId, setSuccessOrderId] = useState('');
+  const [successShortCode, setSuccessShortCode] = useState('');
 
-  // Option selection card for items with variants
-  const [activeOptionItem, setActiveOptionItem] = useState<{
-    menu_item_id: string;
-    name: string;
-    price: number;
-    image_url: string;
-    category_id?: string;
-    variants?: ItemVariant[];
-    qty: number;
-  } | null>(null);
-
-  const [selectedDrink, setSelectedDrink] = useState('Pepsi');
-  const [selectedSide, setSelectedSide] = useState('Regular Fries');
-  const [selectedUpgrades, setSelectedUpgrades] = useState<ItemVariant[]>([]);
-
-  // Sequential Action Queue for cart mutations
-  const [actionQueue, setActionQueue] = useState<{
-    id: string;
-    type: 'ADD_ITEM' | 'SET_QTY' | 'REMOVE_ITEM' | 'CLEAR_CART';
-    title: string;
-    description: string;
-    confirmLabel?: string;
-    execute: () => void;
-  }[]>([]);
-
-  // Start Over & Clear Chat modal states
+  // Modals
   const [confirmReset, setConfirmReset] = useState(false);
   const [confirmClearChat, setConfirmClearChat] = useState(false);
 
+  // Action Queue for pending cart confirmations
+  const [actionQueue, setActionQueue] = useState<{
+    id: string;
+    title: string;
+    description: string;
+    execute: () => void;
+  }[]>([]);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const toastIdRef = useRef(0);
-  const nameRef = useRef<HTMLInputElement>(null);
-  const addressRef = useRef<HTMLTextAreaElement>(null);
-  const tidRef = useRef<HTMLInputElement>(null);
 
   // Sync cart from storage / events
   useEffect(() => {
@@ -146,85 +171,45 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
     };
   }, []);
 
-  // Hydrate chat from sessionStorage
+  // Save messages to sessionStorage
   useEffect(() => {
-    try {
-      const saved = sessionStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setMessages(parsed as Msg[]);
-        }
-      }
-    } catch { /* ignore */ }
-  }, []);
-
-  // Persist chat to sessionStorage
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && messages.length > 0) {
       try {
-        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-50)));
+        // Strip non-serializable action closures before saving
+        const serializable = messages.map(m => ({
+          role: m.role,
+          text: m.text,
+          time: m.time
+        }));
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(serializable));
       } catch { /* ignore */ }
     }
   }, [messages]);
 
-  // Scroll to bottom on new messages
+  // Scroll to bottom when messages update
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, isTyping, isOpen, step, activeOptionItem]);
+  }, [messages, isTyping, actionQueue]);
 
-  // Focus appropriate field when step changes
+  // Recalculate delivery quote when address or cart changes
   useEffect(() => {
-    if (!isOpen) return;
-    if (step === 2) {
-      setTimeout(() => nameRef.current?.focus(), 150);
-    } else if (step === 3) {
-      setTimeout(() => addressRef.current?.focus(), 150);
-    } else if (step === 4 && draft.payment.method === 'online_transfer') {
-      setTimeout(() => tidRef.current?.focus(), 150);
-    }
-  }, [step, isOpen, draft.payment.method]);
-
-  // Escape key handler to close drawer
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (activeOptionItem) {
-          setActiveOptionItem(null);
-        } else if (confirmClearChat) {
-          setConfirmClearChat(false);
-        } else if (confirmReset) {
-          setConfirmReset(false);
-        } else {
-          onClose();
-        }
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, activeOptionItem, confirmReset, confirmClearChat, onClose]);
-
-  // Re-quote delivery when delivery address/coordinates/subtotal/payment method changes
-  useEffect(() => {
-    if (cartItems.length === 0 || (!draft.delivery.address && !draft.delivery.lat)) {
+    if (!draft.delivery.address && !draft.delivery.lat) {
       setDistanceKm(0);
-      setCodFee(0);
-      setDistanceFee(0);
       setTotalDeliveryFee(0);
-      setDeliveryError('');
+      setCodFee(0);
       return;
     }
 
     quoteDeliveryFn({
       data: {
+        address: draft.delivery.address,
         lat: draft.delivery.lat,
         lng: draft.delivery.lng,
-        address: draft.delivery.address,
         subtotal,
-        paymentMethod: draft.payment.method || 'cod',
+        paymentMethod: draft.payment.method,
+        itemCount: cartItems.length,
       }
     }).then(res => {
       if (!res.ok) {
@@ -234,7 +219,6 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
         setDeliveryError('');
         setDistanceKm(res.distanceKm || 0);
         setCodFee(res.codFee || 0);
-        setDistanceFee(res.distanceFee || 0);
         setTotalDeliveryFee(res.totalDeliveryFee || 0);
       }
     }).catch(() => {
@@ -248,154 +232,85 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
   };
 
+  // Clear chat messages (preserves cart & draft)
   const handleClearChat = () => {
-    setMessages(DEFAULT_MSG);
+    setMessages([
+      { 
+        role: 'bot', 
+        text: 'Hi! I am AmirBot. Chat messages have been cleared. Your cart and draft details are preserved.' 
+      }
+    ]);
     if (typeof window !== 'undefined') {
       try {
         sessionStorage.removeItem(STORAGE_KEY);
       } catch { /* ignore */ }
     }
     setConfirmClearChat(false);
-    addToast('Chat messages cleared. Cart and order kept.', 'info');
+    addToast('Chat messages cleared. Cart and draft kept.', 'info');
   };
 
+  // Start Over / Reset (clears session, cart, and draft)
   const handleStartOver = () => {
     clearCart();
     clearDraft();
-    setMessages(DEFAULT_MSG);
+    stopOrdering();
+    setSuccessOrderId('');
+    setSuccessShortCode('');
+    setActionQueue([]);
+    setMessages([
+      { 
+        role: 'bot', 
+        text: 'Session reset! Your cart has been emptied. What can I get for you today?' 
+      }
+    ]);
     if (typeof window !== 'undefined') {
       try {
         sessionStorage.removeItem(STORAGE_KEY);
       } catch { /* ignore */ }
     }
-    setActiveOptionItem(null);
-    setActionQueue([]);
-    setReviewConsent(false);
     setConfirmReset(false);
-    setConfirmClearChat(false);
-    setSuccessOrderId('');
     addToast('Started over with a fresh cart.', 'info');
   };
 
+  // Execute server-directed actions
   const executeActions = (actions: any[]) => {
     if (!actions || !Array.isArray(actions)) return;
 
-    const newPendingItems: {
-      id: string;
-      type: 'ADD_ITEM' | 'SET_QTY' | 'REMOVE_ITEM' | 'CLEAR_CART';
-      title: string;
-      description: string;
-      confirmLabel?: string;
-      execute: () => void;
-    }[] = [];
-
-    for (const action of actions.slice(0, 5)) {
+    for (const action of actions) {
       switch (action.type) {
         case 'ADD_ITEM': {
-          if (action.hasVariants) {
-            const availableUpgrades = getAllAvailableUpgrades(action);
-            const detected = detectInitialVariants(action.userText || input, availableUpgrades);
-            setSelectedDrink(detected.drink);
-            setSelectedSide(detected.side);
-            setSelectedUpgrades(detected.selectedUpgrades);
-            setActiveOptionItem(action);
-            addToast(`Choose options for ${action.name}`, 'info');
-          } else {
-            newPendingItems.push({
-              id: `${Date.now()}-${Math.random()}`,
-              type: 'ADD_ITEM',
-              title: `Add ${action.qty || 1}x ${action.name}?`,
-              description: `PKR ${(action.price || 0) * (action.qty || 1)}`,
-              confirmLabel: 'Confirm Add',
-              execute: () => {
-                const cartItem: CartItem = {
-                  menu_item_id: action.menu_item_id,
-                  name: action.name,
-                  image_url: action.image_url || '/placeholder.webp',
-                  quantity: action.qty || 1,
-                  price: action.price,
-                  variants: [],
-                };
-                addToCart(cartItem);
-                playSuccessChime();
-                addToast(`Added ${action.qty || 1}x ${action.name}`, 'success');
-              }
-            });
-          }
+          const item: CartItem = {
+            menu_item_id: action.menu_item_id,
+            name: action.name,
+            image_url: action.image_url || '/placeholder.webp',
+            quantity: action.qty || 1,
+            price: action.price,
+            variants: action.variants || [],
+          };
+          addToCart(item);
+          playSuccessChime();
+          addToast(`Added ${item.quantity}x ${item.name} to cart`, 'success');
           break;
         }
         case 'SET_QTY': {
-          const cart = getCart();
-          const item = action.variants && Array.isArray(action.variants)
-            ? cart.find(i => i.menu_item_id === action.menu_item_id && areVariantsEqual(i.variants, action.variants))
-            : cart.find(i => i.menu_item_id === action.menu_item_id);
-          if (item) {
-            newPendingItems.push({
-              id: `${Date.now()}-${Math.random()}`,
-              type: 'SET_QTY',
-              title: `Update ${item.name} quantity to ${action.qty || 1}?`,
-              description: `Current quantity: ${item.quantity}`,
-              confirmLabel: 'Confirm Update',
-              execute: () => {
-                updateItemQuantity(item.menu_item_id, item.variants, action.qty || 1);
-                addToast(`Updated quantity for ${item.name}`, 'info');
-              }
-            });
-          }
+          updateItemQuantity(action.menu_item_id, [], action.qty || 1);
+          addToast('Cart updated', 'info');
           break;
         }
         case 'REMOVE_ITEM': {
-          const cart = getCart();
-          const item = action.variants && Array.isArray(action.variants)
-            ? cart.find(i => i.menu_item_id === action.menu_item_id && areVariantsEqual(i.variants, action.variants))
-            : cart.find(i => i.menu_item_id === action.menu_item_id);
-          if (item) {
-            newPendingItems.push({
-              id: `${Date.now()}-${Math.random()}`,
-              type: 'REMOVE_ITEM',
-              title: `Remove ${item.name} from your cart?`,
-              description: `This line will be removed.`,
-              confirmLabel: 'Confirm Remove',
-              execute: () => {
-                removeItem(item.menu_item_id, item.variants);
-                addToast(`Removed ${item.name}`, 'info');
-              }
-            });
-          } else {
-            addToast('That item is not in your cart.', 'info');
-          }
+          removeItem(action.menu_item_id, []);
+          addToast(`Removed ${action.name || 'item'} from cart`, 'info');
           break;
         }
         case 'CLEAR_CART': {
-          newPendingItems.push({
-            id: `${Date.now()}-${Math.random()}`,
-            type: 'CLEAR_CART',
-            title: 'Clear your entire cart?',
-            description: 'All items will be removed from your order.',
-            confirmLabel: 'Confirm Clear',
-            execute: () => {
-              clearCart();
-              addToast('Cart cleared.', 'info');
-            }
-          });
-          break;
-        }
-        case 'SHOW_CART': {
-          setStep(1);
+          clearCart();
+          addToast('Cart cleared', 'info');
           break;
         }
         case 'GO_STEP': {
-          if (action.step >= 1 && action.step <= 7) {
+          if (action.step >= 1 && action.step <= 6) {
+            startOrdering();
             setStep(action.step);
-          }
-          break;
-        }
-        case 'NOT_FOUND': {
-          const suggestions = action.suggestions;
-          if (suggestions && suggestions.length > 0) {
-            addToast(`Item not found. Did you mean: ${suggestions.join(', ')}?`, 'info');
-          } else {
-            addToast("I couldn't find that item on the menu.", 'error');
           }
           break;
         }
@@ -410,60 +325,364 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
         }
       }
     }
+  };
 
-    if (newPendingItems.length > 0) {
-      setActionQueue(prev => [...prev, ...newPendingItems]);
+  // Geolocation handler
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+      addToast('Geolocation is not supported by your browser.', 'error');
+      return;
+    }
+    setGettingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        try {
+          const res = await reverseGeocodeFn({ data: { lat: latitude, lng: longitude } });
+          const resolvedAddr = res.address || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+          updateDraft({
+            delivery: {
+              lat: latitude,
+              lng: longitude,
+              address: resolvedAddr,
+              source: 'gps'
+            }
+          });
+          setMessages(prev => [
+            ...prev,
+            { 
+              role: 'bot', 
+              text: `📍 Location pinned: ${resolvedAddr}. Delivery charges calculated.` 
+            }
+          ]);
+          addToast('Location pinned successfully!', 'success');
+        } catch {
+          updateDraft({
+            delivery: {
+              lat: latitude,
+              lng: longitude,
+              source: 'gps'
+            }
+          });
+        } finally {
+          setGettingLocation(false);
+        }
+      },
+      () => {
+        setGettingLocation(false);
+        addToast('Could not access GPS. Please type your address.', 'error');
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  // Order Placement (Step 6)
+  const handleConfirmOrder = async () => {
+    if (!shopStatus.open) {
+      addToast('The restaurant is currently closed.', 'error');
+      return;
+    }
+
+    if (cartItems.length === 0) {
+      addToast('Your cart is empty. Add items first.', 'error');
+      setStep(1);
+      return;
+    }
+
+    const nameVal = validateName(draft.contact.name);
+    const phoneVal = validatePhone(draft.contact.phone);
+    if (!nameVal.valid || !phoneVal.valid) {
+      addToast('Please provide valid contact details.', 'error');
+      setStep(2);
+      return;
+    }
+
+    const addrVal = validateAddress(draft.delivery.address);
+    if (!addrVal.valid) {
+      addToast('Please provide a valid delivery address.', 'error');
+      setStep(3);
+      return;
+    }
+
+    if (draft.payment.method === 'online_transfer') {
+      const tidVal = validateTid(draft.payment.trxId);
+      if (!tidVal.valid) {
+        addToast(tidVal.error || 'Please enter a valid Transaction ID.', 'error');
+        setStep(4);
+        return;
+      }
+    }
+
+    setIsSubmitting(true);
+    setStep(6);
+
+    try {
+      const finalFee = totalDeliveryFee;
+      const res = await submitOrder({
+        draft,
+        items: cartItems,
+        subtotal,
+        deliveryFee: finalFee,
+      });
+
+      if (!res.success || !res.orderId) {
+        throw new Error(res.error || 'Failed to place order. Please try again.');
+      }
+
+      playSuccessChime();
+      const orderId = res.orderId;
+      const shortCode = res.shortCode || orderId.slice(0, 8).toUpperCase();
+      setSuccessOrderId(orderId);
+      setSuccessShortCode(shortCode);
+
+      // Add celebratory confirmation message
+      const isOnline = draft.payment.method === 'online_transfer';
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'bot',
+          text: isOnline
+            ? `🎉 Order #${shortCode} Placed Successfully!\n\nYour online transfer payment is pending admin review. Our team will verify your transaction and accept the order shortly.\n\nPermanent tracking link: /orders/${orderId}`
+            : `🎉 Order #${shortCode} Placed Successfully!\n\nYour Cash on Delivery order has been sent to our kitchen. You will receive it in approximately 30–40 minutes.\n\nPermanent tracking link: /orders/${orderId}`,
+          chips: [
+            {
+              label: 'Track Live Order',
+              primary: true,
+              action: () => {
+                onClose();
+                navigate({ to: '/orders/$orderId', params: { orderId } });
+              }
+            },
+            {
+              label: 'Order More',
+              action: () => handleStartOver()
+            }
+          ]
+        }
+      ]);
+
+      clearCart();
+      clearDraft();
+      stopOrdering();
+    } catch (err: any) {
+      setStep(5);
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'system',
+          text: `Order failed: ${err.message || 'Please try again or call 0301-4265785.'}`
+        }
+      ]);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleSend = async () => {
-    const txt = input.trim();
+  // Chat message send handler
+  const handleSend = async (overrideText?: string) => {
+    const txt = (overrideText ?? input).trim();
     if (!txt || isTyping || txt.length > 500) return;
 
-    // Check if there is an active pending confirmation in the queue
-    if (actionQueue.length > 0) {
-      const currentAction = actionQueue[0];
-      const lower = txt.toLowerCase().trim();
-      const affirmative = ['yes', 'yeah', 'yep', 'y', 'haan', 'sure', 'ok', 'okay', 'confirm', 'add', 'add it', 'do it', 'please add'];
-      const negative = ['no', 'nope', 'n', 'nahi', 'cancel', 'stop', 'dont', "don't", 'nevermind'];
-
-      if (affirmative.includes(lower)) {
-        setInput('');
-        setActionQueue(prev => prev.slice(1));
-        setMessages(prev => [
-          ...prev,
-          { role: 'user', text: txt },
-          { role: 'bot', text: `Confirmed: ${currentAction.title}` }
-        ]);
-        currentAction.execute();
-        return;
-      }
-
-      if (negative.includes(lower)) {
-        setInput('');
-        setActionQueue(prev => prev.slice(1));
-        setMessages(prev => [
-          ...prev,
-          { role: 'user', text: txt },
-          { role: 'bot', text: `Action canceled: ${currentAction.title}` }
-        ]);
-        addToast('Action canceled', 'info');
-        return;
-      }
-
-      // If user typed something else, clear the queue and proceed with the normal message
-      setActionQueue([]);
-    }
-
-    setInput('');
+    if (!overrideText) setInput('');
     const userMsg: Msg = { role: 'user', text: txt };
     setMessages(prev => [...prev, userMsg]);
     setIsTyping(true);
 
     try {
+      const lower = txt.toLowerCase();
+
+      // 1. Order Intent Recognition:
+      // If customer asks to place an order or buy food, and ordering flow is not yet active:
+      const intentPhrases = [
+        'order', 'place order', 'want to order', 'order food', 'i want to order', 
+        'can i order', 'order kardo', 'mujhe order karna hai', 'buy', 'khana chahiye'
+      ];
+      const hasOrderIntent = intentPhrases.some(p => lower.includes(p));
+
+      if (hasOrderIntent && !isOrderingActive) {
+        setIsTyping(false);
+        setMessages(prev => [
+          ...prev,
+          {
+            role: 'bot',
+            text: 'Would you like to place an order? I can guide you through these six simple steps:\n\n1. Items & Cart\n2. Contact Details\n3. Delivery Details\n4. Payment\n5. Review Order\n6. Confirm & Place Order',
+            chips: [
+              {
+                label: 'Yes, start order',
+                primary: true,
+                action: () => {
+                  startOrdering();
+                  setMessages(p => [
+                    ...p,
+                    { role: 'user', text: 'Yes, start order' },
+                    { 
+                      role: 'bot', 
+                      text: 'Step 1 of 6 · Items & Cart\n\nWhat would you like to order today? You can tell me what you crave (e.g. "2 Classic Shawarma and a Zinger Burger") or explore our menu!',
+                      chips: [
+                        { label: 'View Menu', action: () => { onClose(); navigate({ to: '/menu' }); } }
+                      ]
+                    }
+                  ]);
+                }
+              },
+              {
+                label: 'No, just asking',
+                action: () => {
+                  setMessages(p => [
+                    ...p,
+                    { role: 'user', text: 'No, just asking' },
+                    { role: 'bot', text: 'No problem at all! Feel free to ask me anything about our food, deals, prices, or store hours.' }
+                  ]);
+                }
+              }
+            ]
+          }
+        ]);
+        return;
+      }
+
+      // Check if user replied YES to start ordering
+      if (!isOrderingActive && (lower === 'yes' || lower === 'haan' || lower === 'sure' || lower === 'yes start order')) {
+        startOrdering();
+        setIsTyping(false);
+        setMessages(prev => [
+          ...prev,
+          {
+            role: 'bot',
+            text: 'Step 1 of 6 · Items & Cart\n\nAwesome! What items would you like to order? You can tell me any dish or deal from our menu.',
+            chips: [
+              { label: 'View Menu', action: () => { onClose(); navigate({ to: '/menu' }); } }
+            ]
+          }
+        ]);
+        return;
+      }
+
+      // 2. Active Ordering Step-Specific Natural Inputs:
+      if (isOrderingActive) {
+        // Step 2: Contact input parsing
+        if (step === 2) {
+          const phoneMatch = txt.match(/(03\d{2}[-\s]?\d{7})/);
+          if (phoneMatch) {
+            const rawPhone = phoneMatch[1];
+            const cleanName = txt.replace(phoneMatch[0], '').replace(/[,.-]/g, '').trim();
+            const phoneVal = validatePhone(rawPhone);
+            const nameVal = cleanName.length >= 2 ? validateName(cleanName) : { valid: true, normalized: draft.contact.name || cleanName };
+
+            if (phoneVal.valid) {
+              updateDraft({
+                contact: {
+                  name: nameVal.valid && nameVal.normalized ? nameVal.normalized : (draft.contact.name || 'Valued Customer'),
+                  phone: phoneVal.normalized,
+                  email: draft.contact.email
+                }
+              });
+              setStep(3);
+              setIsTyping(false);
+              setMessages(prev => [
+                ...prev,
+                {
+                  role: 'bot',
+                  text: `Step 2 Complete! Saved contact: ${nameVal.normalized || draft.contact.name || 'Customer'} (${phoneVal.normalized}).\n\nStep 3 of 6 · Delivery Details\n\nWhere in Lahore should we deliver your order? You can type your complete street address or share your GPS location below:`,
+                  chips: [
+                    { label: '📍 Use GPS Location', action: handleGetLocation }
+                  ]
+                }
+              ]);
+              return;
+            }
+          }
+        }
+
+        // Step 3: Delivery address parsing
+        if (step === 3 && txt.length > 5 && !lower.includes('menu') && !lower.includes('cart')) {
+          const addrVal = validateAddress(txt);
+          if (addrVal.valid) {
+            updateDraft({
+              delivery: {
+                address: addrVal.normalized,
+                source: 'typed'
+              }
+            });
+            setStep(4);
+            setIsTyping(false);
+            setMessages(prev => [
+              ...prev,
+              {
+                role: 'bot',
+                text: `Step 3 Complete! Delivery address set to:\n${addrVal.normalized}\n\nStep 4 of 6 · Payment\n\nHow would you like to pay?`,
+                chips: [
+                  { 
+                    label: '💵 Cash on Delivery', 
+                    action: () => {
+                      updateDraft({ payment: { method: 'cod', chosen: true } });
+                      setStep(5);
+                      setMessages(p => [
+                        ...p,
+                        { role: 'user', text: 'Cash on Delivery' },
+                        { 
+                          role: 'bot', 
+                          text: `Step 4 Complete! Payment set to Cash on Delivery.\n(COD fee: ${subtotal < SHOP_COD_THRESHOLD ? `PKR ${SHOP_COD_FEE}` : 'FREE'}).\n\nMoving to Step 5: Review Order.`,
+                          chips: [
+                            { label: 'Review Order Now', primary: true, action: () => setStep(5) }
+                          ]
+                        }
+                      ]);
+                    } 
+                  },
+                  { 
+                    label: '💳 Online Transfer', 
+                    action: () => {
+                      updateDraft({ payment: { method: 'online_transfer', chosen: true } });
+                      setMessages(p => [
+                        ...p,
+                        { role: 'user', text: 'Online Transfer' },
+                        { 
+                          role: 'bot', 
+                          text: `Please transfer PKR ${subtotal + totalDeliveryFee} to our account:\n• EasyPaisa / JazzCash: ${SHOP_PHONE_LOCAL}\n• Bank: Meezan Bank (Amir Fast Food)\n\nOnce transferred, please type your Transaction ID (TID) here:`
+                        }
+                      ]);
+                    } 
+                  }
+                ]
+              }
+            ]);
+            return;
+          }
+        }
+
+        // Step 4: TID input parsing for online transfer
+        if (step === 4 && draft.payment.method === 'online_transfer') {
+          const tidVal = validateTid(txt);
+          if (tidVal.valid) {
+            updateDraft({
+              payment: {
+                method: 'online_transfer',
+                chosen: true,
+                trxId: tidVal.normalized
+              }
+            });
+            setStep(5);
+            setIsTyping(false);
+            setMessages(prev => [
+              ...prev,
+              {
+                role: 'bot',
+                text: `Step 4 Complete! Transaction ID recorded: ${tidVal.normalized}.\n\nMoving to Step 5: Review Order.`,
+                chips: [
+                  { label: 'Review Order Now', primary: true, action: () => setStep(5) }
+                ]
+              }
+            ]);
+            return;
+          }
+        }
+      }
+
+      // Normal Chat via Groq LLM
       const cart = getCart();
       const cartSummary = cart.length > 0 
-        ? `${cart.length} items, subtotal PKR ${getCartSubtotal(cart)}` 
+        ? cart.map(i => `${i.quantity}x ${i.name} (PKR ${lineTotal(i)})`).join(', ') + ` | Subtotal: PKR ${getCartSubtotal(cart)}`
         : 'Empty';
 
       const history = messages
@@ -474,10 +693,9 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
           content: m.text.substring(0, 500),
         }));
 
-      // Non-personal flow context only
       const flowContext = {
         step,
-        stepName: STEP_LABELS[step - 1],
+        stepName: STEP_NAMES[step - 1] || 'Cart',
         itemCount: cart.length,
         hasName: validateName(draft.contact.name).valid,
         hasPhone: validatePhone(draft.contact.phone).valid,
@@ -499,9 +717,7 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
       });
 
       if (res.actions && res.actions.length > 0) {
-        // Pass original user text so variants can be preselected
-        const enriched = res.actions.map(a => ({ ...a, userText: txt }));
-        executeActions(enriched);
+        executeActions(res.actions);
       }
 
       if (res.reply) {
@@ -510,292 +726,14 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
     } catch {
       setMessages(prev => [...prev, {
         role: 'system',
-        text: 'Sorry, I had trouble with that message. You can continue using the form below or call us at 0301-4265785.'
+        text: 'Sorry, I had trouble with that message. Please call us directly at 0301-4265785.'
       }]);
     } finally {
       setIsTyping(false);
     }
   };
 
-  // Step 3: Geolocation handler
-  const handleGetLocation = () => {
-    if (!navigator.geolocation) {
-      setDeliveryInputError('Geolocation is not supported by your browser.');
-      return;
-    }
-    setGettingLocation(true);
-    setLocMsg('Finding your location...');
-    setDeliveryInputError('');
-
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const coords = pos.coords;
-        if (coords.accuracy > 200) {
-          setLocMsg('Location is approximate — please check the address.');
-        } else {
-          setLocMsg('Location pinned successfully.');
-        }
-
-        let resolvedAddr = '';
-        try {
-          const addr = await reverseGeocodeFn({ data: { lat: coords.latitude, lng: coords.longitude } });
-          if (addr) {
-            resolvedAddr = addr;
-            setLocMsg('Address updated with pinned location.');
-          } else {
-            resolvedAddr = `GPS location (${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)})`;
-          }
-        } catch {
-          resolvedAddr = `GPS location (${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)})`;
-        }
-
-        updateDraft({
-          delivery: {
-            lat: coords.latitude,
-            lng: coords.longitude,
-            source: 'gps',
-            ...(resolvedAddr ? { address: resolvedAddr } : {})
-          }
-        });
-
-        setGettingLocation(false);
-      },
-      (err) => {
-        setGettingLocation(false);
-        setLocMsg('');
-        if (err.code === err.PERMISSION_DENIED) {
-          setDeliveryInputError('Please enable location permissions in your browser/phone settings.');
-        } else if (err.code === err.TIMEOUT) {
-          setDeliveryInputError('Location request timed out.');
-        } else {
-          setDeliveryInputError('Failed to get location. Please type your address.');
-        }
-      },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
-    );
-  };
-
-  // Step 2 Next
-  const handleContactNext = () => {
-    const nameVal = validateName(draft.contact.name);
-    const phoneVal = validatePhone(draft.contact.phone);
-    const errors: { name?: string; phone?: string } = {};
-
-    if (!nameVal.valid) errors.name = nameVal.error;
-    if (!phoneVal.valid) errors.phone = phoneVal.error;
-
-    if (Object.keys(errors).length > 0) {
-      setContactErrors(errors);
-      return;
-    }
-
-    setContactErrors({});
-    updateDraft({
-      step: 3,
-      contact: {
-        name: nameVal.normalized,
-        phone: phoneVal.normalized,
-        email: draft.contact.email.trim(),
-      }
-    });
-  };
-
-  // Step 3 Next
-  const handleDeliveryNext = () => {
-    const addrVal = validateAddress(draft.delivery.address);
-    if (!addrVal.valid) {
-      setDeliveryInputError(addrVal.error || 'Please enter a complete address.');
-      return;
-    }
-    if (deliveryError) {
-      setDeliveryInputError(deliveryError);
-      return;
-    }
-
-    setDeliveryInputError('');
-    updateDraft({
-      step: 4,
-      delivery: {
-        address: addrVal.normalized,
-        lat: draft.delivery.lat,
-        lng: draft.delivery.lng,
-        source: draft.delivery.source || 'typed',
-      }
-    });
-  };
-
-  // Step 4 Next
-  const handlePaymentNext = () => {
-    if (!draft.payment.method) {
-      setPaymentError('Please select a payment method.');
-      return;
-    }
-
-    if (draft.payment.method === 'online_transfer') {
-      const tidVal = validateTid(draft.payment.trxId);
-      if (!tidVal.valid) {
-        setPaymentError(tidVal.error || 'Please enter a valid Transaction ID.');
-        return;
-      }
-      updateDraft({
-        step: 5,
-        payment: {
-          method: 'online_transfer',
-          chosen: true,
-          trxId: tidVal.normalized,
-        }
-      });
-    } else {
-      updateDraft({
-        step: 5,
-        payment: {
-          method: 'cod',
-          chosen: true,
-          trxId: '',
-        }
-      });
-    }
-    setPaymentError('');
-  };
-
-  // Step 5: Place order click
-  const handleConfirmOrder = async () => {
-    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-      Notification.requestPermission().catch(() => {});
-    }
-
-    if (!shopStatus.open) {
-      setSubmitError(shopStatus.closedMessage);
-      return;
-    }
-
-    if (cartItems.length === 0) {
-      setSubmitError('Your cart is empty.');
-      return;
-    }
-
-    if (!reviewConsent) {
-      setSubmitError('Please accept the cancellation policy to place your order.');
-      return;
-    }
-
-    setIsSubmitting(true);
-    setSubmitError('');
-
-    const res = await submitOrder(draft, cartItems);
-
-    if (!res.success) {
-      setSubmitError(res.error || 'Could not place order. Please try again.');
-      setIsSubmitting(false);
-      return;
-    }
-
-    setSuccessOrderId(res.orderId || '');
-    setIsSubmitting(false);
-    setStep(7);
-
-    const shortCode = (res.orderId || '').slice(0, 8).toUpperCase();
-    if (draft.payment.method === 'online_transfer') {
-      setMessages(prev => [
-        ...prev,
-        {
-          role: 'bot',
-          text: `Your order #${shortCode} has been submitted! It is currently awaiting admin payment review. Our team is checking your transaction before the kitchen accepts it.`,
-        }
-      ]);
-    } else {
-      setMessages(prev => [
-        ...prev,
-        {
-          role: 'bot',
-          text: `Your order #${shortCode} has been placed successfully and sent to our kitchen! You can track it live anytime.`,
-        }
-      ]);
-    }
-  };
-
-  // Add Item with options from Option Card
-  const handleAddWithOptions = () => {
-    if (!activeOptionItem) return;
-
-    const isDeal = activeOptionItem.category_id === 'cat_deals' || (activeOptionItem.variants && activeOptionItem.variants.length > 0);
-    const finalVariants = buildCompleteVariants(
-      !!isDeal,
-      selectedDrink,
-      selectedSide,
-      selectedUpgrades
-    );
-
-    const cartItem: CartItem = {
-      menu_item_id: activeOptionItem.menu_item_id,
-      name: activeOptionItem.name,
-      price: activeOptionItem.price,
-      quantity: activeOptionItem.qty || 1,
-      image_url: activeOptionItem.image_url || '/placeholder.webp',
-      variants: finalVariants,
-    };
-
-    addToCart(cartItem);
-    playSuccessChime();
-    addToast(`Added ${cartItem.quantity}x ${cartItem.name}`, 'success');
-    setActiveOptionItem(null);
-  };
-
-  // Step Validity summaries
-  const isCartValid = cartItems.length > 0;
-  const isContactValid = validateName(draft.contact.name).valid && validatePhone(draft.contact.phone).valid;
-  const isDeliveryValid = validateAddress(draft.delivery.address).valid && !deliveryError;
-  const isPaymentValid = draft.payment.chosen && (
-    draft.payment.method === 'cod' || 
-    (draft.payment.method === 'online_transfer' && validateTid(draft.payment.trxId).valid)
-  );
-
-  const isOnline = draft.payment.method === 'online_transfer';
-  const isOrderingActive = Boolean(successOrderId) || cartItems.length > 0 || step > 1 || Boolean(draft.contact.name) || Boolean(draft.delivery.address);
-
-  const stages = isOnline
-    ? [
-        { name: 'Cart', completed: isCartValid, stepTarget: 1 },
-        { name: 'Contact', completed: isContactValid, stepTarget: 2 },
-        { name: 'Delivery', completed: isDeliveryValid, stepTarget: 3 },
-        { name: 'Payment', completed: Boolean(draft.payment.chosen), stepTarget: 4 },
-        { name: 'Trx ID', completed: validateTid(draft.payment.trxId).valid, stepTarget: 4 },
-        { name: 'Review', completed: reviewConsent || Boolean(successOrderId) || step >= 6, stepTarget: 5 },
-        { name: 'Done', completed: Boolean(successOrderId), stepTarget: 7 },
-      ]
-    : [
-        { name: 'Cart', completed: isCartValid, stepTarget: 1 },
-        { name: 'Contact', completed: isContactValid, stepTarget: 2 },
-        { name: 'Delivery', completed: isDeliveryValid, stepTarget: 3 },
-        { name: 'Payment', completed: Boolean(draft.payment.chosen), stepTarget: 4 },
-        { name: 'Review', completed: reviewConsent || Boolean(successOrderId) || step >= 6, stepTarget: 5 },
-        { name: 'Done', completed: Boolean(successOrderId), stepTarget: 7 },
-      ];
-
-  const totalStages = stages.length;
-  const completedStages = Math.min(stages.filter(s => s.completed).length, totalStages);
-  const progressPercent = Math.min(100, Math.round((completedStages / totalStages) * 100));
-
-  const getStepSummary = (s: number): string => {
-    switch (s) {
-      case 1:
-        return isCartValid ? `${cartItems.length} item(s) · PKR ${subtotal}` : 'Empty';
-      case 2:
-        return isContactValid ? `${draft.contact.name} · ${draft.contact.phone}` : 'Pending';
-      case 3:
-        return isDeliveryValid 
-          ? `${draft.delivery.address.slice(0, 20)}... ${draft.delivery.lat ? '📍' : ''}` 
-          : 'Pending';
-      case 4:
-        return isPaymentValid 
-          ? (draft.payment.method === 'cod' ? 'Cash on Delivery' : `Online · TID ${draft.payment.trxId.slice(0, 10)}`) 
-          : 'Pending';
-      case 5:
-        return `Total PKR ${subtotal + totalDeliveryFee}`;
-      default:
-        return '';
-    }
-  };
+  const currentPercent = STEP_PERCENTAGES[step - 1] || 17;
 
   if (!isOpen) return null;
 
@@ -815,7 +753,7 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
         aria-label="AmirBot Ordering Assistant"
         className="fixed bottom-0 right-0 w-full sm:w-[440px] md:w-[460px] h-[100dvh] max-h-[100dvh] bg-card text-card-foreground sm:rounded-l-3xl rounded-t-3xl shadow-2xl z-50 flex flex-col transform transition-transform duration-300 border-l border-border"
       >
-        {/* Floating Toast Notification */}
+        {/* Floating Toasts */}
         <div className="absolute top-2 left-0 right-0 flex flex-col items-center gap-1.5 pointer-events-none z-50 px-4">
           {toasts.map(t => (
             <div 
@@ -831,7 +769,7 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
           ))}
         </div>
 
-        {/* Top Header Bar */}
+        {/* Top Header */}
         <div className="p-3.5 bg-primary text-primary-foreground flex justify-between items-center sm:rounded-tl-3xl rounded-t-3xl shadow-md shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center shrink-0">
@@ -841,11 +779,11 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
               <h2 className="font-bold text-base leading-tight flex items-center gap-1.5">
                 AmirBot
                 <span className="text-[10px] bg-white/25 px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wider">
-                  Assistant
+                  AI Assistant
                 </span>
               </h2>
               <p className="text-[11px] text-primary-foreground/80 leading-none mt-0.5">
-                Build cart · Delivery · Payment
+                Conversational Ordering · Lahore
               </p>
             </div>
           </div>
@@ -862,7 +800,7 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
               }} 
               aria-label="Clear chat messages" 
               className="p-2 hover:bg-white/20 rounded-full transition-colors text-white text-xs font-semibold flex items-center gap-1"
-              title="Clear chat messages (keeps your cart)"
+              title="Clear chat messages (keeps your cart & draft)"
             >
               <Trash2 size={16} />
               <span className="hidden sm:inline text-xs">Clear</span>
@@ -872,7 +810,7 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
               onClick={() => setConfirmReset(true)} 
               aria-label="Start over" 
               className="p-2 hover:bg-white/20 rounded-full transition-colors text-white text-xs font-semibold flex items-center gap-1"
-              title="Start over"
+              title="Start over with fresh cart"
             >
               <RotateCcw size={16} />
               <span className="hidden sm:inline text-xs">Reset</span>
@@ -888,47 +826,38 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
           </div>
         </div>
 
-        {/* Compact Progress Header (Shown only during active ordering) */}
+        {/* Strictly 6-Step Progress Bar (Shown ONLY during active ordering) */}
         {isOrderingActive && (
-          <div className="px-4 py-2.5 bg-accent/60 border-b border-border shrink-0 animate-in fade-in">
+          <div className="px-4 py-2 bg-accent/60 border-b border-border shrink-0 animate-in fade-in">
             <div className="flex justify-between items-center mb-1.5">
               <span className="text-xs font-bold text-foreground">
-                Step {Math.min(step, totalStages)} of {totalStages} · {STEP_LABELS[Math.min(step - 1, STEP_LABELS.length - 1)]}
+                Step {step} of 6 · {STEP_NAMES[step - 1]}
               </span>
-              <span className="text-[11px] text-muted-foreground font-medium">
-                {completedStages}/{totalStages} complete ({progressPercent}%)
+              <span className="text-[11px] font-semibold text-primary">
+                {step}/6 — {currentPercent}%
               </span>
             </div>
 
-            {/* Stepper Segments */}
-            <div className="flex gap-1.5" role="tablist" aria-label="Order progress">
-              {stages.map((stageItem, idx) => {
-                const stepIdx = idx + 1;
-                const isCurrent = step === stageItem.stepTarget;
-                const isCompleted = stageItem.completed;
-                const canNavigate = isCompleted || step >= stageItem.stepTarget || stageItem.stepTarget === 1;
-
+            {/* 6 Horizontal Segments */}
+            <div className="flex gap-1.5" role="progressbar" aria-valuenow={currentPercent} aria-valuemin={0} aria-valuemax={100}>
+              {[1, 2, 3, 4, 5, 6].map(i => {
+                const isCurrent = step === i;
+                const isPassed = step > i;
                 return (
-                  <button
-                    key={`${stageItem.name}-${idx}`}
-                    type="button"
-                    role="tab"
-                    aria-selected={isCurrent}
-                    aria-label={`Step ${stepIdx}: ${stageItem.name}`}
+                  <div
+                    key={i}
                     onClick={() => {
-                      if (canNavigate) {
-                        setStep(stageItem.stepTarget);
-                      }
+                      // Allow going back to previous steps
+                      if (i < step) setStep(i);
                     }}
-                    disabled={!canNavigate}
                     className={`h-2 flex-1 rounded-full transition-all ${
-                      isCurrent 
-                        ? 'bg-primary ring-2 ring-primary/30' 
-                        : isCompleted 
-                        ? 'bg-emerald-600 hover:opacity-80 cursor-pointer' 
-                        : 'bg-muted-foreground/20 cursor-not-allowed'
+                      isCurrent
+                        ? 'bg-primary ring-2 ring-primary/30'
+                        : isPassed
+                        ? 'bg-emerald-600 cursor-pointer hover:opacity-80'
+                        : 'bg-muted-foreground/20'
                     }`}
-                    title={`${stageItem.name}: ${isCompleted ? 'Completed (click to view)' : isCurrent ? 'Active' : 'Pending'}`}
+                    title={`Step ${i}: ${STEP_NAMES[i - 1]}`}
                   />
                 );
               })}
@@ -972,7 +901,7 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
               <AlertCircle size={32} className="text-amber-500 mx-auto" />
               <h3 className="font-bold text-base text-foreground">Start Over?</h3>
               <p className="text-xs text-muted-foreground">
-                This will clear your current cart and unfinished order details.
+                This will empty your cart and clear all order details.
               </p>
               <div className="flex gap-2 pt-2">
                 <button
@@ -994,121 +923,7 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
           </div>
         )}
 
-        {/* Option Customizer Overlay Card for items with variants */}
-        {activeOptionItem && (
-          <div className="absolute inset-x-2 bottom-16 top-24 bg-card border border-primary/40 rounded-2xl shadow-2xl z-40 p-4 overflow-y-auto flex flex-col space-y-3">
-            <div className="flex justify-between items-center border-b border-border pb-2">
-              <div>
-                <h3 className="font-bold text-sm text-foreground">{activeOptionItem.name}</h3>
-                <p className="text-xs text-primary font-bold">Base PKR {activeOptionItem.price}</p>
-              </div>
-              <button 
-                type="button"
-                onClick={() => setActiveOptionItem(null)} 
-                className="p-1 hover:bg-accent rounded-full text-muted-foreground"
-                aria-label="Close options"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Drink Choice */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-foreground">Choose Drink</label>
-              <div className="grid grid-cols-2 gap-1.5">
-                {DEFAULT_DRINKS.map(d => (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => setSelectedDrink(d)}
-                    className={`text-xs p-2 rounded-lg border text-left font-medium transition-colors ${
-                      selectedDrink === d 
-                        ? 'border-primary bg-primary/10 text-primary font-bold' 
-                        : 'border-border bg-slate-50 dark:bg-slate-900 text-foreground'
-                    }`}
-                  >
-                    {d}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Side Choice */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-foreground">Choose Side</label>
-              <div className="grid grid-cols-2 gap-1.5">
-                {DEFAULT_SIDES.map(s => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setSelectedSide(s)}
-                    className={`text-xs p-2 rounded-lg border text-left font-medium transition-colors ${
-                      selectedSide === s 
-                        ? 'border-primary bg-primary/10 text-primary font-bold' 
-                        : 'border-border bg-slate-50 dark:bg-slate-900 text-foreground'
-                    }`}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Upgrades Choice */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-foreground">Upgrades & Add-ons</label>
-              <div className="space-y-1">
-                {getAllAvailableUpgrades(activeOptionItem).map(u => {
-                  const checked = selectedUpgrades.some(x => x.name.toLowerCase() === u.name.toLowerCase());
-                  return (
-                    <label 
-                      key={u.name} 
-                      className={`flex items-center justify-between p-2 rounded-lg border cursor-pointer text-xs transition-colors ${
-                        checked ? 'border-primary bg-primary/5' : 'border-border bg-slate-50 dark:bg-slate-900'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => {
-                            if (checked) {
-                              setSelectedUpgrades(prev => prev.filter(x => x.name.toLowerCase() !== u.name.toLowerCase()));
-                            } else {
-                              setSelectedUpgrades(prev => [...prev, u]);
-                            }
-                          }}
-                          className="w-4 h-4 accent-primary rounded"
-                        />
-                        <span className="font-medium text-foreground">{u.name}</span>
-                      </div>
-                      <span className="font-bold text-primary">+PKR {u.price}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="pt-2 mt-auto border-t border-border flex gap-2">
-              <button
-                type="button"
-                onClick={() => setActiveOptionItem(null)}
-                className="w-1/3 bg-accent text-foreground font-semibold py-2.5 rounded-xl text-xs"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleAddWithOptions}
-                className="w-2/3 bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-xs shadow-md transition-colors"
-              >
-                Add · PKR {activeOptionItem.price + selectedUpgrades.reduce((s, u) => s + u.price, 0)}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Main Content Area: Chat History + Active Guided Step Card */}
+        {/* Chat History View (Pure Conversational) */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-3.5 space-y-3.5 bg-slate-50/50 dark:bg-slate-950/40">
           {/* Closed Banner */}
           {!shopStatus.open && (
@@ -1117,24 +932,46 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
             </div>
           )}
 
-          {/* Chat Messages */}
-          <div role="log" aria-live="polite" className="space-y-2.5">
+          {/* Messages */}
+          <div role="log" aria-live="polite" className="space-y-3">
             {messages.map((msg, idx) => (
               <div 
                 key={idx} 
-                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-1`}
+                className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-1`}
               >
                 <div 
-                  className={`max-w-[85%] rounded-2xl px-3.5 py-2 shadow-sm text-xs leading-relaxed ${
+                  className={`max-w-[88%] rounded-2xl px-4 py-2.5 shadow-sm text-xs leading-relaxed whitespace-pre-wrap ${
                     msg.role === 'user'
                       ? 'bg-primary text-primary-foreground rounded-br-sm font-medium'
                       : msg.role === 'system'
-                      ? 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-200 border border-red-200 mx-auto text-center'
+                      ? 'bg-destructive/10 text-destructive border border-destructive/20 text-center mx-auto'
                       : 'bg-card border border-border text-foreground rounded-bl-sm'
                   }`}
                 >
                   {msg.text}
                 </div>
+
+                {/* Inline Action Chips */}
+                {msg.chips && msg.chips.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2 max-w-[88%]">
+                    {msg.chips.map((chip, cIdx) => (
+                      <button
+                        key={cIdx}
+                        type="button"
+                        onClick={chip.action}
+                        className={`text-xs px-3 py-1.5 rounded-full font-bold shadow-sm transition-all ${
+                          chip.primary
+                            ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                            : chip.destructive
+                            ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
+                            : 'bg-card border border-border text-foreground hover:border-primary/50 hover:bg-accent'
+                        }`}
+                      >
+                        {chip.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
 
@@ -1149,765 +986,278 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
             )}
           </div>
 
-          {/* ACTIVE GUIDED STEP CARD */}
-          <div className="pt-2">
-            {/* STEP 1: CART CARD */}
-            {step === 1 && (
-              <div className="bg-card border border-border rounded-2xl p-3.5 shadow-sm space-y-3 animate-in fade-in">
-                <div className="flex justify-between items-center border-b border-border pb-2">
-                  <h3 className="font-bold text-sm text-foreground flex items-center gap-1.5">
-                    <ShoppingBag size={16} className="text-primary" />
-                    Your Cart ({cartItems.length})
-                  </h3>
-                  {cartItems.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => clearCart()}
-                      className="text-[11px] text-muted-foreground hover:text-rose-600 transition-colors flex items-center gap-0.5"
-                    >
-                      <Trash2 size={12} /> Clear
-                    </button>
+          {/* Active Step Quick Action Widget (Conversational Companion) */}
+          {isOrderingActive && (
+            <div className="pt-2 animate-in fade-in">
+              {/* Step 1: Cart Quick Summary */}
+              {step === 1 && (
+                <div className="p-3 bg-card border border-border rounded-2xl shadow-sm space-y-2 text-xs">
+                  <div className="flex justify-between items-center font-bold text-foreground">
+                    <span className="flex items-center gap-1.5">
+                      <ShoppingBag size={14} className="text-primary" />
+                      Cart ({cartItems.length} items)
+                    </span>
+                    <span className="text-primary font-black">PKR {subtotal}</span>
+                  </div>
+                  {cartItems.length > 0 ? (
+                    <div className="space-y-1 max-h-24 overflow-y-auto pr-1">
+                      {cartItems.map((item, i) => (
+                        <div key={i} className="flex justify-between text-muted-foreground text-[11px]">
+                          <span>{item.quantity}x {item.name}</span>
+                          <span className="font-semibold text-foreground">PKR {lineTotal(item)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground">Your cart is empty. What would you like to add?</p>
                   )}
-                </div>
-
-                {cartItems.length === 0 ? (
-                  <div className="text-center py-6 space-y-2">
-                    <p className="text-xs text-muted-foreground">Your cart is empty.</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      Type below (e.g. "add 2 zinger burgers") or browse the menu.
-                    </p>
+                  <div className="flex gap-2 pt-1 border-t border-border">
                     <button
                       type="button"
                       onClick={() => { onClose(); navigate({ to: '/menu' }); }}
-                      className="mt-2 text-xs text-primary font-bold hover:underline"
+                      className="flex-1 py-1.5 bg-accent hover:bg-accent/80 rounded-xl font-semibold text-foreground text-[11px]"
                     >
-                      Open Menu →
+                      + Browse Menu
                     </button>
+                    {cartItems.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStep(2);
+                          setMessages(p => [
+                            ...p,
+                            { role: 'user', text: 'Proceed to Contact Details' },
+                            { 
+                              role: 'bot', 
+                              text: `Step 2 of 6 · Contact Details\n\nPlease share your Full Name and Phone Number (e.g. Ali Khan, 0300 1234567):`,
+                              chips: draft.contact.name && draft.contact.phone ? [
+                                {
+                                  label: `Use saved: ${draft.contact.name} (${draft.contact.phone})`,
+                                  primary: true,
+                                  action: () => {
+                                    setStep(3);
+                                    setMessages(p2 => [
+                                      ...p2,
+                                      { role: 'user', text: `Use saved contact: ${draft.contact.name}` },
+                                      {
+                                        role: 'bot',
+                                        text: `Step 2 Complete!\n\nStep 3 of 6 · Delivery Details\n\nWhere should we deliver your order in Lahore? You can type your street address or tap the location button below:`,
+                                        chips: [{ label: '📍 Use GPS Location', action: handleGetLocation }]
+                                      }
+                                    ]);
+                                  }
+                                }
+                              ] : []
+                            }
+                          ]);
+                        }}
+                        className="flex-1 py-1.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl font-bold text-[11px] flex items-center justify-center gap-1"
+                      >
+                        Proceed to Contact <ArrowRight size={12} />
+                      </button>
+                    )}
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    {cartItems.map((item, i) => (
-                      <div key={i} className="flex items-center justify-between p-2 rounded-xl bg-accent/30 border border-border text-xs">
-                        <div className="flex-1 pr-2">
-                          <p className="font-bold text-foreground">{item.name}</p>
-                          {item.variants && item.variants.length > 0 && (
-                            <p className="text-[10px] text-muted-foreground leading-tight">
-                              {item.variants.map(v => v.name).join(', ')}
-                            </p>
-                          )}
-                          <p className="font-bold text-primary text-[11px] mt-0.5">
-                            PKR {lineTotal(item)}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <button
-                            type="button"
-                            aria-label={`Decrease ${item.name}`}
-                            onClick={() => updateItemQuantity(item.menu_item_id, item.variants, item.quantity - 1)}
-                            className="w-6 h-6 rounded-md bg-accent hover:bg-accent/80 flex items-center justify-center font-bold"
-                          >
-                            <Minus size={12} />
-                          </button>
-                          <span className="w-5 text-center font-bold">{item.quantity}</span>
-                          <button
-                            type="button"
-                            aria-label={`Increase ${item.name}`}
-                            onClick={() => updateItemQuantity(item.menu_item_id, item.variants, item.quantity + 1)}
-                            className="w-6 h-6 rounded-md bg-accent hover:bg-accent/80 flex items-center justify-center font-bold"
-                          >
-                            <Plus size={12} />
-                          </button>
-                          <button
-                            type="button"
-                            aria-label={`Remove ${item.name}`}
-                            onClick={() => removeItem(item.menu_item_id, item.variants)}
-                            className="w-6 h-6 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive flex items-center justify-center transition-colors ml-0.5"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                </div>
+              )}
 
-                    <div className="flex justify-between items-center pt-2 border-t border-border font-bold text-xs">
-                      <span>Subtotal</span>
-                      <span className="text-primary text-sm font-black">PKR {subtotal}</span>
-                    </div>
-
+              {/* Step 2: Contact Details Helper */}
+              {step === 2 && (
+                <div className="p-3 bg-card border border-border rounded-2xl shadow-sm text-xs space-y-2">
+                  <p className="font-bold text-foreground">Step 2: Enter Contact Details</p>
+                  <p className="text-muted-foreground text-[11px]">
+                    Type your name and 11-digit phone number in the message box below (e.g. "Ahmed, 0300-1234567").
+                  </p>
+                  {draft.contact.name && draft.contact.phone && (
                     <button
                       type="button"
-                      onClick={() => setStep(2)}
-                      className="w-full bg-primary text-primary-foreground font-bold py-2.5 rounded-xl hover:bg-primary/90 transition-all text-xs flex items-center justify-center gap-1.5 shadow-md shadow-primary/20"
+                      onClick={() => setStep(3)}
+                      className="w-full py-2 bg-primary text-primary-foreground rounded-xl font-bold text-xs"
                     >
-                      Continue to Contact Details <ArrowRight size={14} />
+                      Continue with {draft.contact.name} ({draft.contact.phone}) →
                     </button>
-                  </div>
-                )}
-
-                <div className="flex justify-between items-center pt-1 text-[11px]">
-                  <button
-                    type="button"
-                    onClick={() => { onClose(); navigate({ to: '/menu' }); }}
-                    className="text-primary hover:underline font-semibold"
-                  >
-                    + Add from menu
-                  </button>
-                  <Link 
-                    to="/checkout" 
-                    search={{ step: 1 }} 
-                    onClick={onClose} 
-                    className="text-muted-foreground hover:text-foreground font-medium flex items-center gap-0.5"
-                  >
-                    Continue on checkout page <ExternalLink size={10} />
-                  </Link>
+                  )}
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* STEP 2: CONTACT CARD */}
-            {step === 2 && (
-              <form 
-                onSubmit={e => { e.preventDefault(); handleContactNext(); }} 
-                className="bg-card border border-border rounded-2xl p-3.5 shadow-sm space-y-3 animate-in fade-in"
-                aria-label="Contact information form"
-              >
-                <div className="flex justify-between items-center border-b border-border pb-2">
-                  <h3 className="font-bold text-sm text-foreground">Contact Details</h3>
-                  <span className="text-[11px] text-muted-foreground">Step 2 of 7</span>
-                </div>
-
-                <div className="space-y-2.5">
-                  <div>
-                    <label htmlFor="bot-name" className="block text-xs font-semibold mb-1 text-foreground">
-                      Full Name *
-                    </label>
-                    <input
-                      ref={nameRef}
-                      id="bot-name"
-                      name="name"
-                      type="text"
-                      autoComplete="name"
-                      required
-                      value={draft.contact.name}
-                      onChange={e => updateDraft({ contact: { name: e.target.value } })}
-                      placeholder="Amir Khan"
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary"
-                    />
-                    {contactErrors.name && (
-                      <p className="text-[11px] text-red-600 mt-1">{contactErrors.name}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label htmlFor="bot-phone" className="block text-xs font-semibold mb-1 text-foreground">
-                      Pakistani Phone Number *
-                    </label>
-                    <input
-                      id="bot-phone"
-                      name="phone"
-                      type="tel"
-                      inputMode="tel"
-                      autoComplete="tel"
-                      required
-                      value={draft.contact.phone}
-                      onChange={e => updateDraft({ contact: { phone: e.target.value } })}
-                      placeholder="0300 1234567"
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary"
-                    />
-                    {contactErrors.phone && (
-                      <p className="text-[11px] text-red-600 mt-1">{contactErrors.phone}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label htmlFor="bot-email" className="block text-xs font-semibold mb-1 text-foreground">
-                      Email (Optional)
-                    </label>
-                    <input
-                      id="bot-email"
-                      name="email"
-                      type="email"
-                      inputMode="email"
-                      autoComplete="email"
-                      value={draft.contact.email}
-                      onChange={e => updateDraft({ contact: { email: e.target.value } })}
-                      placeholder="amir@example.com"
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setStep(1)}
-                    className="w-1/3 bg-accent text-foreground font-semibold py-2.5 rounded-xl text-xs hover:bg-accent/80 transition-colors flex items-center justify-center gap-1"
-                  >
-                    <ArrowLeft size={12} /> Back
-                  </button>
-                  <button
-                    type="submit"
-                    className="w-2/3 bg-primary text-primary-foreground font-bold py-2.5 rounded-xl hover:bg-primary/90 transition-all text-xs flex items-center justify-center gap-1 shadow-md shadow-primary/20"
-                  >
-                    Continue to Delivery <ArrowRight size={12} />
-                  </button>
-                </div>
-
-                <div className="text-center pt-1">
-                  <Link 
-                    to="/checkout" 
-                    search={{ step: 1 }} 
-                    onClick={onClose} 
-                    className="text-[11px] text-muted-foreground hover:text-foreground font-medium inline-flex items-center gap-0.5"
-                  >
-                    Continue on checkout page <ExternalLink size={10} />
-                  </Link>
-                </div>
-              </form>
-            )}
-
-            {/* STEP 3: DELIVERY CARD */}
-            {step === 3 && (
-              <form 
-                onSubmit={e => { e.preventDefault(); handleDeliveryNext(); }} 
-                className="bg-card border border-border rounded-2xl p-3.5 shadow-sm space-y-3 animate-in fade-in"
-                aria-label="Delivery address form"
-              >
-                <div className="flex justify-between items-center border-b border-border pb-2">
-                  <h3 className="font-bold text-sm text-foreground">Delivery Address</h3>
-                  <span className="text-[11px] text-muted-foreground">Step 3 of 7</span>
-                </div>
-
-                <div className="space-y-2">
+              {/* Step 3: Delivery Location Helper */}
+              {step === 3 && (
+                <div className="p-3 bg-card border border-border rounded-2xl shadow-sm text-xs space-y-2">
+                  <p className="font-bold text-foreground">Step 3: Delivery Location</p>
                   <button
                     type="button"
                     onClick={handleGetLocation}
                     disabled={gettingLocation}
-                    className="w-full bg-primary/10 text-primary border border-primary/30 font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 hover:bg-primary/20 transition-colors"
+                    className="w-full py-2 bg-primary/10 text-primary border border-primary/30 rounded-xl font-bold flex items-center justify-center gap-1.5 hover:bg-primary/20 transition-colors"
                   >
                     <MapPin size={14} />
-                    {gettingLocation ? 'Finding your GPS coordinates...' : 'Use my current location'}
+                    {gettingLocation ? 'Acquiring GPS location...' : 'Pin Current Location (GPS)'}
                   </button>
-
-                  {locMsg && (
-                    <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium">
-                      {locMsg}
-                    </p>
+                  {draft.delivery.address && (
+                    <div className="p-2 bg-muted rounded-xl space-y-1 text-[11px]">
+                      <p className="font-semibold text-foreground truncate">📍 {draft.delivery.address}</p>
+                      <p className="text-muted-foreground">
+                        Distance: ~{distanceKm.toFixed(1)} km | Fee: {totalDeliveryFee === 0 ? 'FREE' : `PKR ${totalDeliveryFee}`}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setStep(4)}
+                        className="w-full py-1.5 mt-1 bg-primary text-primary-foreground rounded-lg font-bold"
+                      >
+                        Continue to Payment →
+                      </button>
+                    </div>
                   )}
+                </div>
+              )}
 
-                  <div>
-                    <label htmlFor="bot-address" className="block text-xs font-semibold mb-1 text-foreground">
-                      Complete Address *
-                    </label>
-                    <textarea
-                      ref={addressRef}
-                      id="bot-address"
-                      name="address"
-                      rows={3}
-                      autoComplete="street-address"
-                      required
-                      value={draft.delivery.address}
-                      onChange={e => updateDraft({ delivery: { address: e.target.value, source: 'typed' } })}
-                      placeholder="House, Street, Area, Lahore"
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary resize-none"
-                    />
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                      Include house number and a nearby landmark.
-                    </p>
+              {/* Step 4: Payment Choices Helper */}
+              {step === 4 && (
+                <div className="p-3 bg-card border border-border rounded-2xl shadow-sm text-xs space-y-2">
+                  <p className="font-bold text-foreground">Step 4: Choose Payment Method</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateDraft({ payment: { method: 'cod', chosen: true } });
+                        setStep(5);
+                      }}
+                      className={`p-2 rounded-xl border text-left font-semibold transition-all ${
+                        draft.payment.method === 'cod' ? 'border-primary bg-primary/10 text-primary' : 'border-border'
+                      }`}
+                    >
+                      💵 Cash on Delivery
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateDraft({ payment: { method: 'online_transfer', chosen: true } })}
+                      className={`p-2 rounded-xl border text-left font-semibold transition-all ${
+                        draft.payment.method === 'online_transfer' ? 'border-primary bg-primary/10 text-primary' : 'border-border'
+                      }`}
+                    >
+                      💳 Online Transfer
+                    </button>
                   </div>
-
-                  {/* Delivery quote calculation badge */}
-                  {distanceKm > 0 && !deliveryError && (
-                    <div className="p-2.5 rounded-xl bg-accent/40 border border-border text-xs flex justify-between items-center">
-                      <span className="text-muted-foreground">
-                        📍 ~{distanceKm.toFixed(1)} km from shop
-                      </span>
-                      <span className="font-bold text-foreground">
-                        Delivery: {totalDeliveryFee === 0 ? 'FREE' : `PKR ${totalDeliveryFee}`}
-                      </span>
-                    </div>
-                  )}
-
-                  {deliveryInputError && (
-                    <p className="text-[11px] text-red-600 font-medium">{deliveryInputError}</p>
-                  )}
-                  {deliveryError && (
-                    <p className="text-[11px] text-red-600 font-medium">{deliveryError}</p>
-                  )}
-                </div>
-
-                <div className="flex gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setStep(2)}
-                    className="w-1/3 bg-accent text-foreground font-semibold py-2.5 rounded-xl text-xs hover:bg-accent/80 transition-colors flex items-center justify-center gap-1"
-                  >
-                    <ArrowLeft size={12} /> Back
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={!!deliveryError}
-                    className="w-2/3 bg-primary text-primary-foreground font-bold py-2.5 rounded-xl hover:bg-primary/90 transition-all text-xs flex items-center justify-center gap-1 shadow-md shadow-primary/20 disabled:opacity-50"
-                  >
-                    Continue to Payment <ArrowRight size={12} />
-                  </button>
-                </div>
-
-                <div className="text-center pt-1">
-                  <Link 
-                    to="/checkout" 
-                    search={{ step: 1 }} 
-                    onClick={onClose} 
-                    className="text-[11px] text-muted-foreground hover:text-foreground font-medium inline-flex items-center gap-0.5"
-                  >
-                    Continue on checkout page <ExternalLink size={10} />
-                  </Link>
-                </div>
-              </form>
-            )}
-
-            {/* STEP 4: PAYMENT CARD */}
-            {step === 4 && (
-              <form 
-                onSubmit={e => { e.preventDefault(); handlePaymentNext(); }} 
-                className="bg-card border border-border rounded-2xl p-3.5 shadow-sm space-y-3 animate-in fade-in"
-                aria-label="Payment method form"
-              >
-                <div className="flex justify-between items-center border-b border-border pb-2">
-                  <h3 className="font-bold text-sm text-foreground">Payment Method</h3>
-                  <span className="text-[11px] text-muted-foreground">Step 4 of 7</span>
-                </div>
-
-                <div className="space-y-2">
-                  <label 
-                    className={`flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer transition-colors ${
-                      draft.payment.method === 'online_transfer' 
-                        ? 'border-primary bg-primary/5' 
-                        : 'border-border bg-slate-50 dark:bg-slate-900'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="bot_payment"
-                      value="online_transfer"
-                      checked={draft.payment.method === 'online_transfer'}
-                      onChange={() => updateDraft({ payment: { method: 'online_transfer', chosen: true } })}
-                      className="w-4 h-4 accent-primary shrink-0 mt-0.5"
-                    />
-                    <div className="text-xs">
-                      <p className="font-bold text-foreground">Bank Transfer / EasyPaisa / JazzCash</p>
-                      <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-                        Send total amount to {SHOP_PHONE_LOCAL}. Questions?{' '}
-                        <a 
-                          href={`https://wa.me/${SHOP_WHATSAPP}`} 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          className="text-primary hover:underline font-semibold"
-                        >
-                          WhatsApp us
-                        </a>
-                      </p>
-                    </div>
-                  </label>
-
-                  <label 
-                    className={`flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer transition-colors ${
-                      draft.payment.method === 'cod' 
-                        ? 'border-primary bg-primary/5' 
-                        : 'border-border bg-slate-50 dark:bg-slate-900'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="bot_payment"
-                      value="cod"
-                      checked={draft.payment.method === 'cod'}
-                      onChange={() => updateDraft({ payment: { method: 'cod', chosen: true } })}
-                      className="w-4 h-4 accent-primary shrink-0 mt-0.5"
-                    />
-                    <div className="text-xs">
-                      <p className="font-bold text-foreground">Cash on Delivery</p>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        +PKR 100 COD fee applies for orders under PKR 1000.
-                      </p>
-                    </div>
-                  </label>
-
                   {draft.payment.method === 'online_transfer' && (
-                    <div className="p-3 bg-accent/30 rounded-xl border border-border space-y-1.5 animate-in fade-in">
-                      <label htmlFor="bot-tid" className="block text-xs font-bold text-foreground">
-                        Transaction ID (TID) *
-                      </label>
+                    <div className="p-2 bg-muted rounded-xl space-y-1.5 text-[11px]">
+                      <p className="font-semibold text-foreground">Send payment to 0301-4265785</p>
                       <input
-                        ref={tidRef}
-                        id="bot-tid"
-                        name="trxId"
                         type="text"
-                        autoComplete="off"
-                        required
+                        placeholder="Enter Transaction ID (TID)"
                         value={draft.payment.trxId}
-                        onChange={e => updateDraft({ payment: { trxId: e.target.value } })}
-                        placeholder="e.g. 123456789012"
-                        className="w-full bg-card border border-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary"
+                        onChange={(e) => updateDraft({ payment: { trxId: e.target.value } })}
+                        className="w-full px-2.5 py-1.5 rounded-lg bg-background border border-border text-foreground text-xs font-mono"
                       />
-                      <p className="text-[10px] text-muted-foreground leading-tight">
-                        {SHOP_PAYMENT_VERIFICATION_NOTE}
-                      </p>
+                      {validateTid(draft.payment.trxId).valid && (
+                        <button
+                          type="button"
+                          onClick={() => setStep(5)}
+                          className="w-full py-1.5 bg-primary text-primary-foreground rounded-lg font-bold mt-1"
+                        >
+                          Confirm TID & Proceed →
+                        </button>
+                      )}
                     </div>
                   )}
-
-                  {paymentError && (
-                    <p className="text-[11px] text-red-600 font-medium">{paymentError}</p>
-                  )}
                 </div>
+              )}
 
-                <div className="flex gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setStep(3)}
-                    className="w-1/3 bg-accent text-foreground font-semibold py-2.5 rounded-xl text-xs hover:bg-accent/80 transition-colors flex items-center justify-center gap-1"
-                  >
-                    <ArrowLeft size={12} /> Back
-                  </button>
-                  <button
-                    type="submit"
-                    className="w-2/3 bg-primary text-primary-foreground font-bold py-2.5 rounded-xl hover:bg-primary/90 transition-all text-xs flex items-center justify-center gap-1 shadow-md shadow-primary/20"
-                  >
-                    Continue to Review <ArrowRight size={12} />
-                  </button>
-                </div>
-
-                <div className="text-center pt-1">
-                  <Link 
-                    to="/checkout" 
-                    search={{ step: 2 }} 
-                    onClick={onClose} 
-                    className="text-[11px] text-muted-foreground hover:text-foreground font-medium inline-flex items-center gap-0.5"
-                  >
-                    Continue on checkout page <ExternalLink size={10} />
-                  </Link>
-                </div>
-              </form>
-            )}
-
-            {/* STEP 5: REVIEW & SUMMARY CARD */}
-            {step === 5 && (
-              <div className="bg-card border border-border rounded-2xl p-3.5 shadow-sm space-y-3 animate-in fade-in">
-                <div className="flex justify-between items-center border-b border-border pb-2">
-                  <h3 className="font-bold text-sm text-foreground">Review Your Order</h3>
-                  <span className="text-[11px] text-muted-foreground">Step 5 of 7</span>
-                </div>
-
-                {/* Items Summary */}
-                <div className="space-y-1.5 text-xs">
-                  <div className="flex justify-between items-center">
-                    <span className="font-bold text-foreground">Items ({cartItems.length})</span>
-                    <button
-                      type="button"
-                      onClick={() => setStep(1)}
-                      className="text-[11px] text-primary hover:underline font-semibold flex items-center gap-0.5"
-                    >
-                      <Edit2 size={11} /> Edit Cart
-                    </button>
+              {/* Step 5: Order Review Card */}
+              {step === 5 && (
+                <div className="p-3 bg-card border border-border rounded-2xl shadow-sm text-xs space-y-2.5">
+                  <div className="flex justify-between items-center border-b border-border pb-1.5">
+                    <span className="font-black text-sm text-foreground">Review Your Order</span>
+                    <span className="font-black text-primary text-sm">PKR {subtotal + totalDeliveryFee}</span>
                   </div>
-                  <div className="space-y-1 max-h-28 overflow-y-auto pr-1">
-                    {cartItems.map((item, idx) => (
-                      <div key={idx} className="flex justify-between text-muted-foreground text-[11px]">
-                        <span className="truncate pr-2">{item.quantity}x {item.name}</span>
-                        <span className="font-semibold text-foreground shrink-0">PKR {lineTotal(item)}</span>
+                  <div className="space-y-1 text-muted-foreground text-[11px]">
+                    <div className="flex justify-between">
+                      <span>Items:</span>
+                      <span className="font-semibold text-foreground">{cartItems.length} items (PKR {subtotal})</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Delivery Fee:</span>
+                      <span className="font-semibold text-foreground">{totalDeliveryFee === 0 ? 'FREE' : `PKR ${totalDeliveryFee}`}</span>
+                    </div>
+                    {codFee > 0 && (
+                      <div className="flex justify-between">
+                        <span>COD Fee:</span>
+                        <span className="font-semibold text-foreground">PKR {codFee}</span>
                       </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Contact & Delivery Review Block */}
-                <div className="p-2.5 rounded-xl bg-accent/30 border border-border space-y-1.5 text-xs">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-bold text-foreground">Contact</p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {draft.contact.name} · {draft.contact.phone}
-                      </p>
+                    )}
+                    <div className="flex justify-between">
+                      <span>Customer:</span>
+                      <span className="font-semibold text-foreground">{draft.contact.name} ({draft.contact.phone})</span>
                     </div>
+                    <div className="flex justify-between">
+                      <span>Address:</span>
+                      <span className="font-semibold text-foreground truncate max-w-[200px]">{draft.delivery.address}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Payment:</span>
+                      <span className="font-semibold text-foreground">
+                        {draft.payment.method === 'cod' ? 'Cash on Delivery' : `Online Transfer (${draft.payment.trxId})`}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="pt-1">
                     <button
                       type="button"
-                      onClick={() => setStep(2)}
-                      className="text-[11px] text-primary hover:underline font-semibold"
+                      disabled={isSubmitting}
+                      onClick={handleConfirmOrder}
+                      className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl font-black text-xs shadow-md transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
                     >
-                      Edit
-                    </button>
-                  </div>
-
-                  <div className="flex justify-between items-start pt-1.5 border-t border-border/60">
-                    <div className="pr-2">
-                      <p className="font-bold text-foreground flex items-center gap-1">
-                        Delivery {draft.delivery.lat && '📍'}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground leading-tight">
-                        {draft.delivery.address}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setStep(3)}
-                      className="text-[11px] text-primary hover:underline font-semibold shrink-0"
-                    >
-                      Edit
-                    </button>
-                  </div>
-
-                  <div className="flex justify-between items-start pt-1.5 border-t border-border/60">
-                    <div>
-                      <p className="font-bold text-foreground">Payment</p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {draft.payment.method === 'cod' 
-                          ? 'Cash on Delivery' 
-                          : `Online Transfer · TID: ${draft.payment.trxId}`}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setStep(4)}
-                      className="text-[11px] text-primary hover:underline font-semibold"
-                    >
-                      Edit
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin" />
+                          <span>Placing Order...</span>
+                        </>
+                      ) : (
+                        <span>Confirm & Place Order (PKR {subtotal + totalDeliveryFee})</span>
+                      )}
                     </button>
                   </div>
                 </div>
-
-                {/* Pricing Breakdown */}
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-border space-y-1 text-xs">
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Subtotal</span>
-                    <span className="font-bold text-foreground">PKR {subtotal}</span>
-                  </div>
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Delivery Fee</span>
-                    <span className="font-bold text-foreground">
-                      {totalDeliveryFee === 0 ? 'FREE' : `PKR ${totalDeliveryFee}`}
-                    </span>
-                  </div>
-                  {codFee > 0 && (
-                    <div className="flex justify-between text-[11px] text-muted-foreground pl-2">
-                      <span>COD Fee</span>
-                      <span>PKR {codFee}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between pt-1.5 border-t border-border text-sm font-black text-foreground">
-                    <span>Total Amount</span>
-                    <span className="text-primary text-base font-black">
-                      PKR {subtotal + totalDeliveryFee}
-                    </span>
-                  </div>
-                </div>
-
-                <p className="text-[10px] text-muted-foreground text-center">
-                  Estimated Delivery: {SHOP_ESTIMATED_DELIVERY_TIME}
-                </p>
-
-                {/* Cancellation Policy Consent Checkbox */}
-                <label className="flex items-start gap-2 p-2.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl cursor-pointer text-xs">
-                  <input
-                    type="checkbox"
-                    checked={reviewConsent}
-                    onChange={e => setReviewConsent(e.target.checked)}
-                    className="w-4 h-4 accent-red-600 rounded mt-0.5 shrink-0"
-                  />
-                  <span className="text-red-900 dark:text-red-200 text-[11px] font-medium leading-tight">
-                    {SHOP_CANCELLATION_POLICY}
-                  </span>
-                </label>
-
-                {submitError && (
-                  <div className="p-2 bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200 rounded-lg text-xs font-medium">
-                    {submitError}
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="flex gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setStep(4)}
-                    className="w-1/3 bg-accent text-foreground font-semibold py-2.5 rounded-xl text-xs hover:bg-accent/80 transition-colors flex items-center justify-center gap-1"
-                  >
-                    <ArrowLeft size={12} /> Back
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleConfirmOrder}
-                    disabled={isSubmitting || !reviewConsent || !shopStatus.open || !isCartValid || !isContactValid || !isDeliveryValid || !isPaymentValid}
-                    className="w-2/3 bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-2.5 rounded-xl shadow-lg shadow-emerald-700/20 disabled:opacity-50 transition-all text-xs flex items-center justify-center gap-1.5"
-                  >
-                    {isSubmitting 
-                      ? 'Placing Order...' 
-                      : !shopStatus.open 
-                      ? 'Shop Closed Right Now' 
-                      : 'Confirm & Place Order'}
-                  </button>
-                </div>
-
-                <div className="text-center pt-1">
-                  <Link 
-                    to="/checkout" 
-                    search={{ step: 2 }} 
-                    onClick={onClose} 
-                    className="text-[11px] text-muted-foreground hover:text-foreground font-medium inline-flex items-center gap-0.5"
-                  >
-                    Continue on checkout page <ExternalLink size={10} />
-                  </Link>
-                </div>
-              </div>
-            )}
-
-            {/* STEP 6: SUBMITTING SPINNER */}
-            {step === 6 && (
-              <div className="bg-card border border-border rounded-2xl p-6 text-center space-y-3 animate-in fade-in">
-                <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-                <h3 className="font-bold text-sm text-foreground">Placing Your Order...</h3>
-                <p className="text-xs text-muted-foreground">
-                  Sending details to the kitchen and confirming payment.
-                </p>
-              </div>
-            )}
-
-            {/* STEP 7: ORDER SUCCESS & TRACKING CARD */}
-            {step === 7 && (
-              <div className="bg-card border border-border rounded-2xl p-4 shadow-sm text-center space-y-3 animate-in zoom-in-95">
-                {draft.payment.method === 'online_transfer' ? (
-                  <>
-                    <div className="w-14 h-14 bg-amber-100 dark:bg-amber-950/60 text-amber-600 rounded-full flex items-center justify-center mx-auto">
-                      <Clock size={30} />
-                    </div>
-                    <h3 className="font-black text-base text-foreground">Payment Verification Pending</h3>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      Order <span className="font-mono font-bold text-foreground">#{successOrderId.slice(0, 8).toUpperCase()}</span> is waiting for admin payment review. Our team will verify your transaction before preparing your food.
-                    </p>
-                    <div className="p-2 bg-amber-500/10 border border-amber-500/30 rounded-xl text-[11px] text-amber-900 dark:text-amber-300 font-medium">
-                      Please do not submit the same order again while under review.
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
-                      <CheckCircle2 size={32} />
-                    </div>
-                    <h3 className="font-black text-base text-foreground">Order Placed Successfully!</h3>
-                    <p className="text-xs text-muted-foreground">
-                      Order <span className="font-mono font-bold text-foreground">#{successOrderId.slice(0, 8).toUpperCase()}</span> has been sent to our kitchen.
-                    </p>
-                  </>
-                )}
-
-                <div className="p-2.5 bg-accent/40 rounded-xl border border-border text-xs space-y-1">
-                  <p className="font-semibold text-foreground">Permanent Tracking Link</p>
-                  <Link
-                    to="/orders/$orderId"
-                    params={{ orderId: successOrderId }}
-                    onClick={onClose}
-                    className="text-primary font-mono text-[11px] break-all hover:underline"
-                  >
-                    /orders/{successOrderId}
-                  </Link>
-                </div>
-
-                <div className="space-y-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClose();
-                      window.dispatchEvent(new CustomEvent('openTracker'));
-                    }}
-                    className="w-full bg-primary text-primary-foreground font-bold py-2.5 rounded-xl hover:bg-primary/90 transition-all text-xs shadow-md"
-                  >
-                    Track My Order Now
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStep(1);
-                      setSuccessOrderId('');
-                    }}
-                    className="w-full bg-accent text-foreground font-semibold py-2 rounded-xl text-xs hover:bg-accent/80 transition-colors"
-                  >
-                    Order Something Else
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Bottom Input Area */}
         <div className="p-3 bg-card border-t border-border shrink-0">
-          {/* Sequential Action Confirmation Card */}
-          {actionQueue.length > 0 && (() => {
-            const currentAction = actionQueue[0];
-            const remaining = actionQueue.length;
-            return (
-              <div className="p-2.5 bg-primary/10 border border-primary/30 rounded-2xl mb-2 flex items-center justify-between gap-2 shadow-sm animate-in fade-in">
-                <div className="text-xs flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <p className="font-bold text-foreground">{currentAction.title}</p>
-                    {remaining > 1 && (
-                      <span className="text-[10px] bg-primary text-primary-foreground font-bold px-1.5 py-0.5 rounded-full">
-                        1 of {remaining}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">{currentAction.description}</p>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActionQueue(prev => prev.slice(1));
-                      addToast('Action canceled', 'info');
-                    }}
-                    className="px-2.5 py-1.5 rounded-xl bg-accent text-foreground text-xs font-semibold hover:bg-accent/80 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActionQueue(prev => prev.slice(1));
-                      currentAction.execute();
-                    }}
-                    className="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold shadow-md transition-colors"
-                  >
-                    {currentAction.confirmLabel || 'Confirm'}
-                  </button>
-                </div>
-              </div>
-            );
-          })()}
-
           <form 
             onSubmit={e => { e.preventDefault(); handleSend(); }} 
             className="flex items-center gap-2"
           >
             <input
               type="text"
-              aria-label="Ask AmirBot"
+              aria-label="Ask AmirBot or type your order"
               value={input}
               onChange={e => setInput(e.target.value)}
-              placeholder="Ask anything or add items (e.g. 2 zinger)..."
-              disabled={isTyping}
+              placeholder={
+                isOrderingActive
+                  ? step === 2
+                    ? 'Type your name and phone (e.g. Ali, 03001234567)...'
+                    : step === 3
+                    ? 'Type your delivery street address...'
+                    : step === 4 && draft.payment.method === 'online_transfer'
+                    ? 'Type your Transaction ID (TID)...'
+                    : 'Type a message or instruction...'
+                  : 'Ask anything or say "I want to order"...'
+              }
+              disabled={isTyping || isSubmitting}
               maxLength={500}
               className="flex-1 bg-slate-50 dark:bg-slate-900 border border-border rounded-full px-3.5 py-2.5 text-xs text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50"
             />
             <button
               type="submit"
               aria-label="Send message"
-              disabled={!input.trim() || isTyping}
+              disabled={!input.trim() || isTyping || isSubmitting}
               className="w-9 h-9 bg-primary text-primary-foreground rounded-full flex items-center justify-center hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm shrink-0"
             >
               <Send size={16} className={input.trim() && !isTyping ? "translate-x-0.5" : ""} />
             </button>
           </form>
           <div className="flex justify-between items-center px-2 mt-1 text-[10px] text-muted-foreground">
-            <span>AmirBot can build your cart & take your order</span>
+            <span>AmirBot 6-Step Conversational Order Guide</span>
             <span>{input.length}/500</span>
           </div>
         </div>

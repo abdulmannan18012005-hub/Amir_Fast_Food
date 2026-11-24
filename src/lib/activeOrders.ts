@@ -3,6 +3,7 @@ import { getLocal, setLocal, getRawSession, setRawSession, removeSession } from 
 export interface ActiveOrder {
   id: string;
   placedAt: number;
+  cancellationToken?: string;
 }
 
 const SIX_HOURS = 6 * 60 * 60 * 1000;
@@ -17,11 +18,26 @@ export function getActiveOrders(): ActiveOrder[] {
   return valid;
 }
 
-export function addActiveOrder(id: string) {
+export function addActiveOrder(id: string, cancellationToken?: string) {
   const current = getActiveOrders().filter(o => o.id !== id);
-  const updated = [{ id, placedAt: Date.now() }, ...current].slice(0, 3);
+  const updated = [{ id, placedAt: Date.now(), cancellationToken }, ...current].slice(0, 5);
   setLocal('active_orders', updated);
+  if (cancellationToken) {
+    try {
+      localStorage.setItem(`order_cancel_tok_${id}`, cancellationToken);
+    } catch {}
+  }
   window.dispatchEvent(new Event('storage'));
+}
+
+export function getCancellationToken(id: string): string | null {
+  try {
+    const direct = localStorage.getItem(`order_cancel_tok_${id}`);
+    if (direct) return direct;
+  } catch {}
+  const all = getActiveOrders();
+  const found = all.find(o => o.id === id);
+  return found?.cancellationToken || null;
 }
 
 export function removeActiveOrder(id: string): ActiveOrder[] {
@@ -29,6 +45,7 @@ export function removeActiveOrder(id: string): ActiveOrder[] {
   setLocal('active_orders', current);
   try {
     localStorage.removeItem(`order_cache_${id}`);
+    localStorage.removeItem(`order_cancel_tok_${id}`);
   } catch (e) {}
   window.dispatchEvent(new Event('storage'));
   return current;

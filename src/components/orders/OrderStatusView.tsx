@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { MapPin, XCircle, Phone, Bell, ShieldAlert, CheckCircle2 } from 'lucide-react';
+import { MapPin, XCircle, Phone, Bell, ShieldAlert, CheckCircle2, AlertOctagon } from 'lucide-react';
 import { LiveOrder } from '../../hooks/useLiveOrder';
 import { SHOP_PHONE_LOCAL } from '../../lib/shop';
 import { OrderFeedback } from './OrderFeedback';
+import { CustomerCancelModal } from './CustomerCancelModal';
 
 export function OrderStatusView({ order, onNotify }: { order: LiveOrder, onNotify?: () => void }) {
   const [now, setNow] = useState(Date.now());
+  const [showCancelModal, setShowCancelModal] = useState(false);
   
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 10000);
@@ -103,16 +105,29 @@ export function OrderStatusView({ order, onNotify }: { order: LiveOrder, onNotif
                 : `Order #${order.shortCode}`}
             </p>
           </div>
-          {onNotify && !isFinal && (
-            <button 
-              onClick={onNotify} 
-              aria-label="Enable order notifications"
-              className="inline-flex items-center gap-1.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold px-3 py-1.5 rounded-full text-sm transition-colors"
-            >
-              <Bell size={16} />
-              <span>Notify me</span>
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {order.status === 'received' && (
+              <button 
+                type="button"
+                onClick={() => setShowCancelModal(true)} 
+                aria-label="Cancel this order"
+                className="inline-flex items-center gap-1.5 bg-destructive/10 text-destructive hover:bg-destructive/20 font-bold px-3 py-1.5 rounded-full text-xs transition-colors"
+              >
+                <XCircle size={15} />
+                <span>Cancel Order</span>
+              </button>
+            )}
+            {onNotify && !isFinal && (
+              <button 
+                onClick={onNotify} 
+                aria-label="Enable order notifications"
+                className="inline-flex items-center gap-1.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold px-3 py-1.5 rounded-full text-sm transition-colors"
+              >
+                <Bell size={16} />
+                <span>Notify me</span>
+              </button>
+            )}
+          </div>
         </div>
         
         <div className="w-full h-2 bg-muted rounded-full mb-3 overflow-hidden">
@@ -194,11 +209,74 @@ export function OrderStatusView({ order, onNotify }: { order: LiveOrder, onNotif
         {order.status === 'canceled' && (
           <div className="bg-destructive/10 border border-destructive/20 rounded-2xl p-4 flex items-start gap-3">
             <XCircle className="text-destructive flex-shrink-0 mt-0.5" size={24} />
-            <div>
+            <div className="w-full">
               <p className="font-bold text-destructive">
-                {isRejectedPayment ? "Payment Could Not Be Verified" : "Canceled by Restaurant"}
+                {isRejectedPayment 
+                  ? "Payment Could Not Be Verified" 
+                  : order.cancellation_source === 'customer' 
+                    ? "Canceled by Customer" 
+                    : "Canceled by Restaurant"}
               </p>
               <p className="text-sm text-foreground/90 mt-1">{order.cancel_reason || "Your order was canceled."}</p>
+
+              {/* Online refund status breakdown */}
+              {isOnline && (
+                <div className="mt-3 p-3.5 rounded-xl bg-card border border-border text-xs space-y-2">
+                  <div className="font-bold text-xs text-foreground flex items-center justify-between">
+                    <span className="uppercase tracking-wider text-muted-foreground">Refund Status</span>
+                    {(!order.refund_status || order.refund_status === 'pending_review') && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-800 dark:text-amber-300 font-bold text-[11px]">
+                        Pending Review
+                      </span>
+                    )}
+                    {order.refund_status === 'approved' && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-700 dark:text-blue-300 font-bold text-[11px]">
+                        Approved — Queued for Transfer
+                      </span>
+                    )}
+                    {order.refund_status === 'paid' && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-bold text-[11px]">
+                        Refund Completed
+                      </span>
+                    )}
+                    {order.refund_status === 'rejected' && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-destructive/20 text-destructive font-bold text-[11px]">
+                        Refund Rejected
+                      </span>
+                    )}
+                  </div>
+
+                  {(!order.refund_status || order.refund_status === 'pending_review') && (
+                    <p className="text-muted-foreground leading-relaxed">
+                      Our team has received your refund request and is reviewing your payment screenshot.
+                    </p>
+                  )}
+                  {order.refund_status === 'approved' && (
+                    <p className="text-muted-foreground leading-relaxed">
+                      Your refund was approved. Our manager is processing the bank transfer back to your account.
+                    </p>
+                  )}
+                  {order.refund_status === 'paid' && (
+                    <div className="space-y-1 text-emerald-700 dark:text-emerald-400">
+                      <p className="font-semibold">Refund amount of PKR {order.total} has been transferred.</p>
+                      {order.refund_trx_ref && (
+                        <p className="font-mono text-xs bg-muted px-2 py-1 rounded-md text-foreground inline-block">
+                          Bank Ref: {order.refund_trx_ref}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {order.refund_status === 'rejected' && (
+                    <div className="space-y-1 text-destructive">
+                      <p className="font-semibold">Refund request was not approved.</p>
+                      {order.refund_admin_note && (
+                        <p className="text-muted-foreground italic">Note: "{order.refund_admin_note}"</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="mt-3 flex items-center gap-2">
                 <a href={`tel:${SHOP_PHONE_LOCAL}`} className="inline-flex items-center gap-1.5 bg-destructive text-destructive-foreground text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-destructive/90 transition-colors">
                   <Phone size={14} /> Call {SHOP_PHONE_LOCAL}
@@ -267,6 +345,12 @@ export function OrderStatusView({ order, onNotify }: { order: LiveOrder, onNotif
            </div>
         </div>
       </div>
+
+      <CustomerCancelModal
+        isOpen={showCancelModal}
+        onClose={() => setShowCancelModal(false)}
+        order={order}
+      />
     </div>
   );
 }

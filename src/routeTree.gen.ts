@@ -17,6 +17,7 @@ import { Route as LocationsRouteImport } from './routes/locations'
 import { Route as MenuRouteImport } from './routes/menu'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as AdminCancellationsRouteImport } from './routes/admin/cancellations'
 import { Route as AdminFeedbackRouteImport } from './routes/admin/feedback'
 import { Route as AdminHistoryRouteImport } from './routes/admin/history'
 import { Route as AdminKitchenRouteImport } from './routes/admin/kitchen'
@@ -63,6 +64,11 @@ const TermsRoute = TermsRouteImport.update({
   path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminCancellationsRoute = AdminCancellationsRouteImport.update({
+  id: '/admin/cancellations',
+  path: '/admin/cancellations',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminFeedbackRoute = AdminFeedbackRouteImport.update({
   id: '/admin/feedback',
   path: '/admin/feedback',
@@ -98,6 +104,7 @@ export interface FileRoutesByFullPath {
   '/menu': typeof MenuRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
+  '/admin/cancellations': typeof AdminCancellationsRoute
   '/admin/feedback': typeof AdminFeedbackRoute
   '/admin/history': typeof AdminHistoryRoute
   '/admin/kitchen': typeof AdminKitchenRoute
@@ -113,6 +120,7 @@ export interface FileRoutesByTo {
   '/menu': typeof MenuRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
+  '/admin/cancellations': typeof AdminCancellationsRoute
   '/admin/feedback': typeof AdminFeedbackRoute
   '/admin/history': typeof AdminHistoryRoute
   '/admin/kitchen': typeof AdminKitchenRoute
@@ -129,6 +137,7 @@ export interface FileRoutesById {
   '/menu': typeof MenuRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
+  '/admin/cancellations': typeof AdminCancellationsRoute
   '/admin/feedback': typeof AdminFeedbackRoute
   '/admin/history': typeof AdminHistoryRoute
   '/admin/kitchen': typeof AdminKitchenRoute
@@ -146,6 +155,7 @@ export interface FileRouteTypes {
     | '/menu'
     | '/privacy'
     | '/terms'
+    | '/admin/cancellations'
     | '/admin/feedback'
     | '/admin/history'
     | '/admin/kitchen'
@@ -161,6 +171,7 @@ export interface FileRouteTypes {
     | '/menu'
     | '/privacy'
     | '/terms'
+    | '/admin/cancellations'
     | '/admin/feedback'
     | '/admin/history'
     | '/admin/kitchen'
@@ -176,6 +187,7 @@ export interface FileRouteTypes {
     | '/menu'
     | '/privacy'
     | '/terms'
+    | '/admin/cancellations'
     | '/admin/feedback'
     | '/admin/history'
     | '/admin/kitchen'
@@ -192,6 +204,7 @@ export interface RootRouteChildren {
   MenuRoute: typeof MenuRoute
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
+  AdminCancellationsRoute: typeof AdminCancellationsRoute
   AdminFeedbackRoute: typeof AdminFeedbackRoute
   AdminHistoryRoute: typeof AdminHistoryRoute
   AdminKitchenRoute: typeof AdminKitchenRoute
@@ -257,6 +270,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/cancellations': {
+      id: '/admin/cancellations'
+      path: '/admin/cancellations'
+      fullPath: '/admin/cancellations'
+      preLoaderRoute: typeof AdminCancellationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/feedback': {
       id: '/admin/feedback'
       path: '/admin/feedback'
@@ -304,6 +324,7 @@ const rootRouteChildren: RootRouteChildren = {
   MenuRoute: MenuRoute,
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
+  AdminCancellationsRoute: AdminCancellationsRoute,
   AdminFeedbackRoute: AdminFeedbackRoute,
   AdminHistoryRoute: AdminHistoryRoute,
   AdminKitchenRoute: AdminKitchenRoute,

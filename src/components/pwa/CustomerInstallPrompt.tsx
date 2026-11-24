@@ -6,15 +6,13 @@ const SNOOZE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export function CustomerInstallPrompt() {
   const [isOpen, setIsOpen] = useState(false);
-  const [platform, setPlatform] = useState<'android' | 'ios' | 'other' | null>(null);
+  const [platform, setPlatform] = useState<'android' | 'ios' | 'desktop' | null>(null);
   const [hasPrompt, setHasPrompt] = useState(false);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    // Check if mobile device
-    const ua = typeof navigator !== 'undefined' ? navigator.userAgent.toLowerCase() : '';
-    const isMobile = /android|iphone|ipad|ipod|mobile/i.test(ua);
-    if (!isMobile) return;
+    // Don't show on admin routes
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) return;
 
     // Check if already running as standalone PWA
     const isStandalone = typeof window !== 'undefined' && (
@@ -24,10 +22,20 @@ export function CustomerInstallPrompt() {
     );
     if (isStandalone) return;
 
+    // Check snooze dismissal
+    try {
+      const dismissedUntil = Number(localStorage.getItem(DISMISS_KEY)) || 0;
+      if (Date.now() < dismissedUntil) return;
+    } catch {}
+
+    // Detect platform
+    const ua = typeof navigator !== 'undefined' ? navigator.userAgent.toLowerCase() : '';
     const isIos = /iphone|ipad|ipod/.test(ua);
     const isAndroid = /android/.test(ua);
-    setPlatform(isIos ? 'ios' : isAndroid ? 'android' : 'other');
+    const isMobile = isIos || isAndroid || /mobile/i.test(ua);
+    setPlatform(isIos ? 'ios' : isAndroid ? 'android' : 'desktop');
 
+    // Listen for beforeinstallprompt (Android/Chromium)
     const handlePromptReady = () => {
       if ((window as any).__deferredPwaPrompt) {
         setHasPrompt(true);
@@ -38,27 +46,14 @@ export function CustomerInstallPrompt() {
     }
     window.addEventListener('pwaPromptReady', handlePromptReady);
 
-    const handleOrderPlaced = (e: Event) => {
-      // Check snooze dismissal
-      const dismissedUntil = Number(localStorage.getItem(DISMISS_KEY)) || 0;
-      if (Date.now() < dismissedUntil) return;
-
-      const customEvent = e as CustomEvent<{ orderId?: string }>;
-      const id = customEvent.detail?.orderId;
-      // Only show after a confirmed real order exists
-      if (!id || id === '00000000-0000-0000-0000-000000000000') return;
-
-      // Small delay so user sees order confirmation before install prompt appears
-      setTimeout(() => {
-        setIsOpen(true);
-      }, 1000);
-    };
-
-    window.addEventListener('orderCompleted', handleOrderPlaced as EventListener);
+    // Show on first visit after hydration (small delay for page to load)
+    const timer = setTimeout(() => {
+      setIsOpen(true);
+    }, 2500);
 
     return () => {
+      clearTimeout(timer);
       window.removeEventListener('pwaPromptReady', handlePromptReady);
-      window.removeEventListener('orderCompleted', handleOrderPlaced as EventListener);
     };
   }, []);
 
@@ -114,7 +109,7 @@ export function CustomerInstallPrompt() {
             </div>
             <div>
               <h2 id="install-title" className="font-bold text-base text-foreground leading-tight">
-                Add to Home Screen
+                Install Amir Fast Food
               </h2>
               <p className="text-xs text-muted-foreground mt-0.5">
                 Fast 1-tap ordering &amp; live delivery updates

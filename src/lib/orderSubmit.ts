@@ -10,6 +10,7 @@ import type { CartItem } from '../types';
 export interface SubmitOrderResult {
   success: boolean;
   orderId?: string;
+  cancellationToken?: string;
   paymentMethod?: 'cod' | 'online_transfer';
   code?: ErrorCode;
   error?: string;
@@ -106,7 +107,7 @@ export async function submitOrder(draft: OrderDraft, cart: CartItem[]): Promise<
       } catch {}
 
       if (newOrderId) {
-        addActiveOrder(newOrderId);
+        addActiveOrder(newOrderId, res.cancellationToken);
         markJustOrdered(newOrderId);
       }
       window.dispatchEvent(new Event('cartUpdated'));
@@ -119,6 +120,7 @@ export async function submitOrder(draft: OrderDraft, cart: CartItem[]): Promise<
     return {
       success: true,
       orderId: newOrderId,
+      cancellationToken: res.cancellationToken,
       paymentMethod: draft.payment.method
     };
   } catch (err: any) {

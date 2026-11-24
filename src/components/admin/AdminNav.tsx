@@ -58,6 +58,7 @@ export function AdminNav() {
         <Link to="/admin/kitchen" className={`[&.active]:text-primary hover:text-primary transition-colors ${!isDark ? 'text-slate-600' : 'text-slate-300'}`}>Kitchen</Link>
         <Link to="/admin/menu" className={`[&.active]:text-primary hover:text-primary transition-colors ${!isDark ? 'text-slate-600' : 'text-slate-300'}`}>Menu</Link>
         <Link to="/admin/history" className={`[&.active]:text-primary hover:text-primary transition-colors ${!isDark ? 'text-slate-600' : 'text-slate-300'}`}>History</Link>
+        <Link to="/admin/cancellations" className={`[&.active]:text-primary hover:text-primary transition-colors ${!isDark ? 'text-slate-600' : 'text-slate-300'}`}>Cancellations</Link>
         <Link to="/admin/feedback" className={`[&.active]:text-primary hover:text-primary transition-colors ${!isDark ? 'text-slate-600' : 'text-slate-300'}`}>Feedback</Link>
       </div>
       

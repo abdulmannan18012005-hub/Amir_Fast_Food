@@ -119,7 +119,7 @@ function resolveActions(text: string): { cleanReply: string; actions: any[] } {
       actions.push({ type: 'SHOW_CART' });
     } else if (type === 'GO_STEP' && payload) {
       const stepNum = parseInt(payload.trim(), 10);
-      actions.push({ type: 'GO_STEP', step: isNaN(stepNum) ? 1 : Math.min(Math.max(1, stepNum), 7) });
+      actions.push({ type: 'GO_STEP', step: isNaN(stepNum) ? 1 : Math.min(Math.max(1, stepNum), 6) });
     } else if (type === 'CHECKOUT') {
       actions.push({ type: 'GO_STEP', step: 2 });
     } else if (type === 'OPEN_MENU' && payload) {

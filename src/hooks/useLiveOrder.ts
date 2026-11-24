@@ -13,6 +13,13 @@ export type LiveOrder = {
   created_at: string;
   status_changed_at: string;
   canceled_at: string | null;
+  cancellation_source?: 'customer' | 'admin' | 'system' | null;
+  refund_status?: 'not_required' | 'pending_review' | 'approved' | 'paid' | 'rejected' | null;
+  refund_proof_path?: string | null;
+  refund_reviewed_at?: string | null;
+  refund_paid_at?: string | null;
+  refund_trx_ref?: string | null;
+  refund_admin_note?: string | null;
   payment_method: string;
   subtotal: number;
   delivery_fee: number;
