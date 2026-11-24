@@ -22,16 +22,21 @@ async function dispatchPushToSubscriber(
   }
 }
 
+function getVapidConfig() {
+  const publicKey = (process.env.VAPID_PUBLIC_KEY || process.env.PUBLIC_VAPID_KEY || '').trim();
+  const privateKey = (process.env.VAPID_PRIVATE_KEY || process.env.PRIVATE_VAPID_KEY || '').trim();
+  const subject = (process.env.VAPID_SUBJECT || (process.env.SHOP_EMAIL ? `mailto:${process.env.SHOP_EMAIL}` : 'https://amir-fast-food.vercel.app')).trim();
+  return { publicKey, privateKey, subject };
+}
+
 async function initWebPush() {
-  const VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY;
-  const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY;
-  const VAPID_SUBJECT = process.env.VAPID_SUBJECT || (process.env.SHOP_EMAIL ? `mailto:${process.env.SHOP_EMAIL}` : 'https://amir-fast-food.vercel.app');
-  if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
+  const { publicKey, privateKey, subject } = getVapidConfig();
+  if (!publicKey || !privateKey) {
     console.warn("Skipping push: VAPID keys missing.");
     return null;
   }
   const webpush = (await import('web-push')).default;
-  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
+  webpush.setVapidDetails(subject, publicKey, privateKey);
   return webpush;
 }
 
@@ -41,7 +46,7 @@ import { getClientIp, verifyAdminPin, requireAdmin } from './auth';
 
 export const getVapidPublicKeyFn = createServerFn({ method: "POST" })
   .handler(async () => {
-    return { publicKey: process.env.VAPID_PUBLIC_KEY || '' };
+    return { publicKey: getVapidConfig().publicKey };
   });
 
 export const subscribeToPushFn = createServerFn({ method: "POST" })
@@ -136,13 +141,8 @@ export const subscribeAdminPushFn = createServerFn({ method: "POST" })
 
 export async function sendAdminOrderPush(orderId: string, summary: string) {
   try {
-    const webpush = (await import('web-push')).default;
-    const VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY;
-    const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY;
-    const VAPID_SUBJECT = process.env.VAPID_SUBJECT || (process.env.SHOP_EMAIL ? `mailto:${process.env.SHOP_EMAIL}` : 'https://amir-fast-food.vercel.app');
-    
-    if (!VAPID_PUBLIC || !VAPID_PRIVATE) return;
-    webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
+    const webpush = await initWebPush();
+    if (!webpush) return;
 
     const supabase = getSupabaseServer();
     const { data: subs } = await supabase.from('push_subscriptions').select('*').eq('role', 'admin');
