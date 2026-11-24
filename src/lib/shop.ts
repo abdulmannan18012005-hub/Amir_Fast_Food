@@ -14,7 +14,7 @@ export const SHOP_DELIVERY_MAX_KM = 15;
 export const SHOP_COD_THRESHOLD = 1000;
 export const SHOP_COD_FEE = 100;
 export const SHOP_ESTIMATED_DELIVERY_TIME = 'Estimated delivery 30–40 minutes, depending on distance and order volume';
-export const SHOP_CANCELLATION_POLICY = 'Orders cannot be cancelled on the website once placed as kitchen preparation begins immediately. Please call 0301 4265785 immediately if you need assistance.';
+export const SHOP_CANCELLATION_POLICY = 'You can cancel an order online on the tracking page only while its status is "Order Received" (before kitchen preparation begins). Once preparation starts, online cancellation closes — please call 0301 4265785 for assistance.';
 export const SHOP_PAYMENT_METHODS = 'Cash on Delivery (COD), EasyPaisa, and JazzCash manual transfer';
 export const SHOP_PAYMENT_VERIFICATION_NOTE = "Online-transfer orders start preparation after we verify the Transaction ID in our EasyPaisa/JazzCash app.";
 

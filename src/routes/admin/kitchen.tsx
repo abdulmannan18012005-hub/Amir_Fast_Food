@@ -12,6 +12,17 @@ import { subscribeAdminPushFn, sendTestAdminPushFn, getVapidPublicKeyFn } from '
 import { adminCall, clearAdminSession } from '../../lib/adminSession';
 
 
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
 function KitchenColumn({
   title,
   icon,
@@ -97,11 +108,15 @@ function KitchenKDS() {
       setPushStatus('Not Supported');
       return;
     }
-    navigator.permissions.query({ name: 'notifications' }).then(status => {
+    if (typeof Notification !== 'undefined') {
+      if (Notification.permission === 'denied') setPushStatus('Blocked');
+      else if (Notification.permission === 'granted') setPushStatus('Enabled');
+    }
+    navigator.permissions?.query({ name: 'notifications' as PermissionName }).then(status => {
       if (status.state === 'denied') setPushStatus('Blocked');
       else if (status.state === 'granted') setPushStatus('Enabled');
       else setPushStatus('Checking...');
-    });
+    }).catch(() => {});
   }, []);
 
   const handleEnablePush = async () => {
@@ -118,6 +133,7 @@ function KitchenKDS() {
         setPushStatus('Blocked');
         return;
       }
+      if (permission !== 'granted') return;
 
       const swRegistration = await navigator.serviceWorker.ready;
       let subscription = await swRegistration.pushManager.getSubscription();
@@ -125,7 +141,7 @@ function KitchenKDS() {
       if (!subscription) {
         subscription = await swRegistration.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: publicKey
+          applicationServerKey: urlBase64ToUint8Array(publicKey)
         });
       }
 

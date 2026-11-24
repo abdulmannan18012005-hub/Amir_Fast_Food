@@ -4,6 +4,8 @@ export type ErrorCode =
   | 'shop_closed'
   | 'tid_duplicate'
   | 'payment_unverified'
+  | 'cancellation_ineligible'
+  | 'unauthorized'
   | 'validation'
   | 'db_migration_needed';
 

@@ -123,7 +123,7 @@ export function CustomerCancelModal({ isOpen, onClose, order, onSuccess }: Custo
         });
 
         if (!uploadRes.success || !uploadRes.proofPath) {
-          throw new Error(uploadRes.error?.message || 'Failed to upload payment proof. Please try again.');
+          throw new Error(typeof uploadRes.error === 'string' ? uploadRes.error : 'Failed to upload payment proof. Please try again.');
         }
 
         proofPath = uploadRes.proofPath;
@@ -140,7 +140,7 @@ export function CustomerCancelModal({ isOpen, onClose, order, onSuccess }: Custo
       });
 
       if (!cancelRes.success) {
-        throw new Error(cancelRes.error?.message || 'Could not cancel order. Please call the shop.');
+        throw new Error(typeof cancelRes.error === 'string' ? cancelRes.error : 'Could not cancel order. Please call the shop.');
       }
 
       // Success

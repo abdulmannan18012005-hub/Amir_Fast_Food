@@ -19,12 +19,14 @@ export function getActiveOrders(): ActiveOrder[] {
 }
 
 export function addActiveOrder(id: string, cancellationToken?: string) {
+  const existing = getActiveOrders().find(o => o.id === id);
+  const resolvedToken = cancellationToken || existing?.cancellationToken;
   const current = getActiveOrders().filter(o => o.id !== id);
-  const updated = [{ id, placedAt: Date.now(), cancellationToken }, ...current].slice(0, 5);
+  const updated = [{ id, placedAt: Date.now(), cancellationToken: resolvedToken }, ...current].slice(0, 5);
   setLocal('active_orders', updated);
-  if (cancellationToken) {
+  if (resolvedToken) {
     try {
-      localStorage.setItem(`order_cancel_tok_${id}`, cancellationToken);
+      localStorage.setItem(`order_cancel_tok_${id}`, resolvedToken);
     } catch {}
   }
   window.dispatchEvent(new Event('storage'));

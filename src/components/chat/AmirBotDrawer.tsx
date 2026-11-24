@@ -208,8 +208,7 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
         lat: draft.delivery.lat,
         lng: draft.delivery.lng,
         subtotal,
-        paymentMethod: draft.payment.method,
-        itemCount: cartItems.length,
+        paymentMethod: draft.payment.method || 'online_transfer',
       }
     }).then(res => {
       if (!res.ok) {
@@ -338,8 +337,8 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
       async (pos) => {
         const { latitude, longitude } = pos.coords;
         try {
-          const res = await reverseGeocodeFn({ data: { lat: latitude, lng: longitude } });
-          const resolvedAddr = res.address || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+          const addr = await reverseGeocodeFn({ data: { lat: latitude, lng: longitude } });
+          const resolvedAddr = addr || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
           updateDraft({
             delivery: {
               lat: latitude,
@@ -413,17 +412,17 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
       }
     }
 
+    if (deliveryError) {
+      addToast(deliveryError, 'error');
+      setStep(3);
+      return;
+    }
+
     setIsSubmitting(true);
     setStep(6);
 
     try {
-      const finalFee = totalDeliveryFee;
-      const res = await submitOrder({
-        draft,
-        items: cartItems,
-        subtotal,
-        deliveryFee: finalFee,
-      });
+      const res = await submitOrder(draft, cartItems);
 
       if (!res.success || !res.orderId) {
         throw new Error(res.error || 'Failed to place order. Please try again.');
@@ -431,7 +430,7 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
 
       playSuccessChime();
       const orderId = res.orderId;
-      const shortCode = res.shortCode || orderId.slice(0, 8).toUpperCase();
+      const shortCode = orderId.slice(0, 8).toUpperCase();
       setSuccessOrderId(orderId);
       setSuccessShortCode(shortCode);
 
@@ -493,11 +492,16 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
 
       // 1. Order Intent Recognition:
       // If customer asks to place an order or buy food, and ordering flow is not yet active:
+      const isTrackOrCancel = ['track', 'status', 'cancel', 'where is my'].some(k => lower.includes(k));
       const intentPhrases = [
-        'order', 'place order', 'want to order', 'order food', 'i want to order', 
-        'can i order', 'order kardo', 'mujhe order karna hai', 'buy', 'khana chahiye'
+        'place order', 'want to order', 'order food', 'i want to order', 
+        'can i order', 'order kardo', 'mujhe order karna hai', 'khana chahiye', 'start order'
       ];
-      const hasOrderIntent = intentPhrases.some(p => lower.includes(p));
+      const hasOrderIntent = !isTrackOrCancel && (
+        lower === 'order' ||
+        lower === 'buy' ||
+        intentPhrases.some(p => lower.includes(p))
+      );
 
       if (hasOrderIntent && !isOrderingActive) {
         setIsTyping(false);
@@ -595,7 +599,8 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
         }
 
         // Step 3: Delivery address parsing
-        if (step === 3 && txt.length > 5 && !lower.includes('menu') && !lower.includes('cart')) {
+        const looksLikeQuestion = txt.includes('?') || /^(how|what|why|when|where|kitna|kya|menu|cart|cancel)/i.test(lower);
+        if (step === 3 && txt.length >= 10 && !looksLikeQuestion) {
           const addrVal = validateAddress(txt);
           if (addrVal.valid) {
             updateDraft({
@@ -639,7 +644,7 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
                         { role: 'user', text: 'Online Transfer' },
                         { 
                           role: 'bot', 
-                          text: `Please transfer PKR ${subtotal + totalDeliveryFee} to our account:\n• EasyPaisa / JazzCash: ${SHOP_PHONE_LOCAL}\n• Bank: Meezan Bank (Amir Fast Food)\n\nOnce transferred, please type your Transaction ID (TID) here:`
+                          text: `Please transfer PKR ${subtotal + totalDeliveryFee} via EasyPaisa / JazzCash to:\n• Account Number: ${SHOP_PHONE_LOCAL}\n\nOnce transferred, please type your Transaction ID (TID) here:`
                         }
                       ]);
                     } 
@@ -1095,13 +1100,18 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
                   {draft.delivery.address && (
                     <div className="p-2 bg-muted rounded-xl space-y-1 text-[11px]">
                       <p className="font-semibold text-foreground truncate">📍 {draft.delivery.address}</p>
-                      <p className="text-muted-foreground">
-                        Distance: ~{distanceKm.toFixed(1)} km | Fee: {totalDeliveryFee === 0 ? 'FREE' : `PKR ${totalDeliveryFee}`}
-                      </p>
+                      {deliveryError ? (
+                        <p className="text-destructive font-semibold">{deliveryError}</p>
+                      ) : (
+                        <p className="text-muted-foreground">
+                          Distance: ~{distanceKm.toFixed(1)} km | Fee: {totalDeliveryFee === 0 ? 'FREE' : `PKR ${totalDeliveryFee}`}
+                        </p>
+                      )}
                       <button
                         type="button"
+                        disabled={!!deliveryError}
                         onClick={() => setStep(4)}
-                        className="w-full py-1.5 mt-1 bg-primary text-primary-foreground rounded-lg font-bold"
+                        className="w-full py-1.5 mt-1 bg-primary text-primary-foreground rounded-lg font-bold disabled:opacity-50"
                       >
                         Continue to Payment →
                       </button>
@@ -1201,7 +1211,7 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
                   <div className="pt-1">
                     <button
                       type="button"
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || !shopStatus.open || !!deliveryError}
                       onClick={handleConfirmOrder}
                       className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl font-black text-xs shadow-md transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
                     >
@@ -1210,6 +1220,8 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
                           <Loader2 size={14} className="animate-spin" />
                           <span>Placing Order...</span>
                         </>
+                      ) : !shopStatus.open ? (
+                        <span>Closed right now (Opens {shopStatus.opensAtLabel})</span>
                       ) : (
                         <span>Confirm & Place Order (PKR {subtotal + totalDeliveryFee})</span>
                       )}

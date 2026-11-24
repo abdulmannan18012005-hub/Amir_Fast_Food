@@ -462,7 +462,7 @@ export const markRefundPaidFn = createServerFn({ method: "POST" })
 
     const { data: current, error: fetchErr } = await supabase
       .from('orders')
-      .select('id, status, payment_method, refund_status, total_amount')
+      .select('id, status, payment_method, refund_status, total_amount, delivery_fee')
       .eq('id', orderId)
       .maybeSingle();
 
@@ -495,7 +495,8 @@ export const markRefundPaidFn = createServerFn({ method: "POST" })
     // Push notification to customer
     const code = orderId.slice(0, 8).toUpperCase();
     const refText = cleanRef ? ` (Ref: ${cleanRef})` : '';
-    const pushMsg = `Refund Completed! We have sent your refund of PKR ${current.total_amount} to your account${refText}. Thank you!`;
+    const refundTotal = Number(current.total_amount || 0) + Number(current.delivery_fee || 0);
+    const pushMsg = `Refund Completed! We have sent your refund of PKR ${refundTotal} to your account${refText}. Thank you!`;
 
     await Promise.race([
       sendOrderPush(orderId, 'canceled', 'Amir Fast Food - Refund Paid', pushMsg),

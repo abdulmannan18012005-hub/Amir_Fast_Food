@@ -478,8 +478,8 @@ function CheckoutPage() {
                 )}
 
                 <label className="flex items-start gap-3 mb-6 p-4 bg-red-50 text-red-900 border border-red-200 rounded-xl cursor-pointer">
-                  <input type="checkbox"  checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1 w-5 h-5 accent-red-600 rounded flex-shrink-0" />
-                  <span className="text-sm font-medium leading-tight">Orders cannot be cancelled on the website once placed as kitchen preparation begins immediately. I agree and wish to place my order.</span>
+                  <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1 w-5 h-5 accent-red-600 rounded flex-shrink-0" />
+                  <span className="text-sm font-medium leading-tight">Orders can be cancelled on the tracking page only while status is "Order Received" (before kitchen preparation starts). Once preparation begins, online cancellation closes. I agree and wish to place my order.</span>
                 </label>
 
                 <div className="flex gap-4 pt-6 mt-6 border-t border-border">
