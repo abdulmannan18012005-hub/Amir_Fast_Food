@@ -115,6 +115,7 @@ function CheckoutPage() {
   const [locMsg, setLocMsg] = useState('');
   
   // Pricing State
+  const [addressLocated, setAddressLocated] = useState(false);
   const [distanceKm, setDistanceKm] = useState(0);
   const [codFee, setCodFee] = useState(0);
   const [distanceFee, setDistanceFee] = useState(0);
@@ -142,8 +143,10 @@ function CheckoutPage() {
         if (!res.ok) {
           setDistanceError(res.error || 'Delivery unavailable.');
           setTotalDeliveryFee(0);
+          setAddressLocated(false);
         } else {
           setDistanceError('');
+          setAddressLocated(Boolean((res as any).addressLocated));
           setDistanceKm(res.distanceKm || 0);
           setCodFee(res.codFee || 0);
           setDistanceFee(res.distanceFee || 0);
@@ -313,7 +316,7 @@ function CheckoutPage() {
               <section className="animate-in fade-in slide-in-from-bottom-4">
                 <h2 className="text-xl font-bold mb-6">Delivery Details</h2>
                 
-                <input type="text" id="website_honeypot" name="website_url_hp" style={{position: 'absolute', left: '-9999px'}} tabIndex={-1} autoComplete="off" aria-hidden="true" />
+                <input type="text" id="website_honeypot" name="website_url_hp" className="sr-only" tabIndex={-1} autoComplete="off" aria-hidden="true" />
                 
                 <div className="space-y-4">
                   <div>
@@ -407,7 +410,9 @@ function CheckoutPage() {
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Delivery</span>
                     <span className="font-bold">
-                       {totalDeliveryFee === 0 ? 'FREE' : `PKR ${totalDeliveryFee}`}
+                       {!addressLocated
+                         ? (codFee > 0 ? `PKR ${codFee} (+ distance if >5 km)` : 'Calculated when located')
+                         : (totalDeliveryFee === 0 ? 'FREE' : `PKR ${totalDeliveryFee}`)}
                     </span>
                   </div>
                   {distanceFee > 0 && (

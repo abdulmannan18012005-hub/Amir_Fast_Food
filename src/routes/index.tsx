@@ -2,6 +2,8 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { seo } from '../lib/seo';
 import React from 'react';
 import { getCategoryImagesFn, getHighlightImagesFn } from '../server/menu';
+import { useShopStatus } from '../hooks/useShopStatus';
+import { SHOP_HOURS_DISPLAY } from '../lib/shop';
 
 export const Route = createFileRoute('/')({
   component: Index,
@@ -24,13 +26,14 @@ export const Route = createFileRoute('/')({
 
 function Index() {
   const { categoryImages, highlightImages } = Route.useLoaderData();
+  const shopStatus = useShopStatus();
   return (
     <>
       {/* Hero Section */}
-      <section className="relative bg-background min-h-[80vh] flex items-center pt-24 sm:pt-28 pb-16 lg:py-0">
-        <div className="container mx-auto px-4 relative lg:static z-10 w-full">
+      <section className="relative w-full min-w-0 bg-background min-h-[520px] lg:min-h-[620px] flex items-center pt-20 sm:pt-24 pb-12 lg:py-16">
+        <div className="container mx-auto px-4 relative lg:static z-10 w-full min-w-0">
           <div className="flex flex-col lg:w-1/2 lg:pr-12 relative z-10">
-            <div className="inline-flex items-center gap-2 mb-6 mt-8 lg:mt-0">
+            <div className="inline-flex items-center gap-2 mb-6 mt-4 lg:mt-0">
               <div className="h-0.5 w-12 bg-primary"></div>
               <span className="text-xs sm:text-sm font-medium uppercase tracking-wider text-primary">Amir Fast Food</span>
             </div>
@@ -53,10 +56,24 @@ function Index() {
               </Link>
             </div>
 
-            <div className="mt-10 flex flex-wrap gap-4 sm:gap-6 text-muted-foreground text-sm font-medium">
+            <div className="mt-8 flex flex-wrap gap-3 sm:gap-5 text-muted-foreground text-sm font-medium">
               <span className="flex items-center gap-1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary" aria-hidden="true" focusable="false"><path d="M3 10l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg> Kakazai, Lahore</span>
               <span className="flex items-center gap-1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> Estimated 30–40 mins</span>
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border ${
+                shopStatus.open
+                  ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30'
+                  : 'bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-500/30'
+              }`}>
+                <span className={`w-2 h-2 rounded-full ${shopStatus.open ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                {shopStatus.open ? `Open Now (${SHOP_HOURS_DISPLAY} PKT)` : `Closed · Opens ${shopStatus.opensAtLabel} PKT`}
+              </span>
             </div>
+
+            {!shopStatus.open && (
+              <div role="status" className="mt-4 max-w-lg p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs font-medium leading-relaxed">
+                {shopStatus.closedMessage}
+              </div>
+            )}
           </div>
           
           {/* Responsive Hero Image - In-flow rounded block on < lg, full-bleed absolute on >= lg */}
@@ -76,8 +93,8 @@ function Index() {
       </section>
 
       {/* Category Showcase Slider */}
-      <section className="py-16 bg-card border-y border-border">
-        <div className="container mx-auto px-4">
+      <section className="py-16 bg-card border-y border-border w-full min-w-0">
+        <div className="container mx-auto px-4 min-w-0">
           <div className="text-center mb-10 sm:mb-14">
             <span className="text-sm font-medium text-primary uppercase tracking-wider">Explore</span>
             <h2 className="font-display text-2xl sm:text-3xl font-bold mt-2 md:text-5xl">Our <span className="text-gradient">Categories</span></h2>
@@ -114,7 +131,7 @@ function Index() {
       </section>
 
       {/* Menu Highlights Section */}
-      <section className="container mx-auto px-4 py-16 sm:py-20 md:py-28">
+      <section className="container mx-auto px-4 py-16 sm:py-20 md:py-28 w-full min-w-0">
         <div className="text-center mb-10 sm:mb-14">
           <span className="text-sm font-medium text-primary uppercase tracking-wider">Favorites</span>
           <h2 className="font-display text-2xl sm:text-3xl font-bold mt-2 md:text-5xl">Our <span className="text-primary">highlights</span></h2>
@@ -155,7 +172,7 @@ function Index() {
 
 
       {/* Hungry Section CTA */}
-      <section className="container mx-auto px-4 pb-16 sm:pb-20 mt-16">
+      <section className="container mx-auto px-4 pb-16 sm:pb-20 mt-16 w-full min-w-0">
         <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-br from-primary to-primary/80 p-8 sm:p-10 md:p-16 text-center shadow-xl shadow-primary/20">
           <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 20%, white 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
           <div className="relative z-10">

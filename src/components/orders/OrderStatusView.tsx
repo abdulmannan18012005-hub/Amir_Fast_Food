@@ -5,9 +5,11 @@ import { SHOP_PHONE_LOCAL } from '../../lib/shop';
 import { OrderFeedback } from './OrderFeedback';
 import { CustomerCancelModal } from './CustomerCancelModal';
 
-export function OrderStatusView({ order, onNotify }: { order: LiveOrder, onNotify?: () => void }) {
+export function OrderStatusView({ order, onNotify }: { order: LiveOrder, onNotify?: () => Promise<boolean> | void }) {
   const [now, setNow] = useState(Date.now());
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [notifyMsg, setNotifyMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [enablingNotify, setEnablingNotify] = useState(false);
   
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 10000);
@@ -119,16 +121,43 @@ export function OrderStatusView({ order, onNotify }: { order: LiveOrder, onNotif
             )}
             {onNotify && !isFinal && (
               <button 
-                onClick={onNotify} 
+                type="button"
+                disabled={enablingNotify}
+                onClick={async () => {
+                  setEnablingNotify(true);
+                  setNotifyMsg(null);
+                  try {
+                    const result = await onNotify();
+                    if (result === true) {
+                      setNotifyMsg({ ok: true, text: 'Order notifications enabled for this order.' });
+                    } else {
+                      setNotifyMsg({ ok: false, text: 'Could not enable notifications — check browser notification permissions.' });
+                    }
+                  } catch {
+                    setNotifyMsg({ ok: false, text: 'Unable to verify notification setup right now.' });
+                  } finally {
+                    setEnablingNotify(false);
+                  }
+                }} 
                 aria-label="Enable order notifications"
-                className="inline-flex items-center gap-1.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold px-3 py-1.5 rounded-full text-sm transition-colors"
+                className="inline-flex items-center gap-1.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold px-3 py-1.5 rounded-full text-sm transition-colors disabled:opacity-50"
               >
                 <Bell size={16} />
-                <span>Notify me</span>
+                <span>{enablingNotify ? 'Enabling...' : 'Notify me'}</span>
               </button>
             )}
           </div>
         </div>
+
+        {notifyMsg && (
+          <div role="status" className={`mb-3 text-xs font-semibold px-3 py-2 rounded-xl border ${
+            notifyMsg.ok
+              ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30'
+              : 'bg-amber-500/10 text-amber-800 dark:text-amber-200 border-amber-500/30'
+          }`}>
+            {notifyMsg.text}
+          </div>
+        )}
         
         <div className="w-full h-2 bg-muted rounded-full mb-3 overflow-hidden">
           <div 

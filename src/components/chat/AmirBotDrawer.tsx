@@ -22,7 +22,7 @@ import {
   SHOP_ESTIMATED_DELIVERY_TIME, SHOP_CANCELLATION_POLICY, 
   SHOP_PAYMENT_VERIFICATION_NOTE, SHOP_COD_THRESHOLD, SHOP_COD_FEE 
 } from '../../lib/shop';
-import type { CartItem } from '../../types';
+import type { CartItem, ItemVariant } from '../../types';
 
 export type Msg = { 
   role: 'user' | 'bot' | 'system'; 
@@ -134,6 +134,7 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
   const [distanceKm, setDistanceKm] = useState(0);
   const [codFee, setCodFee] = useState(0);
   const [totalDeliveryFee, setTotalDeliveryFee] = useState(0);
+  const [addressLocated, setAddressLocated] = useState(false);
   const [deliveryError, setDeliveryError] = useState('');
   const [gettingLocation, setGettingLocation] = useState(false);
 
@@ -146,13 +147,19 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
   const [confirmReset, setConfirmReset] = useState(false);
   const [confirmClearChat, setConfirmClearChat] = useState(false);
 
-  // Action Queue for pending cart confirmations
-  const [actionQueue, setActionQueue] = useState<{
+  // Pending Cart Confirmation Queue (AmirBot never mutates cart without explicit confirmation)
+  type PendingCartAction = {
     id: string;
-    title: string;
-    description: string;
-    execute: () => void;
-  }[]>([]);
+    type: 'ADD_ITEM' | 'SET_QTY' | 'REMOVE_ITEM' | 'CLEAR_CART';
+    menu_item_id?: string;
+    name: string;
+    price: number;
+    qty: number;
+    image_url?: string;
+    availableVariants?: ItemVariant[];
+    selectedVariants: ItemVariant[];
+  };
+  const [actionQueue, setActionQueue] = useState<PendingCartAction[]>([]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const toastIdRef = useRef(0);
@@ -199,6 +206,7 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
       setDistanceKm(0);
       setTotalDeliveryFee(0);
       setCodFee(0);
+      setAddressLocated(false);
       return;
     }
 
@@ -214,14 +222,17 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
       if (!res.ok) {
         setDeliveryError(res.error || 'Delivery unavailable to this address.');
         setTotalDeliveryFee(0);
+        setAddressLocated(false);
       } else {
         setDeliveryError('');
+        setAddressLocated(Boolean((res as any).addressLocated));
         setDistanceKm(res.distanceKm || 0);
         setCodFee(res.codFee || 0);
         setTotalDeliveryFee(res.totalDeliveryFee || 0);
       }
     }).catch(() => {
       setDeliveryError('Could not calculate delivery charges.');
+      setAddressLocated(false);
     });
   }, [draft.delivery.address, draft.delivery.lat, draft.delivery.lng, draft.payment.method, subtotal, cartItems.length]);
 
@@ -271,39 +282,95 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
     addToast('Started over with a fresh cart.', 'info');
   };
 
-  // Execute server-directed actions
+  // Queue server-directed cart actions for explicit confirmation (never mutate cart automatically)
   const executeActions = (actions: any[]) => {
     if (!actions || !Array.isArray(actions)) return;
 
     for (const action of actions) {
       switch (action.type) {
+        case 'PROPOSE_ADD':
         case 'ADD_ITEM': {
-          const item: CartItem = {
-            menu_item_id: action.menu_item_id,
-            name: action.name,
-            image_url: action.image_url || '/placeholder.webp',
-            quantity: action.qty || 1,
-            price: action.price,
-            variants: action.variants || [],
-          };
-          addToCart(item);
-          playSuccessChime();
-          addToast(`Added ${item.quantity}x ${item.name} to cart`, 'success');
+          if (!action.menu_item_id || !action.name) break;
+          setActionQueue(prev => {
+            const exists = prev.some(
+              p => p.type === 'ADD_ITEM' && p.menu_item_id === action.menu_item_id && p.qty === (action.qty || 1)
+            );
+            if (exists) return prev;
+            return [
+              ...prev,
+              {
+                id: `add_${action.menu_item_id}_${Date.now()}`,
+                type: 'ADD_ITEM',
+                menu_item_id: action.menu_item_id,
+                name: action.name,
+                price: Number(action.price) || 0,
+                qty: action.qty || 1,
+                image_url: action.image_url || '/placeholder.webp',
+                availableVariants: Array.isArray(action.availableVariants) ? action.availableVariants : [],
+                selectedVariants: [],
+              }
+            ];
+          });
           break;
         }
         case 'SET_QTY': {
-          updateItemQuantity(action.menu_item_id, [], action.qty || 1);
-          addToast('Cart updated', 'info');
+          if (!action.menu_item_id) break;
+          const matching = getCart().find(i => i.menu_item_id === action.menu_item_id);
+          if (!matching) break;
+          setActionQueue(prev => {
+            if (prev.some(p => p.type === 'SET_QTY' && p.menu_item_id === action.menu_item_id)) return prev;
+            return [
+              ...prev,
+              {
+                id: `qty_${action.menu_item_id}_${Date.now()}`,
+                type: 'SET_QTY',
+                menu_item_id: action.menu_item_id,
+                name: matching.name,
+                price: matching.price,
+                qty: action.qty || 1,
+                selectedVariants: matching.variants || [],
+              }
+            ];
+          });
           break;
         }
         case 'REMOVE_ITEM': {
-          removeItem(action.menu_item_id, []);
-          addToast(`Removed ${action.name || 'item'} from cart`, 'info');
+          if (!action.menu_item_id) break;
+          const matching = getCart().find(i => i.menu_item_id === action.menu_item_id);
+          if (!matching) break;
+          setActionQueue(prev => {
+            if (prev.some(p => p.type === 'REMOVE_ITEM' && p.menu_item_id === action.menu_item_id)) return prev;
+            return [
+              ...prev,
+              {
+                id: `rm_${action.menu_item_id}_${Date.now()}`,
+                type: 'REMOVE_ITEM',
+                menu_item_id: action.menu_item_id,
+                name: matching.name,
+                price: matching.price,
+                qty: matching.quantity,
+                selectedVariants: matching.variants || [],
+              }
+            ];
+          });
           break;
         }
         case 'CLEAR_CART': {
-          clearCart();
-          addToast('Cart cleared', 'info');
+          if (getCart().length === 0) break;
+          setActionQueue(prev => {
+            if (prev.some(p => p.type === 'CLEAR_CART')) return prev;
+            return [
+              ...prev,
+              {
+                id: `clear_${Date.now()}`,
+                type: 'CLEAR_CART',
+                name: 'Entire Cart',
+                price: 0,
+                qty: getCart().length,
+                selectedVariants: [],
+              }
+            ];
+          });
           break;
         }
         case 'GO_STEP': {
@@ -324,6 +391,87 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
         }
       }
     }
+  };
+
+  const confirmPendingAction = (pendingId: string) => {
+    const pending = actionQueue.find(p => p.id === pendingId);
+    if (!pending) return;
+
+    setActionQueue(prev => prev.filter(p => p.id !== pendingId));
+
+    if (pending.type === 'ADD_ITEM' && pending.menu_item_id) {
+      const item: CartItem = {
+        menu_item_id: pending.menu_item_id,
+        name: pending.name,
+        image_url: pending.image_url || '/placeholder.webp',
+        quantity: pending.qty,
+        price: pending.price,
+        variants: pending.selectedVariants || [],
+      };
+      addToCart(item);
+      const latestCart = getCart();
+      const verified = latestCart.find(c => c.menu_item_id === pending.menu_item_id);
+      if (verified) {
+        playSuccessChime();
+        addToast(`Added ${pending.qty}x ${pending.name} to cart`, 'success');
+        const opts = pending.selectedVariants.length > 0
+          ? ` (${pending.selectedVariants.map(v => v.name).join(', ')})`
+          : '';
+        setMessages(prev => [
+          ...prev,
+          {
+            role: 'bot',
+            text: `Confirmed! Added ${pending.qty}x ${pending.name}${opts} to your cart.\nCurrent cart subtotal: PKR ${getCartSubtotal(latestCart)} (${latestCart.length} line item${latestCart.length === 1 ? '' : 's'}).`
+          }
+        ]);
+      } else {
+        addToast('Could not verify item in cart. Please try again.', 'error');
+      }
+    } else if (pending.type === 'SET_QTY' && pending.menu_item_id) {
+      updateItemQuantity(pending.menu_item_id, pending.selectedVariants, pending.qty);
+      const latestCart = getCart();
+      addToast(`Updated ${pending.name} quantity to ${pending.qty}`, 'info');
+      setMessages(prev => [
+        ...prev,
+        { role: 'bot', text: `Updated ${pending.name} quantity to ${pending.qty}. Subtotal is now PKR ${getCartSubtotal(latestCart)}.` }
+      ]);
+    } else if (pending.type === 'REMOVE_ITEM' && pending.menu_item_id) {
+      removeItem(pending.menu_item_id, pending.selectedVariants);
+      const latestCart = getCart();
+      addToast(`Removed ${pending.name} from cart`, 'info');
+      setMessages(prev => [
+        ...prev,
+        { role: 'bot', text: `Removed ${pending.name} from your cart. Subtotal is now PKR ${getCartSubtotal(latestCart)}.` }
+      ]);
+    } else if (pending.type === 'CLEAR_CART') {
+      clearCart();
+      addToast('Cart cleared', 'info');
+      setMessages(prev => [...prev, { role: 'bot', text: 'Your cart has been cleared.' }]);
+    }
+  };
+
+  const declinePendingAction = (pendingId: string) => {
+    const pending = actionQueue.find(p => p.id === pendingId);
+    setActionQueue(prev => prev.filter(p => p.id !== pendingId));
+    if (pending) {
+      setMessages(prev => [
+        ...prev,
+        { role: 'bot', text: `Okay, I did not change your cart (${pending.name} was not ${pending.type === 'REMOVE_ITEM' ? 'removed' : 'added'}).` }
+      ]);
+    }
+  };
+
+  const togglePendingVariant = (pendingId: string, variant: ItemVariant) => {
+    setActionQueue(prev => prev.map(p => {
+      if (p.id !== pendingId) return p;
+      const exists = p.selectedVariants.some(v => v.name === variant.name);
+      return {
+        ...p,
+        selectedVariants: exists
+          ? p.selectedVariants.filter(v => v.name !== variant.name)
+          : [...p.selectedVariants, variant]
+      };
+    }));
   };
 
   // Geolocation handler
@@ -441,8 +589,8 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
         {
           role: 'bot',
           text: isOnline
-            ? `🎉 Order #${shortCode} Placed Successfully!\n\nYour online transfer payment is pending admin review. Our team will verify your transaction and accept the order shortly.\n\nPermanent tracking link: /orders/${orderId}`
-            : `🎉 Order #${shortCode} Placed Successfully!\n\nYour Cash on Delivery order has been sent to our kitchen. You will receive it in approximately 30–40 minutes.\n\nPermanent tracking link: /orders/${orderId}`,
+            ? `Order #${shortCode} Placed Successfully!\n\nYour online transfer payment is pending admin review. Our team will verify your transaction and accept the order once confirmed.\n\nPermanent tracking link: /orders/${orderId}`
+            : `Order #${shortCode} Placed Successfully!\n\nYour Cash on Delivery order has been sent to our kitchen. Estimated delivery is 30–40 minutes, depending on distance and order volume.\n\nPermanent tracking link: /orders/${orderId}`,
           chips: [
             {
               label: 'Track Live Order',
@@ -489,6 +637,22 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
 
     try {
       const lower = txt.toLowerCase();
+
+      // 0. If there is a pending cart confirmation awaiting user permission, handle explicit yes/no replies
+      if (actionQueue.length === 1) {
+        const isConfirmReply = ['yes', 'y', 'confirm', 'add it', 'haan', 'han', 'ok', 'sure', 'jee', 'do it'].includes(lower);
+        const isDeclineReply = ['no', 'n', 'cancel', 'nahi', 'nah', 'dont', "don't", 'skip', 'nope'].includes(lower);
+        if (isConfirmReply) {
+          confirmPendingAction(actionQueue[0].id);
+          setIsTyping(false);
+          return;
+        }
+        if (isDeclineReply) {
+          declinePendingAction(actionQueue[0].id);
+          setIsTyping(false);
+          return;
+        }
+      }
 
       // 1. Order Intent Recognition:
       // If customer asks to place an order or buy food, and ordering flow is not yet active:
@@ -793,7 +957,7 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
             </div>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <button 
               type="button"
               onClick={() => {
@@ -803,30 +967,31 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
                   handleClearChat();
                 }
               }} 
-              aria-label="Clear chat messages" 
-              className="p-2 hover:bg-white/20 rounded-full transition-colors text-white text-xs font-semibold flex items-center gap-1"
-              title="Clear chat messages (keeps your cart & draft)"
+              aria-label="Clear Chat (keeps cart and draft)" 
+              className="px-2.5 py-1.5 bg-white/15 hover:bg-white/25 rounded-full transition-colors text-white text-[11px] font-semibold flex items-center gap-1"
+              title="Clear Chat — removes messages only, keeps your cart & draft"
             >
-              <Trash2 size={16} />
-              <span className="hidden sm:inline text-xs">Clear</span>
+              <Trash2 size={14} aria-hidden="true" />
+              <span>Clear Chat</span>
             </button>
             <button 
               type="button"
               onClick={() => setConfirmReset(true)} 
-              aria-label="Start over" 
-              className="p-2 hover:bg-white/20 rounded-full transition-colors text-white text-xs font-semibold flex items-center gap-1"
-              title="Start over with fresh cart"
+              aria-label="Start Over (resets session, draft, and cart)" 
+              className="px-2.5 py-1.5 bg-white/15 hover:bg-white/25 rounded-full transition-colors text-white text-[11px] font-semibold flex items-center gap-1"
+              title="Start Over — clears chat, order draft, and empties your cart"
             >
-              <RotateCcw size={16} />
-              <span className="hidden sm:inline text-xs">Reset</span>
+              <RotateCcw size={14} aria-hidden="true" />
+              <span>Start Over</span>
             </button>
             <button 
               type="button"
               onClick={onClose} 
-              className="p-2 hover:bg-white/20 rounded-full transition-colors text-white" 
-              aria-label="Close assistant"
+              className="p-1.5 hover:bg-white/20 rounded-full transition-colors text-white" 
+              aria-label="Close AmirBot assistant"
+              title="Close AmirBot"
             >
-              <X size={20} />
+              <X size={18} aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -991,6 +1156,85 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
             )}
           </div>
 
+          {/* Pending Cart Action Confirmation Cards (Explicit Permission Required) */}
+          {actionQueue.length > 0 && (
+            <div className="space-y-2.5 pt-2">
+              {actionQueue.map(pending => {
+                const varsTotal = pending.selectedVariants.reduce((s, v) => s + (Number(v.price) || 0), 0);
+                const estimatedTotal = (pending.price + varsTotal) * pending.qty;
+                return (
+                  <div key={pending.id} role="region" aria-label={`Confirm action for ${pending.name}`} className="p-3 bg-card border-2 border-primary/40 rounded-2xl shadow-md space-y-2.5 text-xs animate-in fade-in">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-bold text-foreground">
+                          {pending.type === 'ADD_ITEM' && `Add ${pending.qty}x ${pending.name} to cart?`}
+                          {pending.type === 'SET_QTY' && `Update ${pending.name} quantity to ${pending.qty}?`}
+                          {pending.type === 'REMOVE_ITEM' && `Remove ${pending.name} from cart?`}
+                          {pending.type === 'CLEAR_CART' && `Clear all ${pending.qty} item(s) from cart?`}
+                        </p>
+                        {pending.type === 'ADD_ITEM' && (
+                          <p className="text-[11px] text-primary font-bold mt-0.5">
+                            Total: PKR {estimatedTotal.toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {pending.type === 'ADD_ITEM' && pending.availableVariants && pending.availableVariants.length > 0 && (
+                      <div className="space-y-1.5">
+                        <p className="text-[11px] text-muted-foreground font-semibold">Optional add-ons / variants:</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {pending.availableVariants.map(v => {
+                            const selected = pending.selectedVariants.some(sv => sv.name === v.name);
+                            return (
+                              <button
+                                key={v.name}
+                                type="button"
+                                onClick={() => togglePendingVariant(pending.id, v)}
+                                className={`px-2.5 py-1 rounded-full border text-[11px] font-semibold transition-colors ${
+                                  selected
+                                    ? 'bg-primary text-primary-foreground border-primary'
+                                    : 'bg-accent/50 text-foreground border-border hover:border-primary/50'
+                                }`}
+                              >
+                                {v.name}{v.price > 0 ? ` (+PKR ${v.price})` : ''}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => declinePendingAction(pending.id)}
+                        className="flex-1 py-2 rounded-xl bg-accent hover:bg-accent/80 text-foreground font-bold text-xs transition-colors"
+                      >
+                        No, Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => confirmPendingAction(pending.id)}
+                        className={`flex-1 py-2 rounded-xl font-bold text-xs text-white transition-colors ${
+                          pending.type === 'REMOVE_ITEM' || pending.type === 'CLEAR_CART'
+                            ? 'bg-rose-600 hover:bg-rose-500'
+                            : 'bg-emerald-700 hover:bg-emerald-600'
+                        }`}
+                      >
+                        {pending.type === 'ADD_ITEM'
+                          ? 'Yes, Add to Cart'
+                          : pending.type === 'SET_QTY'
+                          ? 'Yes, Update'
+                          : 'Yes, Confirm'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {/* Active Step Quick Action Widget (Conversational Companion) */}
           {isOrderingActive && (
             <div className="pt-2 animate-in fade-in">
@@ -1102,9 +1346,13 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
                       <p className="font-semibold text-foreground truncate">📍 {draft.delivery.address}</p>
                       {deliveryError ? (
                         <p className="text-destructive font-semibold">{deliveryError}</p>
-                      ) : (
+                      ) : addressLocated ? (
                         <p className="text-muted-foreground">
                           Distance: ~{distanceKm.toFixed(1)} km | Fee: {totalDeliveryFee === 0 ? 'FREE' : `PKR ${totalDeliveryFee}`}
+                        </p>
+                      ) : (
+                        <p className="text-muted-foreground">
+                          Tap GPS pin above (or fee is calculated once address is located)
                         </p>
                       )}
                       <button
@@ -1185,7 +1433,9 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
                     </div>
                     <div className="flex justify-between">
                       <span>Delivery Fee:</span>
-                      <span className="font-semibold text-foreground">{totalDeliveryFee === 0 ? 'FREE' : `PKR ${totalDeliveryFee}`}</span>
+                      <span className="font-semibold text-foreground">
+                        {!addressLocated ? 'Calculated at order' : totalDeliveryFee === 0 ? 'FREE' : `PKR ${totalDeliveryFee}`}
+                      </span>
                     </div>
                     {codFee > 0 && (
                       <div className="flex justify-between">

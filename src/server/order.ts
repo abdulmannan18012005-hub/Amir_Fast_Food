@@ -45,7 +45,7 @@ export const createOrder = createServerFn({ method: "POST" })
     const shopStatus = getShopStatus(checkNow);
     if (!shopStatus.open) {
       throw new UserFacingError(
-        `We're closed right now. We open every day at ${shopStatus.opensAtLabel} (Pakistan time). You can fill your cart now and order when we open.`,
+        `Ordering is available daily from ${shopStatus.opensAtLabel} to ${shopStatus.closesAtLabel} (Pakistan Time). We're closed right now — please try again after ${shopStatus.opensAtLabel}.`,
         'shop_closed'
       );
     }

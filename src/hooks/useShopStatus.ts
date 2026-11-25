@@ -57,7 +57,7 @@ export function useShopStatus() {
     };
   }, []);
 
-  const closedMessage = `We're closed right now. We open every day at ${status.opensAtLabel} (Pakistan time). You can fill your cart now and order when we open.`;
+  const closedMessage = `Ordering is open daily from ${status.opensAtLabel} to ${status.closesAtLabel} (Pakistan Time). We're closed right now — you can still browse the menu and save items to your cart.`;
 
   return {
     ...status,

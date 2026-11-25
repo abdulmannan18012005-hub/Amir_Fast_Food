@@ -1,91 +1,181 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useClickOutside } from '../../hooks/useClickOutside';
+import { useNavigate } from '@tanstack/react-router';
+import { Search, X } from 'lucide-react';
 import { searchMenuItems } from '../../server/menu';
 import type { MenuItem } from '../../types';
 
 export function HeaderSearch() {
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<MenuItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useClickOutside(containerRef, () => setIsOpen(false));
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!query.trim()) {
+    if (!isOpen) return;
+    const focusTimer = setTimeout(() => {
+      inputRef.current?.focus();
+    }, 30);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      clearTimeout(focusTimer);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (!trimmed) {
       setResults([]);
+      setIsSearching(false);
       return;
     }
     const timer = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const res = await searchMenuItems({ data: query });
+        const res = await searchMenuItems({ data: trimmed });
         setResults(res || []);
       } catch (err) {
         console.error(err);
       } finally {
         setIsSearching(false);
       }
-    }, 300);
+    }, 250);
     return () => clearTimeout(timer);
   }, [query]);
 
+  const handleSelectQuery = (searchText: string) => {
+    const clean = searchText.trim();
+    setIsOpen(false);
+    if (!clean) return;
+    navigate({
+      to: '/menu',
+      search: { q: clean },
+    });
+  };
+
   return (
-    <div className="relative flex items-center" ref={containerRef}>
-      {!isOpen ? (
-        <button
-          onClick={() => setIsOpen(true)}
-          className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 hover:bg-accent hover:text-accent-foreground h-9 w-9 rounded-xl"
-          aria-label="Search menu"
+    <>
+      <button
+        type="button"
+        onClick={() => setIsOpen(true)}
+        className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary hover:bg-accent hover:text-accent-foreground h-9 w-9 rounded-xl shrink-0"
+        aria-label="Search menu"
+        title="Search menu"
+      >
+        <Search size={19} aria-hidden="true" />
+      </button>
+
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-[75] bg-black/60 backdrop-blur-sm flex items-start justify-center pt-16 sm:pt-24 px-4 animate-in fade-in duration-150"
+          onClick={() => setIsOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Search Amir Fast Food menu"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
-        </button>
-      ) : (
-        <div className="flex items-center w-48 sm:w-64 animate-in fade-in slide-in-from-right-4 duration-200">
-          <div className="relative w-full">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-2.5 top-2.5 text-muted-foreground"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
-            <input
-              type="text"
-              autoFocus
-              aria-label="Search menu items"
-              placeholder="Search burgers, deals..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="w-full bg-accent/50 border border-border rounded-full pl-9 pr-8 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
-            />
-            <button 
-              onClick={() => { setIsOpen(false); setQuery(''); }}
-              aria-label="Clear and close search"
-              className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
+          <div
+            className="w-full max-w-lg bg-card text-card-foreground border border-border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (query.trim()) {
+                  handleSelectQuery(query);
+                }
+              }}
+              className="flex items-center gap-2 p-3 sm:p-4 border-b border-border"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
-            </button>
+              <Search size={18} className="text-muted-foreground shrink-0" aria-hidden="true" />
+              <input
+                ref={inputRef}
+                type="search"
+                aria-label="Search menu items"
+                placeholder="Search burgers, shawarma, deals..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="flex-1 bg-transparent text-sm sm:text-base text-foreground placeholder:text-muted-foreground focus:outline-none min-w-0"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuery('');
+                    inputRef.current?.focus();
+                  }}
+                  className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-accent"
+                >
+                  Clear
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                aria-label="Close search overlay"
+                className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-accent shrink-0"
+              >
+                <X size={18} aria-hidden="true" />
+              </button>
+            </form>
+
+            <div className="max-h-[65dvh] overflow-y-auto p-2 sm:p-3">
+              {!query.trim() ? (
+                <p className="p-4 text-center text-xs sm:text-sm text-muted-foreground">
+                  Type an item name (e.g. Zinger, Shawarma, Deal) to search the menu. Press Esc to close.
+                </p>
+              ) : isSearching ? (
+                <div className="p-6 text-center text-sm text-muted-foreground animate-pulse">Searching menu...</div>
+              ) : results.length > 0 ? (
+                <div className="space-y-1">
+                  {results.map(item => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleSelectQuery(item.name)}
+                      className="w-full text-left flex items-center gap-3 p-2.5 hover:bg-accent rounded-xl transition-colors"
+                    >
+                      <img
+                        src={item.image_url || '/placeholder.webp'}
+                        alt={item.name}
+                        onError={(e) => { e.currentTarget.src = '/placeholder.webp'; }}
+                        className="w-12 h-12 object-cover rounded-lg bg-muted shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-foreground truncate">{item.name}</p>
+                        {item.description && (
+                          <p className="text-xs text-muted-foreground truncate">{item.description}</p>
+                        )}
+                      </div>
+                      <span className="text-xs sm:text-sm text-primary font-bold whitespace-nowrap shrink-0">
+                        PKR {item.price.toLocaleString()}
+                      </span>
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => handleSelectQuery(query)}
+                    className="w-full mt-2 py-2.5 px-4 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary text-xs sm:text-sm font-bold transition-colors text-center"
+                  >
+                    View all results for &ldquo;{query.trim()}&rdquo; on Menu →
+                  </button>
+                </div>
+              ) : (
+                <div className="p-6 text-center text-sm text-muted-foreground">
+                  No available items found matching &ldquo;{query.trim()}&rdquo;.
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
-
-      {isOpen && query.trim() !== '' && (
-        <div className="absolute right-0 top-full mt-3 w-72 max-h-96 overflow-y-auto rounded-xl border border-border bg-card p-2 shadow-2xl z-50">
-          {isSearching ? (
-            <div className="p-4 text-center text-sm text-muted-foreground animate-pulse">Searching...</div>
-          ) : results.length > 0 ? (
-            <div className="space-y-1">
-              {results.map(item => (
-                <a key={item.id} href={`/menu?q=${item.name}`} className="flex items-center gap-3 p-2 hover:bg-accent rounded-lg group transition-colors">
-                  <img src={item.image_url || "/placeholder.webp"} alt={item.name} onError={(e) => { e.currentTarget.src = "/placeholder.webp"; }} className="w-12 h-12 object-cover rounded-md bg-muted" />
-                  <div className="flex-1 overflow-hidden">
-                    <p className="text-sm font-bold text-foreground truncate">{item.name}</p>
-                    <p className="text-xs text-primary font-bold">PKR {item.price}</p>
-                  </div>
-                </a>
-              ))}
-            </div>
-          ) : (
-            <div className="p-4 text-center text-sm text-muted-foreground">No items found.</div>
-          )}
-        </div>
-      )}
-    </div>
+    </>
   );
 }

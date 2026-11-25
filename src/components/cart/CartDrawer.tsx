@@ -1,7 +1,8 @@
 import { Link } from '@tanstack/react-router';
 import React from 'react';
+import { Trash2 } from 'lucide-react';
 import type { CartItem, ItemVariant } from '../../types';
-import { getCartSubtotal, lineTotal } from '../../lib/cart';
+import { getCartSubtotal, lineTotal, getCartLineId } from '../../lib/cart';
 import { useShopStatus } from '../../hooks/useShopStatus';
 
 interface Props {
@@ -15,27 +16,31 @@ interface Props {
 
 export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveItem, onClearCart }: Props) {
   const shopStatus = useShopStatus();
+  if (!isOpen) return null;
+
   const subtotal = getCartSubtotal(items);
   const totalCount = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
-
-  // Delivery/COD fees are calculated at checkout (depend on distance + payment method)
   const total = subtotal;
 
   return (
     <>
       {/* Backdrop */}
-      {isOpen && (
-        <div 
-          className="fixed inset-0 bg-black/60 z-40" 
-          onClick={onClose} 
-        />
-      )}
+      <div 
+        className="fixed inset-0 bg-black/60 z-40" 
+        onClick={onClose} 
+        aria-hidden="true"
+      />
       
       {/* Drawer */}
-      <div className={`fixed top-0 right-0 h-full w-full max-w-md bg-card shadow-2xl z-50 transform transition-transform duration-300 border-l border-border flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Shopping Cart"
+        className="fixed top-0 right-0 h-full w-full max-w-md bg-card shadow-2xl z-50 border-l border-border flex flex-col animate-in slide-in-from-right duration-200"
+      >
         <div className="p-6 border-b border-border flex justify-between items-center bg-card">
           <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-            Your Order <span className="bg-primary text-xs px-2 py-1 rounded-full">{totalCount}</span>
+            Your Order <span className="bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full">{totalCount}</span>
           </h2>
           <div className="flex items-center gap-4">
             {items.length > 0 && (
@@ -57,28 +62,37 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
               </Link>
             </div>
           ) : (
-            items.map((item, idx) => {
+            items.map((item) => {
               const itemTotal = lineTotal(item);
+              const lineKey = getCartLineId(item.menu_item_id, item.variants || []);
               return (
-                <div key={idx} className="flex gap-4 border-b border-border pb-4">
-                  <img src={item.image_url} alt={item.name} className="w-20 h-20 object-cover rounded-lg" />
-                  <div className="flex-1">
-                    <h3 className="text-foreground font-bold">{item.name}</h3>
+                <div key={lineKey} className="flex gap-4 border-b border-border pb-4">
+                  <img src={item.image_url || '/placeholder.webp'} alt={item.name} onError={(e) => { e.currentTarget.src = '/placeholder.webp'; }} className="w-20 h-20 object-cover rounded-lg bg-muted shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-foreground font-bold truncate">{item.name}</h3>
                     {item.variants && item.variants.length > 0 && (
                       <p className="text-xs text-muted-foreground mt-1">
                         + {item.variants.map(v => v.name).join(', ')}
                       </p>
                     )}
-                    <div className="flex justify-between items-end mt-2">
-                      <div className="flex gap-4 items-center">
-                        <div className="flex items-center bg-accent rounded">
-                          <button onClick={() => onUpdateQuantity(item.menu_item_id, item.variants || [], -1)} aria-label="Decrease quantity" className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground">-</button>
-                          <span className="w-8 text-center text-foreground text-sm">{item.quantity}</span>
-                          <button onClick={() => onUpdateQuantity(item.menu_item_id, item.variants || [], 1)} aria-label="Increase quantity" className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground">+</button>
+                    <div className="flex justify-between items-center mt-2 gap-2">
+                      <div className="flex gap-2 items-center">
+                        <div className="flex items-center bg-accent rounded-lg">
+                          <button type="button" onClick={() => onUpdateQuantity(item.menu_item_id, item.variants || [], -1)} aria-label={`Decrease quantity of ${item.name}`} className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground font-bold">-</button>
+                          <span className="w-8 text-center text-foreground text-sm font-semibold">{item.quantity}</span>
+                          <button type="button" onClick={() => onUpdateQuantity(item.menu_item_id, item.variants || [], 1)} aria-label={`Increase quantity of ${item.name}`} className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground font-bold">+</button>
                         </div>
-                        <button onClick={() => onRemoveItem(item.menu_item_id, item.variants || [])} aria-label="Remove item" className="text-xs text-destructive font-bold hover:underline">Remove</button>
+                        <button
+                          type="button"
+                          onClick={() => onRemoveItem(item.menu_item_id, item.variants || [])}
+                          aria-label={`Remove ${item.name}`}
+                          title="Remove item"
+                          className="min-w-[40px] min-h-[40px] p-2 rounded-lg text-destructive hover:bg-destructive/10 flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive"
+                        >
+                          <Trash2 size={18} aria-hidden="true" />
+                        </button>
                       </div>
-                      <span className="font-bold text-emerald-700 dark:text-emerald-400">PKR {itemTotal}</span>
+                      <span className="font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">PKR {itemTotal.toLocaleString()}</span>
                     </div>
                   </div>
                 </div>
@@ -94,7 +108,7 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
             </div>
             <div className="flex justify-between text-muted-foreground">
               <span>Subtotal</span>
-              <span>PKR {subtotal}</span>
+              <span>PKR {subtotal.toLocaleString()}</span>
             </div>
             <div className="flex justify-between text-muted-foreground items-center text-sm">
               <span>Delivery &amp; fees</span>
@@ -102,7 +116,7 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
             </div>
             <div className="flex justify-between text-foreground text-xl font-bold pt-4 border-t border-border">
               <span>Total</span>
-              <span>PKR {total}</span>
+              <span>PKR {total.toLocaleString()}</span>
             </div>
             {!shopStatus.open && (
               <div role="alert" className="rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200 p-3 text-xs font-semibold leading-relaxed">

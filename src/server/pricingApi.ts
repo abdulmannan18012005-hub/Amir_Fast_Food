@@ -18,8 +18,9 @@ export const quoteDeliveryFn = createServerFn({ method: "POST" })
       }
     }
 
-    if (typeof lat === 'number' && Number.isFinite(lat) && typeof lng === 'number' && Number.isFinite(lng)) {
-      distanceKm = calculateDistanceKm(lat, lng);
+    const addressLocated = typeof lat === 'number' && Number.isFinite(lat) && typeof lng === 'number' && Number.isFinite(lng);
+    if (addressLocated) {
+      distanceKm = calculateDistanceKm(lat as number, lng as number);
     }
     
     if (distanceKm > 15) {
@@ -30,6 +31,7 @@ export const quoteDeliveryFn = createServerFn({ method: "POST" })
     
     return {
       ok: true,
+      addressLocated,
       distanceKm,
       codFee: pricing.codFee,
       distanceFee: pricing.distanceFee,

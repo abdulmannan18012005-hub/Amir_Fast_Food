@@ -25,15 +25,15 @@ export interface ShopStatus {
 }
 
 export function getShopStatus(now: Date = new Date()): ShopStatus {
-  // Compute time in Pakistan Time (Asia/Karachi, UTC+5, no DST) using Intl for exactness
+  // Compute time in Pakistan Time (Asia/Karachi, UTC+5, no DST) using h23 so midnight is 0, never 24
   const formatter = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Asia/Karachi',
-    hour12: false,
+    hourCycle: 'h23',
     hour: 'numeric',
     minute: 'numeric',
   });
   const parts = formatter.formatToParts(now);
-  const hour = Number(parts.find(p => p.type === 'hour')?.value || 0);
+  const hour = Number(parts.find(p => p.type === 'hour')?.value || 0) % 24;
   const minute = Number(parts.find(p => p.type === 'minute')?.value || 0);
   const currentMinutes = hour * 60 + minute;
 
