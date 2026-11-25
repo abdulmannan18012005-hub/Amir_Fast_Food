@@ -14,13 +14,31 @@ const openai = new OpenAI({
 let cachedMenu: { id: string; name: string; price: number; is_available: boolean; variants: any[]; image_url: string; category_id?: string }[] = [];
 let cachedMenuTime = 0;
 
+export function invalidateAmirBotMenuCache() {
+  cachedMenuTime = 0;
+}
+
 async function refreshMenuCache() {
   if (Date.now() - cachedMenuTime > 60000) {
     const supabase = getSupabaseServer();
-    const { data: menuItems } = await supabase
-      .from('menu_items')
-      .select('id, name, price, is_available, category_id, description, variants, image_url');
-    cachedMenu = (menuItems || []) as any;
+    const [{ data: menuItems }, { data: archivedRow }] = await Promise.all([
+      supabase
+        .from('menu_items')
+        .select('id, name, price, is_available, category_id, description, variants, image_url'),
+      supabase
+        .from('restaurant_knowledge')
+        .select('content')
+        .eq('title', 'archived_menu_item_ids')
+        .maybeSingle(),
+    ]);
+    let archivedSet = new Set<string>();
+    if (archivedRow?.content) {
+      try {
+        const parsed = JSON.parse(archivedRow.content);
+        if (Array.isArray(parsed)) archivedSet = new Set(parsed.map(String));
+      } catch {}
+    }
+    cachedMenu = ((menuItems || []) as any[]).filter(i => !archivedSet.has(i.id));
     cachedMenuTime = Date.now();
   }
 }

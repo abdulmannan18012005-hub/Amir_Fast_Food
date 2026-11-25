@@ -12,6 +12,8 @@ import { Search, X } from 'lucide-react';
 import type { Category, MenuItem, CartItem } from '../types';
 
 export const Route = createFileRoute('/menu')({
+  staleTime: 0,
+  gcTime: 0,
   validateSearch: (search: Record<string, unknown>): { q?: string; cat?: string } => {
     const q = typeof search.q === 'string' && search.q.trim() ? search.q.trim() : undefined;
     const cat = typeof search.cat === 'string' && search.cat.trim() ? search.cat.trim() : undefined;

@@ -27,6 +27,18 @@ export interface Category {
   name: string;
   slug: string;
   sort_order: number;
+  image_url?: string;
+}
+
+export interface HighlightItem {
+  id: string;
+  title: string;
+  description: string;
+  offer_badge?: string;
+  image_url: string;
+  is_available: boolean;
+  sort_order: number;
+  created_at: string;
 }
 
 export interface ItemVariant {

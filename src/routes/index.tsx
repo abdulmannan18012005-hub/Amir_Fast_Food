@@ -1,11 +1,24 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { seo } from '../lib/seo';
 import React from 'react';
-import { getCategoryImagesFn, getHighlightImagesFn } from '../server/menu';
+import { getCategories, getCategoryImagesFn, getHighlightsFn } from '../server/menu';
 import { useShopStatus } from '../hooks/useShopStatus';
 import { SHOP_HOURS_DISPLAY } from '../lib/shop';
 
+const CATEGORY_SUBTITLES: Record<string, string> = {
+  cat_deals: 'Value Packs',
+  cat_specials: 'Chef Recommended',
+  cat_burgers: 'Smash & Zinger',
+  cat_shawarma: 'Authentic Arab',
+  cat_pizza: 'Oven Baked',
+  cat_chicken: 'Crispy Fried',
+  cat_sandwiches_fries: 'Loaded Snacks',
+  cat_drinks: 'Cold Beverages',
+};
+
 export const Route = createFileRoute('/')({
+  staleTime: 0,
+  gcTime: 0,
   component: Index,
   head: () => {
     const s = seo({ title: 'Amir Fast Food - Shawarma, Burgers & Combos', description: 'Order Shawarma and Burgers online in Lahore from Amir Fast Food.', path: '/' });
@@ -16,17 +29,22 @@ export const Route = createFileRoute('/')({
         { rel: 'preload', as: 'image', href: '/hero.webp', fetchPriority: 'high' }
       ]
     };
-},
+  },
   loader: async () => {
-    const categoryImages = await getCategoryImagesFn();
-    const highlightImages = await getHighlightImagesFn();
-    return { categoryImages, highlightImages };
+    const [categories, categoryImages, highlights] = await Promise.all([
+      getCategories(),
+      getCategoryImagesFn(),
+      getHighlightsFn(),
+    ]);
+    return { categories, categoryImages, highlights };
   }
 });
 
 function Index() {
-  const { categoryImages, highlightImages } = Route.useLoaderData();
+  const { categories, categoryImages, highlights } = Route.useLoaderData();
   const shopStatus = useShopStatus();
+  const sortedCategories = [...categories].sort((a, b) => a.name.localeCompare(b.name));
+  const activeHighlights = highlights.filter(h => h.is_available !== false);
   return (
     <>
       {/* Hero Section */}
@@ -100,29 +118,25 @@ function Index() {
             <h2 className="font-display text-2xl sm:text-3xl font-bold mt-2 md:text-5xl">Our <span className="text-gradient">Categories</span></h2>
           </div>
           <div tabIndex={0} role="region" aria-label="Category showcase scroller" className="flex overflow-x-auto overscroll-x-contain gap-4 pb-8 scrollbar-hide snap-x focus:outline-none focus:ring-2 focus:ring-primary/40 rounded-2xl">
-            {[
-      { id: 'cat_deals', name: 'Deals & Combos', sub: 'Value Packs', img: categoryImages.cat_deals },
-      { id: 'cat_specials', name: 'Specials', sub: 'Chef Recommended', img: categoryImages.cat_specials },
-      { id: 'cat_burgers', name: 'Burgers', sub: 'Smash & Zinger', img: categoryImages.cat_burgers },
-      { id: 'cat_shawarma', name: 'Shawarma & Paratha', sub: 'Authentic Arab', img: categoryImages.cat_shawarma },
-      { id: 'cat_pizza', name: 'Pizza', sub: 'Oven Baked', img: categoryImages.cat_pizza },
-      { id: 'cat_chicken', name: 'Chicken & Wings', sub: 'Crispy Fried', img: categoryImages.cat_chicken },
-      { id: 'cat_sandwiches_fries', name: 'Sandwiches & Fries', sub: 'Loaded Snacks', img: categoryImages.cat_sandwiches_fries },
-      { id: 'cat_drinks', name: 'Drinks', sub: 'Cold Beverages', img: categoryImages.cat_drinks }
-    ].sort((a,b) => a.name.localeCompare(b.name)).map(cat => (
+            {sortedCategories.map(cat => (
               <Link 
                 key={cat.id} 
                 to="/menu" 
                 hash={cat.id} 
                 preload="intent"
-                className="min-w-[160px] sm:min-w-[200px] flex-shrink-0 snap-start group relative overflow-hidden rounded-2xl bg-card border border-border hover:border-primary transition-colors shadow-lg"
+                className="w-[168px] sm:w-[205px] h-52 flex-shrink-0 snap-start group relative overflow-hidden rounded-2xl bg-card border border-border hover:border-primary transition-colors shadow-lg"
               >
-                <div className="h-32 sm:h-40 overflow-hidden">
-                  <img src={cat.img} alt={cat.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                <div className="h-32 sm:h-36 overflow-hidden bg-muted">
+                  <img
+                    src={categoryImages[cat.id] || '/placeholder.webp'}
+                    alt={cat.name}
+                    onError={(e) => { e.currentTarget.src = '/placeholder.webp'; }}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                  />
                 </div>
-                <div className="p-4 bg-background border-t border-border absolute bottom-0 left-0 right-0">
-                  <h3 className="font-bold text-foreground">{cat.name}</h3>
-                  <p className="text-xs text-primary">{cat.sub}</p>
+                <div className="p-3.5 bg-background border-t border-border absolute bottom-0 left-0 right-0">
+                  <h3 className="font-bold text-sm sm:text-base text-foreground truncate">{cat.name}</h3>
+                  <p className="text-xs text-primary truncate">{CATEGORY_SUBTITLES[cat.id] || 'Explore Menu'}</p>
                 </div>
               </Link>
             ))} 
@@ -130,45 +144,38 @@ function Index() {
         </div>
       </section>
 
-      {/* Menu Highlights Section */}
-      <section className="container mx-auto px-4 py-16 sm:py-20 md:py-28 w-full min-w-0">
-        <div className="text-center mb-10 sm:mb-14">
-          <span className="text-sm font-medium text-primary uppercase tracking-wider">Favorites</span>
-          <h2 className="font-display text-2xl sm:text-3xl font-bold mt-2 md:text-5xl">Our <span className="text-primary">highlights</span></h2>
-        </div>
-        <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-3">
-          <div className="group relative overflow-hidden rounded-2xl sm:rounded-3xl bg-card border border-border/30">
-            <div className="aspect-square overflow-hidden">
-              <img src={highlightImages.hl_shawarma} alt="Classic Shawarma" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" loading="lazy" />
-            </div>
-            <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent"></div>
-            <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
-              <h3 className="font-display text-lg sm:text-xl font-bold text-foreground">Classic Shawarma</h3>
-              <p className="mt-1 text-xs sm:text-sm text-muted-foreground">Classic chicken shawarma with pita and signature sauce</p>
-            </div>
+      {/* Menu Highlights Section (Dynamic from Admin Highlights) */}
+      {activeHighlights.length > 0 && (
+        <section className="container mx-auto px-4 py-16 sm:py-20 md:py-28 w-full min-w-0">
+          <div className="text-center mb-10 sm:mb-14">
+            <span className="text-sm font-medium text-primary uppercase tracking-wider">Favorites</span>
+            <h2 className="font-display text-2xl sm:text-3xl font-bold mt-2 md:text-5xl">Our <span className="text-primary">highlights</span></h2>
           </div>
-          <div className="group relative overflow-hidden rounded-2xl sm:rounded-3xl bg-card border border-border/30">
-            <div className="aspect-square overflow-hidden">
-              <img src={highlightImages.hl_burger} alt="Smash Burger" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" loading="lazy" />
-            </div>
-            <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent"></div>
-            <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
-              <h3 className="font-display text-lg sm:text-xl font-bold text-foreground">Smash Burger</h3>
-              <p className="mt-1 text-xs sm:text-sm text-muted-foreground">Smashed burger patties with fresh toppings</p>
-            </div>
+          <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-3">
+            {activeHighlights.map((hl) => (
+              <div key={hl.id} className="group relative overflow-hidden rounded-2xl sm:rounded-3xl bg-card border border-border/30 aspect-square">
+                <img
+                  src={hl.image_url || '/placeholder.webp'}
+                  alt={hl.title}
+                  onError={(e) => { e.currentTarget.src = '/placeholder.webp'; }}
+                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  loading="lazy"
+                />
+                {hl.offer_badge && (
+                  <div className="absolute top-3 left-3 z-10 bg-primary text-primary-foreground text-xs font-black px-3 py-1 rounded-full shadow-md">
+                    {hl.offer_badge}
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-background via-background/30 to-transparent"></div>
+                <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
+                  <h3 className="font-display text-lg sm:text-xl font-bold text-foreground line-clamp-1">{hl.title}</h3>
+                  <p className="mt-1 text-xs sm:text-sm text-muted-foreground line-clamp-2">{hl.description}</p>
+                </div>
+              </div>
+            ))}
           </div>
-          <div className="group relative overflow-hidden rounded-2xl sm:rounded-3xl bg-card border border-border/30">
-            <div className="aspect-square overflow-hidden">
-              <img src={highlightImages.hl_combos} alt="Combos" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" loading="lazy" />
-            </div>
-            <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent"></div>
-            <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
-              <h3 className="font-display text-lg sm:text-xl font-bold text-foreground">Combos</h3>
-              <p className="mt-1 text-xs sm:text-sm text-muted-foreground">Burger, fries, and drink combos — see current offers on the menu</p>
-            </div>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
 
       {/* Hungry Section CTA */}
