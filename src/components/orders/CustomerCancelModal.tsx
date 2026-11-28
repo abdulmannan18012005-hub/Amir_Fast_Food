@@ -143,7 +143,8 @@ export function CustomerCancelModal({ isOpen, onClose, order, onSuccess }: Custo
         throw new Error(typeof cancelRes.error === 'string' ? cancelRes.error : 'Could not cancel order. Please call the shop.');
       }
 
-      // Success
+      // Success — notify live trackers immediately
+      window.dispatchEvent(new CustomEvent('orderUpdated', { detail: { orderId: order.id } }));
       if (onSuccess) onSuccess();
       onClose();
     } catch (err: any) {

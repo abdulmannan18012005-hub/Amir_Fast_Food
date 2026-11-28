@@ -5,6 +5,7 @@ import { requireAdmin, timingSafeCompare } from './auth';
 import { UserFacingError, toSafeError } from './errors';
 import { sendOrderPush, sendAdminOrderPush } from './push';
 import { SHOP_PHONE_LOCAL } from '../lib/shop';
+import { detectImageExtension, MAX_IMAGE_BYTES } from './imageValidation';
 
 const BUCKET_NAME = 'payment-proofs';
 
@@ -40,21 +41,16 @@ export const uploadCancellationProofFn = createServerFn({ method: "POST" })
         throw new UserFacingError("Missing proof image or order information.", "validation");
       }
 
-      // Allowed MIME types
-      const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
-      if (!allowedMimes.includes(mimeType.toLowerCase())) {
-        throw new UserFacingError("Invalid file type. Please upload a JPG, PNG, or WebP screenshot.", "validation");
-      }
-
       // Convert base64 to buffer and check size (<= 5 MB)
-      const cleanBase64 = base64Data.replace(/^data:image\/[a-zA-Z+]+;base64,/, '');
+      const cleanBase64 = base64Data.replace(/^data:image\/[a-zA-Z0-9.+_-]+;base64,/, '');
       const buffer = Buffer.from(cleanBase64, 'base64');
-      if (buffer.length > 5 * 1024 * 1024) {
+      if (buffer.length > MAX_IMAGE_BYTES) {
         throw new UserFacingError("Image is too large. Maximum allowed file size is 5 MB.", "validation");
       }
-      if (buffer.length < 100) {
-        throw new UserFacingError("Invalid image file.", "validation");
-      }
+
+      // Enforce real image magic-byte signatures matching claimed MIME type
+      const ext = detectImageExtension(buffer, mimeType || '', 32);
+      const canonicalContentType = ext === 'jpg' ? 'image/jpeg' : ext === 'png' ? 'image/png' : 'image/webp';
 
       const supabase = getSupabaseServer();
 
@@ -84,20 +80,15 @@ export const uploadCancellationProofFn = createServerFn({ method: "POST" })
         );
       }
 
-      // Determine extension
-      let ext = 'jpg';
-      if (mimeType.includes('png')) ext = 'png';
-      else if (mimeType.includes('webp')) ext = 'webp';
-
       const sanitizedOrderPrefix = orderId.replace(/[^a-zA-Z0-9-]/g, '');
-      const storagePath = `${sanitizedOrderPrefix}/proof_${Date.now()}_${crypto.randomBytes(4).toString('hex')}.${ext}`;
+      const storagePath = `${sanitizedOrderPrefix}/proof_${Date.now()}_${crypto.randomBytes(6).toString('hex')}.${ext}`;
 
-      // Upload to private bucket
+      // Upload to private bucket with magic-verified contentType and upsert=false
       const { error: uploadErr } = await supabase.storage
         .from(BUCKET_NAME)
         .upload(storagePath, buffer, {
-          contentType: mimeType,
-          upsert: true
+          contentType: canonicalContentType,
+          upsert: false
         });
 
       if (uploadErr) {
@@ -168,8 +159,30 @@ export const cancelOrderCustomerFn = createServerFn({ method: "POST" })
       }
 
       const isOnline = order.payment_method === 'online_transfer';
-      if (isOnline && !proofPath) {
+      const sanitizedOrderPrefix = orderId.replace(/[^a-zA-Z0-9-]/g, '');
+      const normalizedProofPath = proofPath ? String(proofPath).trim() : '';
+
+      if (isOnline && !normalizedProofPath) {
         throw new UserFacingError("Please upload a payment proof screenshot to request a refund.", "validation");
+      }
+
+      if (normalizedProofPath) {
+        if (
+          normalizedProofPath.includes('..') ||
+          !normalizedProofPath.startsWith(`${sanitizedOrderPrefix}/`) ||
+          normalizedProofPath.split('/').length !== 2
+        ) {
+          throw new UserFacingError("Invalid payment proof path for this order.", "validation");
+        }
+        const fileName = normalizedProofPath.split('/')[1];
+        const { data: listedFiles, error: listErr } = await supabase.storage
+          .from(BUCKET_NAME)
+          .list(sanitizedOrderPrefix, { search: fileName });
+
+        const existsInBucket = !listErr && Array.isArray(listedFiles) && listedFiles.some(f => f.name === fileName);
+        if (!existsInBucket) {
+          throw new UserFacingError("Uploaded payment proof could not be verified in storage. Please upload again.", "validation");
+        }
       }
 
       const nowIso = new Date().toISOString();
@@ -184,7 +197,7 @@ export const cancelOrderCustomerFn = createServerFn({ method: "POST" })
         status_changed_at: nowIso,
         cancellation_source: 'customer',
         refund_status: refundStatus,
-        ...(proofPath ? { refund_proof_path: proofPath } : {})
+        ...(normalizedProofPath ? { refund_proof_path: normalizedProofPath } : {})
       };
 
       let { data: updatedRow, error: updateErr } = await supabase
@@ -271,7 +284,7 @@ export const listCancellationsAdminFn = createServerFn({ method: "POST" })
     pageSize?: number;
   }) => d)
   .handler(async ({ data }) => {
-    requireAdmin(data.token || data.pin);
+    await requireAdmin(data.token || data.pin);
     const supabase = getSupabaseServer();
 
     const page = Math.max(1, Number(data.page) || 1);
@@ -297,10 +310,12 @@ export const listCancellationsAdminFn = createServerFn({ method: "POST" })
       query = query.eq('refund_status', 'rejected');
     }
 
-    // Search filter (name, phone, orderId, TID)
+    // Search filter (name, phone, orderId, TID) — strip PostgREST operator/wildcard chars
     if (data.search && data.search.trim()) {
-      const q = data.search.trim();
-      query = query.or(`customer_name.ilike.%${q}%,customer_phone.ilike.%${q}%,id.ilike.%${q}%,payment_trx_id.ilike.%${q}%`);
+      const q = data.search.trim().replace(/[,()%\*'\\"]/g, '').slice(0, 60);
+      if (q) {
+        query = query.or(`customer_name.ilike.%${q}%,customer_phone.ilike.%${q}%,id.ilike.%${q}%,payment_trx_id.ilike.%${q}%`);
+      }
     }
 
     query = query.range(offset, offset + pageSize - 1);
@@ -353,7 +368,7 @@ export const listCancellationsAdminFn = createServerFn({ method: "POST" })
 export const getProofSignedUrlFn = createServerFn({ method: "POST" })
   .validator((d: { proofPath: string; pin?: string; token?: string }) => d)
   .handler(async ({ data }) => {
-    requireAdmin(data.token || data.pin);
+    await requireAdmin(data.token || data.pin);
     const { proofPath } = data;
     if (!proofPath || typeof proofPath !== 'string') {
       throw new UserFacingError("Invalid proof image path.", "validation");
@@ -383,7 +398,7 @@ export const reviewRefundFn = createServerFn({ method: "POST" })
     token?: string;
   }) => d)
   .handler(async ({ data }) => {
-    requireAdmin(data.token || data.pin);
+    await requireAdmin(data.token || data.pin);
     const { orderId, decision, adminNote } = data;
 
     const cleanNote = String(adminNote || '').trim().replace(/<[^>]*>/g, '');
@@ -452,7 +467,7 @@ export const markRefundPaidFn = createServerFn({ method: "POST" })
     token?: string;
   }) => d)
   .handler(async ({ data }) => {
-    requireAdmin(data.token || data.pin);
+    await requireAdmin(data.token || data.pin);
     const { orderId, refundTrxRef, adminNote } = data;
 
     const cleanRef = String(refundTrxRef || '').trim().replace(/<[^>]*>/g, '');

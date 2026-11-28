@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChefHat } from 'lucide-react';
 import { loginAdminFn, validateAdminSessionFn } from '../../server/adminAuthApi';
-import { getAdminToken, setAdminToken, clearAdminSession } from '../../lib/adminSession';
+import { clearAdminSession } from '../../lib/adminSession';
 import { getErrorCode } from '../../lib/errors';
 
 export function PinGate({ children, onUnlock }: { children: React.ReactNode, onUnlock?: () => void }) {
@@ -12,42 +12,36 @@ export function PinGate({ children, onUnlock }: { children: React.ReactNode, onU
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Validate stored session token against server
-    const token = getAdminToken();
-    if (token) {
-      validateAdminSessionFn({ data: { token } })
-        .then((res: any) => {
-          if (res && res.valid) {
-            setIsAuthenticated(true);
-          } else {
-            clearAdminSession();
-            setIsAuthenticated(false);
-            if (res && res.error) {
-              setError(res.error);
-            } else {
-              setError('Your session has expired. Please enter the PIN again.');
-            }
-          }
-        })
-        .catch(() => {
-          clearAdminSession();
+    // Validate HttpOnly server session cookie on mount
+    let cancelled = false;
+    validateAdminSessionFn({ data: {} })
+      .then((res: any) => {
+        if (cancelled) return;
+        if (res && res.valid) {
+          setIsAuthenticated(true);
+        } else {
           setIsAuthenticated(false);
-          setError('Could not verify admin session. Please enter the PIN again.');
-        })
-        .finally(() => {
-          setIsReady(true);
-        });
-    } else {
-      setIsAuthenticated(false);
-      setIsReady(true);
-    }
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setIsAuthenticated(false);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsReady(true);
+      });
 
     const onExpired = (e: any) => {
       setIsAuthenticated(false);
+      setPin('');
       setError(e.detail?.message || 'Your session has expired. Please enter the PIN again.');
     };
     window.addEventListener('adminSessionExpired', onExpired);
-    return () => window.removeEventListener('adminSessionExpired', onExpired);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('adminSessionExpired', onExpired);
+    };
   }, []);
 
   useEffect(() => {
@@ -60,8 +54,8 @@ export function PinGate({ children, onUnlock }: { children: React.ReactNode, onU
     setError('');
     try {
       const res = await loginAdminFn({ data: { pin: pin.trim() } });
-      if (res.success && res.token) {
-        setAdminToken(res.token);
+      if (res.success) {
+        setPin('');
         setIsAuthenticated(true);
       } else {
         setError(res.error || 'Incorrect PIN. Please try again.');

@@ -4,9 +4,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router';
 import { reverseGeocodeFn } from '../server/location';
 import { quoteDeliveryFn } from '../server/pricingApi';
+import { refreshCartPricesFn } from '../server/menu';
 import { safeJson } from '../lib/storage';
 import { seo } from '../lib/seo';
-import { getCartSubtotal } from '../lib/cart';
+import { getCartSubtotal, saveCart } from '../lib/cart';
 import { useShopStatus } from '../hooks/useShopStatus';
 import { useOrderDraft } from '../lib/orderDraft';
 import { submitOrder } from '../lib/orderSubmit';
@@ -35,8 +36,12 @@ function CheckoutPage() {
   });
 
   const [successOrderId, setSuccessOrderId] = useState('');
+  const [successTrackingToken, setSuccessTrackingToken] = useState('');
+  const [priceNotice, setPriceNotice] = useState<{ oldSubtotal: number; newSubtotal: number; unavailableNames: string[]; updatedCart: CartItem[] } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const submittingRef = useRef(false);
+  const quoteSeqRef = useRef(0);
   
   // Form State - Synchronized with Draft
   const [name, setName] = useState(draft.contact.name);
@@ -129,17 +134,64 @@ function CheckoutPage() {
 
   useEffect(() => {
     const savedCart = localStorage.getItem('cart');
-    if (savedCart) {
-      setCartItems(safeJson('cart', []));
-    }
+    if (!savedCart) return;
+    const initialCart = safeJson<CartItem[]>('cart', []);
+    setCartItems(initialCart);
+    if (initialCart.length === 0) return;
+
+    refreshCartPricesFn({ data: { itemIds: initialCart.map(i => i.menu_item_id) } })
+      .then((res: { items?: any[]; error?: string }) => {
+        if (!res || !Array.isArray(res.items) || res.items.length === 0) return;
+        const dbMap = new Map<string, any>(res.items.map((i: any) => [String(i.id), i] as const));
+        const oldSub = getCartSubtotal(initialCart);
+        const unavailableNames: string[] = [];
+        let changed = false;
+
+        const refreshedCart: CartItem[] = [];
+        for (const c of initialCart) {
+          const db = dbMap.get(c.menu_item_id);
+          if (!db || !db.is_available) {
+            unavailableNames.push(c.name);
+            changed = true;
+            continue;
+          }
+          const dbVariants: any[] = db.variants || [];
+          const nextVariants = (c.variants || []).map(v => {
+            const matched = dbVariants.find((dv: any) => dv.name === v.name);
+            if (!matched) {
+              changed = true;
+              return v;
+            }
+            if (Number(matched.price) !== Number(v.price)) changed = true;
+            return { name: matched.name, price: Number(matched.price) || 0 };
+          });
+          if (Math.round(Number(db.price)) !== Math.round(Number(c.price))) {
+            changed = true;
+          }
+          refreshedCart.push({
+            ...c,
+            name: db.name,
+            price: Math.round(Number(db.price)),
+            variants: nextVariants,
+          });
+        }
+
+        const newSub = getCartSubtotal(refreshedCart);
+        if (changed && (oldSub !== newSub || unavailableNames.length > 0)) {
+          setPriceNotice({ oldSubtotal: oldSub, newSubtotal: newSub, unavailableNames, updatedCart: refreshedCart });
+        }
+      })
+      .catch(() => {});
   }, []);
 
-  // Update quote when location or payment changes
+  // Update quote when location or payment changes (guarded against stale responses)
   useEffect(() => {
     if (cartItems.length === 0) return;
-    
+    const seq = ++quoteSeqRef.current;
+
     quoteDeliveryFn({ data: { lat, lng, address, subtotal, paymentMethod } })
       .then(res => {
+        if (seq !== quoteSeqRef.current) return;
         if (!res.ok) {
           setDistanceError(res.error || 'Delivery unavailable.');
           setTotalDeliveryFee(0);
@@ -152,6 +204,12 @@ function CheckoutPage() {
           setDistanceFee(res.distanceFee || 0);
           setTotalDeliveryFee(res.totalDeliveryFee || 0);
         }
+      })
+      .catch(() => {
+        if (seq !== quoteSeqRef.current) return;
+        setDistanceError('Could not calculate delivery fee right now. Please try again.');
+        setTotalDeliveryFee(0);
+        setAddressLocated(false);
       });
   }, [lat, lng, address, subtotal, paymentMethod, cartItems.length]);
 
@@ -224,7 +282,21 @@ function CheckoutPage() {
     );
   };
 
+  const handleAcceptUpdatedPrices = () => {
+    if (!priceNotice) return;
+    saveCart(priceNotice.updatedCart);
+    setCartItems(priceNotice.updatedCart);
+    setPriceNotice(null);
+    setError('');
+  };
+
   const handlePlaceOrder = async () => {
+    if (submittingRef.current) return;
+    if (priceNotice) {
+      setError('Menu prices or item availability changed. Please accept the updated cart total above before placing your order.');
+      return;
+    }
+
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
       Notification.requestPermission().catch(() => {});
     }
@@ -233,28 +305,48 @@ function CheckoutPage() {
       setError('Your cart is empty.');
       return;
     }
-    
+
+    submittingRef.current = true;
     setLoading(true);
     setError('');
 
-    const currentDraft = {
-      ...draft,
-      contact: { name, phone, email },
-      delivery: { address, lat, lng, source: draft.delivery.source },
-      payment: { method: paymentMethod, chosen: true, trxId }
-    };
+    try {
+      const currentDraft = {
+        ...draft,
+        contact: { name, phone, email },
+        delivery: { address, lat, lng, source: draft.delivery.source },
+        payment: { method: paymentMethod, chosen: true, trxId }
+      };
 
-    const res = await submitOrder(currentDraft, cartItems);
+      const res = await submitOrder(currentDraft, cartItems, { expectedSubtotal: subtotal });
 
-    if (!res.success) {
-      setError(res.error || 'Failed to place order.');
+      if (!res.success) {
+        if (res.code === 'price_changed' && typeof res.currentSubtotal === 'number') {
+          const synced: any = await refreshCartPricesFn({ data: { itemIds: cartItems.map(i => i.menu_item_id) } }).catch(() => null);
+          const nextCart = synced?.items?.length
+            ? cartItems.map(c => {
+                const db = (synced.items as any[]).find((d: any) => d.id === c.menu_item_id);
+                return db ? { ...c, price: Math.round(Number(db.price)), name: db.name } : c;
+              })
+            : cartItems;
+          setPriceNotice({
+            oldSubtotal: subtotal,
+            newSubtotal: res.currentSubtotal,
+            unavailableNames: [],
+            updatedCart: nextCart,
+          });
+        }
+        setError(res.error || 'Failed to place order.');
+        return;
+      }
+
+      setSuccessOrderId(res.orderId || '');
+      setSuccessTrackingToken(res.trackingToken || '');
+      setStep(3);
+    } finally {
+      submittingRef.current = false;
       setLoading(false);
-      return;
     }
-
-    setSuccessOrderId(res.orderId || '');
-    setStep(3);
-    setLoading(false);
   };
 
   const handleNext = () => {
@@ -309,6 +401,22 @@ function CheckoutPage() {
             {error && (
               <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl font-medium text-sm border border-red-100">
                 {error}
+              </div>
+            )}
+            {priceNotice && step !== 3 && (
+              <div role="alert" className="mb-6 p-4 bg-amber-50 border-2 border-amber-400 rounded-xl text-amber-950 text-sm space-y-2">
+                <p className="font-bold">Menu Price / Availability Update</p>
+                <p>
+                  Item subtotal updated from <span className="line-through">PKR {priceNotice.oldSubtotal}</span> to <b>PKR {priceNotice.newSubtotal}</b>.
+                  {priceNotice.unavailableNames.length > 0 && ` Unavailable items removed: ${priceNotice.unavailableNames.join(', ')}.`}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleAcceptUpdatedPrices}
+                  className="px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs transition-colors"
+                >
+                  Accept Updated Total (PKR {priceNotice.newSubtotal})
+                </button>
               </div>
             )}
 
@@ -491,10 +599,10 @@ function CheckoutPage() {
                   <button onClick={() => setStep(1)} className="w-1/3 bg-accent text-foreground font-bold py-3.5 rounded-xl hover:bg-accent/80 transition-colors">Back</button>
                   <button 
                     onClick={handlePlaceOrder}
-                    disabled={loading || !consent || !shopStatus.open} 
+                    disabled={loading || !consent || !shopStatus.open || Boolean(priceNotice)} 
                     className="w-2/3 bg-primary text-primary-foreground font-bold py-3.5 rounded-xl hover:bg-primary/90 shadow-lg shadow-primary/30 disabled:opacity-50 flex justify-center items-center transition-all"
                   >
-                    {loading ? 'Processing...' : !shopStatus.open ? 'Closed right now' : 'Place Order'}
+                    {loading ? 'Processing...' : !shopStatus.open ? 'Closed right now' : priceNotice ? 'Accept Updated Total First' : 'Place Order'}
                   </button>
                 </div>
               </section>
@@ -548,13 +656,23 @@ function CheckoutPage() {
                 
                 <div className="bg-slate-50 p-6 rounded-2xl border border-border mb-8 max-w-md mx-auto">
                   <p className="font-semibold text-slate-900 mb-2">Permanent Tracking Link:</p>
-                  <Link to="/orders/$orderId" params={{ orderId: successOrderId }} className="text-primary hover:underline font-mono text-sm break-all">
-                    https://amir-fast-food.vercel.app/orders/{successOrderId}
+                  <Link
+                    to="/orders/$orderId"
+                    params={{ orderId: successOrderId }}
+                    search={successTrackingToken ? { t: successTrackingToken } : {}}
+                    className="text-primary hover:underline font-mono text-sm break-all"
+                  >
+                    {`${typeof window !== 'undefined' ? window.location.origin : ''}/orders/${successOrderId}${successTrackingToken ? `?t=${successTrackingToken}` : ''}`}
                   </Link>
-                  <p className="text-xs text-muted-foreground mt-4">Save this link to track your order status with live updates.</p>
+                  <p className="text-xs text-muted-foreground mt-4">Save this private link to track your order status with live updates.</p>
                 </div>
 
-                <Link to="/orders/$orderId" params={{ orderId: successOrderId }} className="inline-block w-full max-w-md bg-primary text-primary-foreground font-bold py-4 rounded-xl hover:bg-primary/90 shadow-lg shadow-primary/30 transition-all text-lg mb-4">
+                <Link
+                  to="/orders/$orderId"
+                  params={{ orderId: successOrderId }}
+                  search={successTrackingToken ? { t: successTrackingToken } : {}}
+                  className="inline-block w-full max-w-md bg-primary text-primary-foreground font-bold py-4 rounded-xl hover:bg-primary/90 shadow-lg shadow-primary/30 transition-all text-lg mb-4"
+                >
                   Track My Order Now
                 </Link>
               </section>

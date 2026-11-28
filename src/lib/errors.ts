@@ -7,6 +7,8 @@ export type ErrorCode =
   | 'cancellation_ineligible'
   | 'unauthorized'
   | 'validation'
+  | 'price_changed'
+  | 'idempotency_conflict'
   | 'db_migration_needed';
 
 export class UserFacingError extends Error {

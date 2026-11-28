@@ -108,7 +108,7 @@ export function OrderStatusView({ order, onNotify }: { order: LiveOrder, onNotif
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {order.status === 'received' && (
+            {order.status === 'received' && order.authorized !== false && (
               <button 
                 type="button"
                 onClick={() => setShowCancelModal(true)} 
@@ -339,20 +339,29 @@ export function OrderStatusView({ order, onNotify }: { order: LiveOrder, onNotif
 
         <div className="bg-card border border-border rounded-3xl p-5 shadow-sm">
            <h3 className="font-bold text-lg text-foreground mb-4">Order Details</h3>
-           <div className="space-y-3 mb-5">
-             {order.items.map((item, i) => (
-               <div key={i} className="flex justify-between text-sm text-foreground">
-                 <div className="pr-4">
-                   <span className="font-bold">{item.quantity}x</span> {item.name}
-                   {item.variants && item.variants.length > 0 && (
-                     <p className="text-xs text-muted-foreground mt-0.5 ml-4">{item.variants.map(v => v.name).join(', ')}</p>
-                   )}
+           {order.authorized === false ? (
+             <div className="p-4 rounded-2xl bg-muted/50 border border-border text-xs text-muted-foreground space-y-2 mb-4">
+               <p className="font-semibold text-foreground">Protected Customer Details</p>
+               <p>
+                 Full item receipt, delivery address, rider contact, and online cancellation are only visible when opened from your personal tracking link or the device that placed this order.
+               </p>
+             </div>
+           ) : (
+             <div className="space-y-3 mb-5">
+               {order.items.map((item, i) => (
+                 <div key={i} className="flex justify-between text-sm text-foreground">
+                   <div className="pr-4">
+                     <span className="font-bold">{item.quantity}x</span> {item.name}
+                     {item.variants && item.variants.length > 0 && (
+                       <p className="text-xs text-muted-foreground mt-0.5 ml-4">{item.variants.map(v => v.name).join(', ')}</p>
+                     )}
+                   </div>
+                   <div className="font-medium whitespace-nowrap">Rs {item.unit_price * item.quantity}</div>
                  </div>
-                 <div className="font-medium whitespace-nowrap">Rs {item.unit_price * item.quantity}</div>
-               </div>
-             ))}
-           </div>
-           
+               ))}
+             </div>
+           )}
+
            <div className="border-t border-border pt-4 space-y-2 text-sm text-muted-foreground">
              <div className="flex justify-between"><span>Subtotal</span><span>Rs {order.subtotal}</span></div>
              <div className="flex justify-between"><span>Delivery Fee</span><span>{order.delivery_fee > 0 ? `Rs ${order.delivery_fee}` : 'FREE'}</span></div>
@@ -361,17 +370,19 @@ export function OrderStatusView({ order, onNotify }: { order: LiveOrder, onNotif
                <span className="text-primary">Rs {order.total}</span>
              </div>
            </div>
-           <div className="mt-4 pt-4 border-t border-border grid grid-cols-2 gap-4 text-sm">
-             <div>
-               <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Payment</p>
-               <p className="font-semibold text-foreground">{order.payment_method === 'cod' ? 'Cash on Delivery' : 'Online Transfer'}</p>
+           {order.authorized !== false && (
+             <div className="mt-4 pt-4 border-t border-border grid grid-cols-2 gap-4 text-sm">
+               <div>
+                 <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Payment</p>
+                 <p className="font-semibold text-foreground">{order.payment_method === 'cod' ? 'Cash on Delivery' : 'Online Transfer'}</p>
+               </div>
+               <div>
+                 <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Delivery to</p>
+                 <p className="font-semibold text-foreground truncate">{order.customer_name}</p>
+                 <p className="text-xs text-muted-foreground line-clamp-2">{order.delivery_address}</p>
+               </div>
              </div>
-             <div>
-               <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Delivery to</p>
-               <p className="font-semibold text-foreground truncate">{order.customer_name}</p>
-               <p className="text-xs text-muted-foreground line-clamp-2">{order.delivery_address}</p>
-             </div>
-           </div>
+           )}
         </div>
       </div>
 

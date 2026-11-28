@@ -243,11 +243,11 @@ function MenuPage() {
   }, [visibleCategories]);
 
   const handleAddToCart = (item: MenuItem) => {
-    if (item.category_id === 'cat_deals') {
+    if (Array.isArray(item.variants) && item.variants.length > 0) {
       setModalItem(item);
       return;
     }
-    
+
     addToCart(buildCartItem(item, [], 1));
     playSuccessChime();
     showToast(`${item.name} added to cart!`);

@@ -1,63 +1,60 @@
 import { createServerFn } from '@tanstack/react-start';
-import { verifyAdminPin, signAdminToken, verifyAdminToken, revokeAdminToken, getAdminCredential } from './auth';
-import { toSafeError } from './errors';
+import {
+  verifyAdminPinDetailed,
+  createAdminSession,
+  setAdminSessionCookie,
+  clearAdminSessionCookie,
+  getAdminCookieToken,
+  verifyAdminToken,
+  revokeAdminToken,
+  getClientIp,
+} from './auth';
 
-export const loginAdminFn = createServerFn({ method: "POST" })
-  .validator((d: { pin?: string }) => d)
+export const loginAdminFn = createServerFn({ method: 'POST' })
+  .validator((d: { pin: string }) => d)
   .handler(async ({ data }) => {
     try {
-      verifyAdminPin(data.pin);
-      const token = signAdminToken();
-      return { success: true, token };
-    } catch (e: any) {
-      return { success: false, error: toSafeError(e) };
+      const ip = getClientIp();
+      const check = await verifyAdminPinDetailed(data.pin, ip);
+      if (!check.ok) {
+        return {
+          success: false,
+          blocked: Boolean(check.blocked),
+          error: check.error || 'Incorrect PIN.',
+        };
+      }
+
+      const { token, expiresAt } = await createAdminSession();
+      setAdminSessionCookie(token);
+
+      return {
+        success: true,
+        expiresAt,
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err?.message || 'Unable to sign in right now.',
+      };
     }
   });
 
-export const logoutAdminFn = createServerFn({ method: "POST" })
-  .validator((d: { token?: string }) => d)
+export const validateAdminSessionFn = createServerFn({ method: 'POST' })
+  .validator((d?: { token?: string }) => d || {})
   .handler(async ({ data }) => {
-    try {
-      if (data.token) {
-        revokeAdminToken(data.token);
-      }
-      return { success: true };
-    } catch {
-      return { success: true };
-    }
+    const token = getAdminCookieToken() || data?.token;
+    if (!token) return { valid: false };
+    const valid = await verifyAdminToken(token);
+    return { valid };
   });
 
-export const verifyAdminPinFn = createServerFn({ method: "POST" })
-  .validator((d: { pin?: string }) => d)
+export const logoutAdminFn = createServerFn({ method: 'POST' })
+  .validator((d?: { token?: string }) => d || {})
   .handler(async ({ data }) => {
-    try {
-      const isValid = verifyAdminPin(data.pin);
-      return { success: isValid, token: isValid ? signAdminToken() : undefined };
-    } catch (e: any) {
-      return { success: false, error: toSafeError(e) };
+    const token = getAdminCookieToken() || data?.token;
+    if (token) {
+      await revokeAdminToken(token);
     }
-  });
-
-export const validateAdminSessionFn = createServerFn({ method: "POST" })
-  .validator((d: { token?: string }) => d)
-  .handler(async ({ data }) => {
-    try {
-      let isConfigured = false;
-      try {
-        isConfigured = Boolean(getAdminCredential());
-      } catch {
-        isConfigured = false;
-      }
-
-      if (!isConfigured) {
-        return { valid: false, configured: false, error: 'Admin access is not configured on the server. Please set ADMIN_PASSPHRASE or ADMIN_PIN.' };
-      }
-      if (!data.token) {
-        return { valid: false, configured: true };
-      }
-      const isValid = verifyAdminToken(data.token);
-      return { valid: isValid, configured: true };
-    } catch {
-      return { valid: false, configured: false };
-    }
+    clearAdminSessionCookie();
+    return { success: true };
   });

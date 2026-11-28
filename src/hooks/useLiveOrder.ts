@@ -1,11 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { getPublicOrders } from '../server/order';
 import { OrderStatus } from '../lib/orderStatus';
 import { getLocal, setLocal } from '../lib/storage';
+import { getTrackingToken, getCancellationToken } from '../lib/activeOrders';
 
 export type LiveOrder = {
   id: string;
   shortCode: string;
+  authorized?: boolean;
   status: OrderStatus;
   payment_review_status?: 'not_required' | 'pending' | 'approved' | 'rejected';
   payment_verified_at?: string | null;
@@ -25,7 +27,7 @@ export type LiveOrder = {
   delivery_fee: number;
   total: number;
   customer_name: string;
-  delivery_address: string;
+  delivery_address: string | null;
   rider_name: string | null;
   rider_phone: string | null;
   cancel_reason: string | null;
@@ -34,7 +36,8 @@ export type LiveOrder = {
 
 export function useLiveOrder(
   orderId: string | null, 
-  onStatusChange?: (newStatus: OrderStatus, oldStatus: OrderStatus | null, order: LiveOrder) => void
+  onStatusChange?: (newStatus: OrderStatus, oldStatus: OrderStatus | null, order: LiveOrder) => void,
+  explicitTrackingToken?: string
 ) {
   const [order, setOrder] = useState<LiveOrder | null>(() => {
     if (!orderId) return null;
@@ -47,10 +50,18 @@ export function useLiveOrder(
   const notFoundCountRef = useRef(0);
   const statusRef = useRef<OrderStatus | null>(order?.status || null);
   const onStatusChangeRef = useRef(onStatusChange);
+  const manualFetchRef = useRef<(() => Promise<void>) | null>(null);
 
   useEffect(() => {
     onStatusChangeRef.current = onStatusChange;
   }, [onStatusChange]);
+
+  const retryNow = useCallback(() => {
+    if (manualFetchRef.current) {
+      return manualFetchRef.current();
+    }
+    return Promise.resolve();
+  }, []);
 
   useEffect(() => {
     if (!orderId) {
@@ -58,6 +69,7 @@ export function useLiveOrder(
       setLoading(false);
       setError(false);
       setIsReconnecting(false);
+      manualFetchRef.current = null;
       return;
     }
 
@@ -66,6 +78,7 @@ export function useLiveOrder(
       setOrder(cached);
       statusRef.current = cached.status;
     } else {
+      setOrder(null);
       setLoading(true);
     }
 
@@ -74,9 +87,15 @@ export function useLiveOrder(
 
     const fetchOrder = async () => {
       try {
-        const dataArray = await getPublicOrders({ data: { orderIds: [orderId] } });
+        const token = explicitTrackingToken || getTrackingToken(orderId) || getCancellationToken(orderId) || undefined;
+        const dataArray = await getPublicOrders({
+          data: {
+            orderIds: [orderId],
+            ...(token ? { trackingToken: token } : {}),
+          },
+        });
         if (!isSubscribed) return;
-        
+
         if (dataArray && dataArray.length > 0) {
           notFoundCountRef.current = 0;
           const data = dataArray[0] as LiveOrder;
@@ -84,18 +103,16 @@ export function useLiveOrder(
           setIsReconnecting(false);
           setOrder(data);
           setLocal(`order_cache_${orderId}`, data);
-          
+
           if (statusRef.current && statusRef.current !== data.status && onStatusChangeRef.current) {
             onStatusChangeRef.current(data.status, statusRef.current, data);
           }
           statusRef.current = data.status;
         } else {
-          // Server returned empty list: not found
-          notFoundCountRef.current += 1;
-          if (notFoundCountRef.current >= 2) {
-            setError(true);
-            setIsReconnecting(false);
-          }
+          // Confirmed empty response from server means order ID does not exist
+          setOrder(null);
+          setError(true);
+          setIsReconnecting(false);
         }
       } catch (err) {
         if (!isSubscribed) return;
@@ -105,25 +122,26 @@ export function useLiveOrder(
       }
     };
 
-    fetchOrder();
+    manualFetchRef.current = fetchOrder;
 
     const scheduleNext = () => {
       clearTimeout(fetchTimeout);
       if (!isSubscribed) return;
-      
+
       const isFinal = statusRef.current === 'delivered' || statusRef.current === 'canceled';
       if (isFinal) return; // Stop polling when final
-      
+
       const interval = document.visibilityState === 'visible' ? 5000 : 30000;
       fetchTimeout = setTimeout(() => {
         fetchOrder().finally(scheduleNext);
       }, interval);
     };
-    
-    // Only schedule if not final initially
-    if (statusRef.current !== 'delivered' && statusRef.current !== 'canceled') {
-      scheduleNext();
-    }
+
+    fetchOrder().finally(() => {
+      if (isSubscribed && statusRef.current !== 'delivered' && statusRef.current !== 'canceled') {
+        scheduleNext();
+      }
+    });
 
     const handleRefetch = () => {
        if (document.visibilityState === 'visible') fetchOrder();
@@ -134,6 +152,14 @@ export function useLiveOrder(
     window.addEventListener('online', handleRefetch);
     window.addEventListener('pageshow', handleRefetch);
     
+    const handleOrderUpdated = (e: Event) => {
+      const detail = (e as CustomEvent<{ orderId?: string }>).detail;
+      if (!detail?.orderId || detail.orderId === orderId) {
+        fetchOrder();
+      }
+    };
+    window.addEventListener('orderUpdated', handleOrderUpdated);
+
     const handleMessage = (e: MessageEvent) => {
       if (e.data && e.data.type === 'ORDER_UPDATE' && e.data.orderId === orderId) {
         fetchOrder();
@@ -143,14 +169,16 @@ export function useLiveOrder(
 
     return () => {
       isSubscribed = false;
+      manualFetchRef.current = null;
       clearTimeout(fetchTimeout);
       document.removeEventListener('visibilitychange', handleRefetch);
       window.removeEventListener('focus', handleRefetch);
       window.removeEventListener('online', handleRefetch);
       window.removeEventListener('pageshow', handleRefetch);
+      window.removeEventListener('orderUpdated', handleOrderUpdated);
       navigator.serviceWorker?.removeEventListener('message', handleMessage);
     };
-  }, [orderId]);
+  }, [orderId, explicitTrackingToken]);
 
-  return { order, loading, error, isReconnecting };
+  return { order, loading, error, isReconnecting, retryNow };
 }

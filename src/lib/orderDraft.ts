@@ -24,6 +24,7 @@ export interface OrderDraft {
   v: 1;
   updatedAt: number;
   step: number; // 1 to 7
+  idempotencyKey?: string;
   contact: OrderDraftContact;
   delivery: OrderDraftDelivery;
   payment: OrderDraftPayment;
@@ -31,6 +32,13 @@ export interface OrderDraft {
 
 const STORAGE_KEY = 'order_draft';
 const DRAFT_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+function generateDraftUuid(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `idemp_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+}
 
 let cachedRaw: string | null = null;
 let cachedSnapshot: OrderDraft | null = null;
@@ -99,6 +107,7 @@ export function getDraft(): OrderDraft {
       v: 1,
       updatedAt: parsed.updatedAt,
       step: typeof parsed.step === 'number' ? parsed.step : 1,
+      idempotencyKey: typeof parsed.idempotencyKey === 'string' && parsed.idempotencyKey.length >= 16 ? parsed.idempotencyKey : undefined,
       contact: {
         name: parsed.contact?.name || '',
         phone: parsed.contact?.phone || '',
@@ -126,6 +135,7 @@ export function getDraft(): OrderDraft {
 
 export function updateDraft(patch: Partial<{
   step: number;
+  idempotencyKey: string;
   contact: Partial<OrderDraftContact>;
   delivery: Partial<OrderDraftDelivery>;
   payment: Partial<OrderDraftPayment>;
@@ -136,6 +146,7 @@ export function updateDraft(patch: Partial<{
     v: 1,
     updatedAt: Date.now(),
     step: patch.step !== undefined ? patch.step : current.step,
+    idempotencyKey: patch.idempotencyKey !== undefined ? patch.idempotencyKey : current.idempotencyKey,
     contact: {
       ...current.contact,
       ...(patch.contact || {}),
@@ -161,6 +172,20 @@ export function updateDraft(patch: Partial<{
   }
 
   return next;
+}
+
+export function getOrCreateDraftIdempotencyKey(): string {
+  const existing = getDraft().idempotencyKey;
+  if (existing && existing.length >= 16) return existing;
+  const fresh = generateDraftUuid();
+  updateDraft({ idempotencyKey: fresh });
+  return fresh;
+}
+
+export function rotateDraftIdempotencyKey(): string {
+  const fresh = generateDraftUuid();
+  updateDraft({ idempotencyKey: fresh });
+  return fresh;
 }
 
 export function clearDraft(): void {

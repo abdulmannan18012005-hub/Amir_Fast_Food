@@ -1,180 +1,298 @@
 import crypto from 'crypto';
-import { getRequestIP, getRequestHeaders } from '@tanstack/react-start/server';
-import { checkRateLimit } from './rateLimit';
+import {
+  getCookie,
+  setCookie,
+  deleteCookie,
+  getRequestHeader,
+  getRequestHost,
+  getRequestProtocol,
+  getRequestIP,
+} from '@tanstack/react-start/server';
+import { getSupabaseServer } from '../lib/supabase';
+import { checkRateLimit, isRateLimited, resetRateLimit } from './rateLimit';
 import { UserFacingError } from './errors';
 
-// Persistent tracking with in-memory lock fallback
-const attempts = new Map<string, { count: number; lockUntil: number }>();
-// In-memory revoked tokens blacklist
-const revokedTokens = new Set<string>();
+export const ADMIN_SESSION_COOKIE = 'amir_admin_session';
+export const ADMIN_SESSION_TTL_SECONDS = 8 * 60 * 60; // 8 hours
+const ADMIN_PIN_MAX_ATTEMPTS = 5;
+const ADMIN_PIN_LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
 
-export function getClientIp(): string {
+export function getAdminCredential(): { pin: string; secret: string } {
+  const pin = (process.env.ADMIN_PIN || '').trim();
+  if (!pin || pin.length < 4) {
+    throw new Error('Server misconfigured: ADMIN_PIN environment variable is missing or weak.');
+  }
+  const secret = (process.env.ADMIN_SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+  if (!secret || secret.length < 16) {
+    throw new Error('Server misconfigured: ADMIN_SESSION_SECRET or service key missing for session signing.');
+  }
+  return { pin, secret };
+}
+
+export function timingSafeCompare(a: string, b: string): boolean {
+  if (!a || !b) return false;
+  const hashA = crypto.createHash('sha256').update(String(a)).digest();
+  const hashB = crypto.createHash('sha256').update(String(b)).digest();
+  return crypto.timingSafeEqual(hashA, hashB);
+}
+
+export function hashSessionToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+export function getClientIp(req?: Request): string {
   try {
-    const headers = getRequestHeaders() as any;
-
-    // 1. Vercel-specific header
-    const vercelForwarded = headers['x-vercel-forwarded-for'];
-    if (vercelForwarded) {
-      const first = String(vercelForwarded).split(',')[0]?.trim();
-      if (first) return first;
+    if (req) {
+      const forwarded = req.headers.get('x-forwarded-for');
+      if (forwarded) return forwarded.split(',')[0].trim();
+      const realIp = req.headers.get('x-real-ip');
+      if (realIp) return realIp.trim();
     }
+  } catch {}
 
-    // 2. Standard x-forwarded-for
-    const xForwarded = headers['x-forwarded-for'];
-    if (xForwarded) {
-      const first = String(xForwarded).split(',')[0]?.trim();
-      if (first) return first;
-    }
-
-    // 3. x-real-ip
-    const realIp = headers['x-real-ip'];
-    if (realIp) return String(realIp).trim();
-
-    // 4. TanStack's getRequestIP
-    const ip = getRequestIP();
+  try {
+    const forwarded = getRequestHeader('x-forwarded-for');
+    if (forwarded) return forwarded.split(',')[0].trim();
+    const realIp = getRequestHeader('x-real-ip');
+    if (realIp) return realIp.trim();
+    const ip = getRequestIP({ xForwardedFor: true });
     if (ip) return ip;
+  } catch {}
 
-    // 5. Hashed fingerprint as last resort (unique per UA + accept-language)
-    const ua = headers['user-agent'] || '';
-    const lang = headers['accept-language'] || '';
-    const hash = crypto.createHash('sha256').update(`${ua}|${lang}`).digest('hex').slice(0, 16);
-    return `fp_${hash}`;
-  } catch {
-    // If not in request context, create a fingerprint from whatever is available
-    return `fp_${crypto.randomBytes(8).toString('hex')}`;
-  }
-}
-
-export function getAdminCredential(): string {
-  const credential = process.env.ADMIN_PASSPHRASE || process.env.ADMIN_PIN;
-  if (!credential) {
-    throw new UserFacingError(
-      'Admin access is not configured on the server. Please set ADMIN_PASSPHRASE or ADMIN_PIN in environment variables.',
-      'auth'
-    );
-  }
-  return String(credential).replace(/^["']|["']$/g, '').trim();
-}
-
-function getAdminSigningKey(): Buffer {
-  const credential = getAdminCredential();
-  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.ADMIN_SESSION_SECRET;
-  if (!secret) {
-    throw new UserFacingError(
-      'Admin server secret missing. Please configure SUPABASE_SERVICE_ROLE_KEY or ADMIN_SESSION_SECRET.',
-      'auth'
-    );
-  }
-  return crypto.createHmac('sha256', secret).update(`admin-session|${credential}`).digest();
+  return 'unknown';
 }
 
 /**
- * Constant-time timing-safe string comparison.
- * Hashes inputs with SHA-256 first so buffer lengths are always identical (32 bytes),
- * preventing string-length timing attacks.
+ * Verifies same-origin for cookie-authenticated admin requests when Origin/Referer headers are present.
  */
-export function timingSafeCompare(a: string, b: string): boolean {
+export function assertSameOriginRequest(): void {
   try {
-    const hashA = crypto.createHash('sha256').update(String(a)).digest();
-    const hashB = crypto.createHash('sha256').update(String(b)).digest();
-    return crypto.timingSafeEqual(hashA, hashB);
-  } catch {
-    return false;
-  }
-}
-
-export function signAdminToken(): string {
-  const payload = {
-    role: 'admin',
-    exp: Date.now() + 12 * 3600 * 1000, // 12 hours max
-    nonce: crypto.randomBytes(8).toString('hex')
-  };
-  const payloadB64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  const sig = crypto.createHmac('sha256', getAdminSigningKey()).update(payloadB64).digest('base64url');
-  return `${payloadB64}.${sig}`;
-}
-
-export function revokeAdminToken(token?: string): void {
-  if (token && typeof token === 'string') {
-    revokedTokens.add(token);
-    // Limit memory size of revoked set
-    if (revokedTokens.size > 2000) {
-      const firstEntry = revokedTokens.values().next().value;
-      if (firstEntry) revokedTokens.delete(firstEntry);
+    const host = (getRequestHost({ xForwardedHost: true }) || '').toLowerCase();
+    if (!host) return;
+    const origin = getRequestHeader('origin');
+    if (origin) {
+      const originHost = new URL(origin).host.toLowerCase();
+      if (originHost !== host) {
+        throw new UserFacingError('Cross-origin admin request blocked.', 'unauthorized');
+      }
+      return;
     }
+    const referer = getRequestHeader('referer');
+    if (referer) {
+      const refHost = new URL(referer).host.toLowerCase();
+      if (refHost !== host) {
+        throw new UserFacingError('Cross-origin admin request blocked.', 'unauthorized');
+      }
+    }
+  } catch (err: any) {
+    if (err instanceof UserFacingError) throw err;
   }
 }
 
-export function verifyAdminToken(token: string): boolean {
-  if (!token || typeof token !== 'string') return false;
-  if (revokedTokens.has(token)) return false;
+export async function verifyAdminPinDetailed(
+  pin?: string,
+  clientIp?: string
+): Promise<{ ok: boolean; blocked?: boolean; error?: string }> {
+  const ip = clientIp || getClientIp();
+  const lockKey = `admin_login:${ip}`;
 
-  const parts = token.split('.');
-  if (parts.length !== 2) return false;
-  const [payloadB64, sig] = parts;
+  const locked = await isRateLimited(lockKey, ADMIN_PIN_MAX_ATTEMPTS, { strict: true });
+  if (locked) {
+    return {
+      ok: false,
+      blocked: true,
+      error: 'Too many invalid PIN attempts. Admin login is locked for 15 minutes.',
+    };
+  }
+
+  let expectedPin = '';
+  try {
+    expectedPin = getAdminCredential().pin;
+  } catch {
+    return { ok: false, error: 'Admin authentication is not configured on the server.' };
+  }
+
+  if (typeof pin === 'string' && timingSafeCompare(pin.trim(), expectedPin)) {
+    await resetRateLimit(lockKey);
+    return { ok: true };
+  }
+
+  const stillAllowed = await checkRateLimit(
+    ip,
+    'admin_login',
+    ADMIN_PIN_MAX_ATTEMPTS,
+    ADMIN_PIN_LOCKOUT_MS,
+    { strict: true }
+  );
+  if (!stillAllowed) {
+    return {
+      ok: false,
+      blocked: true,
+      error: 'Too many invalid PIN attempts. Admin login is locked for 15 minutes.',
+    };
+  }
+
+  return { ok: false, error: 'Incorrect PIN.' };
+}
+
+export async function verifyAdminPin(pin?: string, clientIp?: string): Promise<boolean> {
+  const res = await verifyAdminPinDetailed(pin, clientIp);
+  return res.ok;
+}
+
+function buildSignedTokenPayload(): { token: string; expiresAtIso: string; tokenHash: string } {
+  const { secret } = getAdminCredential();
+  const exp = Date.now() + ADMIN_SESSION_TTL_SECONDS * 1000;
+  const nonce = crypto.randomBytes(16).toString('hex');
+  const payload = Buffer.from(JSON.stringify({ role: 'admin', exp, nonce })).toString('base64url');
+  const sig = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
+  const token = `${payload}.${sig}`;
+  return {
+    token,
+    expiresAtIso: new Date(exp).toISOString(),
+    tokenHash: hashSessionToken(token),
+  };
+}
+
+function verifyTokenCrypto(token: string): boolean {
+  if (!token || typeof token !== 'string' || !token.includes('.')) return false;
+  const [payload, sig] = token.split('.');
+  if (!payload || !sig) return false;
 
   try {
-    const expectedSig = crypto.createHmac('sha256', getAdminSigningKey()).update(payloadB64).digest('base64url');
+    const { secret } = getAdminCredential();
+    const expectedSig = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
     if (!timingSafeCompare(sig, expectedSig)) return false;
 
-    const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
-    if (!payload || payload.role !== 'admin' || typeof payload.exp !== 'number') return false;
-    if (payload.exp < Date.now()) return false;
+    const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    if (decoded.role !== 'admin') return false;
+    if (typeof decoded.exp !== 'number' || decoded.exp <= Date.now()) return false;
     return true;
   } catch {
     return false;
   }
 }
 
-export function requireAdmin(tokenOrPin?: string): boolean {
-  if (!tokenOrPin) {
-    throw new UserFacingError('Admin authorization required. Please enter your passphrase or PIN.', 'auth');
+export async function createAdminSession(): Promise<{ token: string; expiresAt: string }> {
+  const { token, expiresAtIso, tokenHash } = buildSignedTokenPayload();
+  const supabase = getSupabaseServer();
+  const { error } = await supabase.from('admin_sessions').insert({
+    token_hash: tokenHash,
+    expires_at: expiresAtIso,
+  });
+
+  if (error) {
+    console.error('[createAdminSession] DB insert error:', error);
+    throw new UserFacingError(
+      'Unable to persist admin session. Please apply the latest database security migration.',
+      'db_migration_needed'
+    );
   }
 
-  if (tokenOrPin.includes('.')) {
-    if (verifyAdminToken(tokenOrPin)) return true;
-    throw new UserFacingError('Your session has expired. Please log in again.', 'auth');
-  }
-
-  return verifyAdminPin(tokenOrPin);
+  return { token, expiresAt: expiresAtIso };
 }
 
-export function verifyAdminPin(providedPin?: string): boolean {
-  const expected = getAdminCredential();
+export function setAdminSessionCookie(token: string, maxAgeSeconds = ADMIN_SESSION_TTL_SECONDS): void {
+  try {
+    let isSecure = process.env.NODE_ENV === 'production';
+    try {
+      const proto = getRequestProtocol({ xForwardedProto: true });
+      const host = (getRequestHost({ xForwardedHost: true }) || '').toLowerCase();
+      if (host.startsWith('localhost') || host.startsWith('127.0.0.1')) {
+        isSecure = proto === 'https';
+      } else if (proto) {
+        isSecure = proto === 'https';
+      }
+    } catch {}
 
-  if (!providedPin) {
-    throw new UserFacingError('Passphrase / PIN is required. Please enter your admin credentials.', 'auth');
+    setCookie(ADMIN_SESSION_COOKIE, token, {
+      httpOnly: true,
+      sameSite: 'lax',
+      path: '/',
+      secure: isSecure,
+      maxAge: maxAgeSeconds,
+    });
+  } catch (err) {
+    console.error('[setAdminSessionCookie] Failed:', err);
   }
+}
 
-  const ip = getClientIp();
-  const now = Date.now();
-  const record = attempts.get(ip) || { count: 0, lockUntil: 0 };
+export function clearAdminSessionCookie(): void {
+  try {
+    deleteCookie(ADMIN_SESSION_COOKIE, { path: '/' });
+  } catch {}
+}
 
-  if (record.lockUntil > now) {
-    const remainingMins = Math.ceil((record.lockUntil - now) / 60000);
-    throw new UserFacingError(`Too many failed attempts. Please wait ${remainingMins} minute(s) and try again.`, 'rate_limited');
+export function getAdminCookieToken(): string | undefined {
+  try {
+    return getCookie(ADMIN_SESSION_COOKIE);
+  } catch {
+    return undefined;
   }
+}
 
-  const unquotedExpected = expected.replace(/^["']|["']$/g, '').trim();
-  const providedStr = String(providedPin).replace(/^["']|["']$/g, '').trim();
+export async function verifyAdminToken(token: string): Promise<boolean> {
+  if (!verifyTokenCrypto(token)) return false;
+  try {
+    const supabase = getSupabaseServer();
+    const tokenHash = hashSessionToken(token);
+    const { data, error } = await supabase
+      .from('admin_sessions')
+      .select('token_hash, expires_at, revoked_at')
+      .eq('token_hash', tokenHash)
+      .maybeSingle();
 
-  const isMatch = timingSafeCompare(expected, providedStr) ||
-                  timingSafeCompare(unquotedExpected, providedStr);
-
-  if (isMatch) {
-    attempts.delete(ip);
-    return true;
-  } else {
-    record.count++;
-    if (record.count >= 5) {
-      record.lockUntil = now + 15 * 60 * 1000; // 15-minute lockout
-      record.count = 0;
+    if (error) {
+      console.error('[verifyAdminToken] DB error:', error);
+      return false;
     }
-    attempts.set(ip, record);
-
-    // Call persistent rate limiter asynchronously (non-blocking failure log)
-    checkRateLimit(ip, 'admin_auth_fail', 5, 15 * 60 * 1000).catch(() => {});
-
-    throw new UserFacingError('Incorrect passphrase or PIN. Please try again.', 'auth');
+    if (!data || data.revoked_at) return false;
+    if (new Date(data.expires_at).getTime() <= Date.now()) return false;
+    return true;
+  } catch {
+    return false;
   }
+}
+
+export async function revokeAdminToken(token?: string): Promise<void> {
+  if (!token) return;
+  try {
+    const supabase = getSupabaseServer();
+    const tokenHash = hashSessionToken(token);
+    const { error } = await supabase
+      .from('admin_sessions')
+      .update({ revoked_at: new Date().toISOString() })
+      .eq('token_hash', tokenHash)
+      .is('revoked_at', null);
+
+    if (error) {
+      console.error('[revokeAdminToken] DB error:', error);
+    }
+  } catch (err) {
+    console.error('[revokeAdminToken] Unexpected error:', err);
+  }
+}
+
+export async function requireAdmin(tokenOrPin?: string): Promise<boolean> {
+  const cookieToken = getAdminCookieToken();
+  if (cookieToken) {
+    assertSameOriginRequest();
+    if (await verifyAdminToken(cookieToken)) {
+      return true;
+    }
+  }
+
+  if (tokenOrPin && tokenOrPin.includes('.')) {
+    if (await verifyAdminToken(tokenOrPin)) {
+      return true;
+    }
+  }
+
+  if (tokenOrPin && !tokenOrPin.includes('.')) {
+    if (await verifyAdminPin(tokenOrPin, getClientIp())) {
+      return true;
+    }
+  }
+
+  throw new UserFacingError('Unauthorized: Invalid or expired Admin Session', 'unauthorized');
 }

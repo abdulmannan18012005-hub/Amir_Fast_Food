@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useLiveOrder } from '../../hooks/useLiveOrder';
 import { usePushSetup } from '../../hooks/usePushSetup';
-import { getActiveOrders, consumeJustOrdered, removeActiveOrder, addActiveOrder } from '../../lib/activeOrders';
+import { getActiveOrders, getTrackingToken, consumeJustOrdered, removeActiveOrder, addActiveOrder } from '../../lib/activeOrders';
 import { OrderStatusView } from './OrderStatusView';
 import { ChevronUp, Package, X, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
@@ -128,6 +128,7 @@ export function OrderTracker() {
 
   const status = order?.status || 'received';
   const isFinal = status === 'delivered' || status === 'canceled';
+  const trackingToken = getTrackingToken(orderId);
 
   return (
     <>
@@ -187,6 +188,7 @@ export function OrderTracker() {
               <Link 
                  to="/orders/$orderId"
                  params={{ orderId }}
+                 search={trackingToken ? { t: trackingToken } : {}}
                  className="flex-1 text-center py-3 font-bold text-foreground bg-accent rounded-xl hover:bg-accent/80 transition-colors"
                  onClick={() => setIsExpanded(false)}
               >

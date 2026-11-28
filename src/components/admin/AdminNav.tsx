@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from '@tanstack/react-router';
 import { ChefHat, Lock, Download, Sun, Moon, Volume2, VolumeX } from 'lucide-react';
 import { useAdminContext } from './AdminContext';
+import { clearAdminSession } from '../../lib/adminSession';
 
 export function AdminNav() {
   const { theme, toggleTheme, soundEnabled, toggleSound } = useAdminContext();
@@ -38,8 +39,8 @@ export function AdminNav() {
     }
   };
 
-  const handleLock = () => {
-    sessionStorage.removeItem('admin_session');
+  const handleLock = async () => {
+    await clearAdminSession();
     window.location.reload();
   };
 

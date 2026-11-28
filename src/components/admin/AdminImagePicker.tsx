@@ -140,11 +140,30 @@ export function AdminImagePicker({
         return;
       }
 
-      // Also verify image renders in browser via Image() probe
+      // Also verify image renders in browser via Image() probe with bounded 8s timeout
       await new Promise<void>((resolve, reject) => {
         const img = new Image();
-        img.onload = () => (img.naturalWidth > 0 ? resolve() : reject(new Error('Image has zero dimensions.')));
-        img.onerror = () => reject(new Error('Browser could not display image from this URL.'));
+        let settled = false;
+        const timer = window.setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          img.onload = null;
+          img.onerror = null;
+          reject(new Error('Image preview timed out after 8 seconds. Check the link or upload from your device.'));
+        }, 8000);
+        img.onload = () => {
+          if (settled) return;
+          settled = true;
+          window.clearTimeout(timer);
+          if (img.naturalWidth > 0) resolve();
+          else reject(new Error('Image has zero dimensions.'));
+        };
+        img.onerror = () => {
+          if (settled) return;
+          settled = true;
+          window.clearTimeout(timer);
+          reject(new Error('Browser could not display image from this URL.'));
+        };
         img.src = res.url!;
       });
 

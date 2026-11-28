@@ -122,7 +122,7 @@ export async function sendOrderPush(orderId: string, status: string, title?: str
 export const subscribeAdminPushFn = createServerFn({ method: "POST" })
   .validator((d: { subscription: any; pin?: string; token?: string }) => d)
   .handler(async ({ data }) => {
-    requireAdmin(data.token || data.pin);
+    await requireAdmin(data.token || data.pin);
     const supabase = getSupabaseServer();
     
     const { endpoint, keys } = data.subscription;
@@ -165,7 +165,7 @@ export async function sendAdminOrderPush(orderId: string, summary: string) {
 export const sendTestAdminPushFn = createServerFn({ method: "POST" })
   .validator((d: { pin?: string; token?: string }) => d)
   .handler(async ({ data }) => {
-    requireAdmin(data.token || data.pin);
+    await requireAdmin(data.token || data.pin);
     await sendAdminOrderPush('TEST', 'Test Alert: Notifications are working!');
     return { success: true };
   });

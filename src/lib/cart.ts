@@ -123,10 +123,11 @@ export function getCartCount(cart?: CartItem[]): number {
 }
 
 export function useCartCount(): number {
-  const [count, setCount] = useState(() => getCartCount());
+  const [count, setCount] = useState(0);
 
   useEffect(() => {
     const update = () => setCount(getCartCount());
+    update();
     window.addEventListener('storage', update);
     window.addEventListener('cartUpdated', update);
     return () => {

@@ -53,11 +53,8 @@ CREATE TABLE IF NOT EXISTS public.customer_feedback (
   CONSTRAINT unique_order_feedback UNIQUE (order_id)
 );
 ALTER TABLE public.customer_feedback ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow public insert for delivered orders" ON public.customer_feedback
-  FOR INSERT WITH CHECK (
-    EXISTS (SELECT 1 FROM public.orders WHERE public.orders.id = customer_feedback.order_id AND public.orders.status = 'delivered')
-  );
-CREATE POLICY "Allow public read customer_feedback" ON public.customer_feedback FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public read customer_feedback" ON public.customer_feedback;
+DROP POLICY IF EXISTS "Allow public insert for delivered orders" ON public.customer_feedback;
 CREATE INDEX IF NOT EXISTS idx_customer_feedback_order_id ON public.customer_feedback(order_id);`;
 
 function AdminFeedbackPage() {

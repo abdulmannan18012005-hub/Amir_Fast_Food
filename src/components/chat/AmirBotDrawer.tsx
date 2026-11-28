@@ -11,8 +11,9 @@ import { reverseGeocodeFn } from '../../server/location';
 import { quoteDeliveryFn } from '../../server/pricingApi';
 import { 
   addToCart, getCart, removeItem, updateItemQuantity, 
-  clearCart, getCartSubtotal, lineTotal 
+  clearCart, getCartSubtotal, lineTotal, areVariantsEqual 
 } from '../../lib/cart';
+import { getActiveOrders, getTrackingToken } from '../../lib/activeOrders';
 import { useOrderDraft, clearDraft } from '../../lib/orderDraft';
 import { submitOrder } from '../../lib/orderSubmit';
 import { validateName, validatePhone, validateAddress, validateTid } from '../../lib/orderValidation';
@@ -57,6 +58,7 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
   const navigate = useNavigate();
   const shopStatus = useShopStatus();
   const [draft, updateDraft] = useOrderDraft();
+  const quoteSeqRef = useRef(0);
 
   // Cart State (synced with actual website cart)
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
@@ -210,6 +212,7 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
       return;
     }
 
+    const seq = ++quoteSeqRef.current;
     quoteDeliveryFn({
       data: {
         address: draft.delivery.address,
@@ -219,6 +222,7 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
         paymentMethod: draft.payment.method || 'online_transfer',
       }
     }).then(res => {
+      if (seq !== quoteSeqRef.current) return;
       if (!res.ok) {
         setDeliveryError(res.error || 'Delivery unavailable to this address.');
         setTotalDeliveryFee(0);
@@ -231,6 +235,7 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
         setTotalDeliveryFee(res.totalDeliveryFee || 0);
       }
     }).catch(() => {
+      if (seq !== quoteSeqRef.current) return;
       setDeliveryError('Could not calculate delivery charges.');
       setAddressLocated(false);
     });
@@ -313,45 +318,123 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
           });
           break;
         }
+        case 'INVALID_CART_TARGET': {
+          if (action.message) {
+            setMessages(prev => [...prev, { role: 'bot', text: action.message }]);
+          }
+          break;
+        }
         case 'SET_QTY': {
           if (!action.menu_item_id) break;
-          const matching = getCart().find(i => i.menu_item_id === action.menu_item_id);
-          if (!matching) break;
-          setActionQueue(prev => {
-            if (prev.some(p => p.type === 'SET_QTY' && p.menu_item_id === action.menu_item_id)) return prev;
-            return [
+          const matches = getCart().filter(i => i.menu_item_id === action.menu_item_id);
+          if (matches.length === 0) break;
+          const actionVars = Array.isArray(action.variants) ? action.variants : null;
+          if (action.ambiguous || (!actionVars && matches.length > 1)) {
+            const opts = matches
+              .map(m => `• ${m.name}${(m.variants || []).length > 0 ? ` (${m.variants.map(v => v.name).join(', ')})` : ' (Standard)'} × ${m.quantity}`)
+              .join('\n');
+            setMessages(prev => [
               ...prev,
               {
-                id: `qty_${action.menu_item_id}_${Date.now()}`,
-                type: 'SET_QTY',
-                menu_item_id: action.menu_item_id,
-                name: matching.name,
-                price: matching.price,
-                qty: action.qty || 1,
-                selectedVariants: matching.variants || [],
+                role: 'bot',
+                text: `You have multiple variants of ${matches[0].name} in your cart:\n${opts}\n\nWhich one would you like to update?`
               }
-            ];
+            ]);
+            break;
+          }
+          const targetedMatches = actionVars
+            ? matches.filter(m => areVariantsEqual(m.variants, actionVars))
+            : matches;
+          if (targetedMatches.length === 0) {
+            setMessages(prev => [
+              ...prev,
+              { role: 'bot', text: `I couldn't find that variant option for ${matches[0].name} in your cart, so nothing was changed.` }
+            ]);
+            break;
+          }
+          const toQueue = [targetedMatches[0]];
+          setActionQueue(prev => {
+            const additions: any[] = [];
+            toQueue.forEach((matching, idx) => {
+              const dup = prev.some(
+                p =>
+                  p.type === 'SET_QTY' &&
+                  p.menu_item_id === action.menu_item_id &&
+                  areVariantsEqual(p.selectedVariants, matching.variants || [])
+              );
+              if (!dup) {
+                const varLabel = (matching.variants || []).length > 0
+                  ? ` (${matching.variants.map(v => v.name).join(', ')})`
+                  : '';
+                additions.push({
+                  id: `qty_${action.menu_item_id}_${idx}_${Date.now()}`,
+                  type: 'SET_QTY',
+                  menu_item_id: action.menu_item_id,
+                  name: `${matching.name}${varLabel}`,
+                  price: matching.price,
+                  qty: action.qty || 1,
+                  selectedVariants: matching.variants || [],
+                });
+              }
+            });
+            return [...prev, ...additions];
           });
           break;
         }
         case 'REMOVE_ITEM': {
           if (!action.menu_item_id) break;
-          const matching = getCart().find(i => i.menu_item_id === action.menu_item_id);
-          if (!matching) break;
-          setActionQueue(prev => {
-            if (prev.some(p => p.type === 'REMOVE_ITEM' && p.menu_item_id === action.menu_item_id)) return prev;
-            return [
+          const matches = getCart().filter(i => i.menu_item_id === action.menu_item_id);
+          if (matches.length === 0) break;
+          const actionVars = Array.isArray(action.variants) ? action.variants : null;
+          if (action.ambiguous || (!actionVars && matches.length > 1)) {
+            const opts = matches
+              .map(m => `• ${m.name}${(m.variants || []).length > 0 ? ` (${m.variants.map(v => v.name).join(', ')})` : ' (Standard)'} × ${m.quantity}`)
+              .join('\n');
+            setMessages(prev => [
               ...prev,
               {
-                id: `rm_${action.menu_item_id}_${Date.now()}`,
-                type: 'REMOVE_ITEM',
-                menu_item_id: action.menu_item_id,
-                name: matching.name,
-                price: matching.price,
-                qty: matching.quantity,
-                selectedVariants: matching.variants || [],
+                role: 'bot',
+                text: `You have multiple variants of ${matches[0].name} in your cart:\n${opts}\n\nWhich specific one would you like to remove?`
               }
-            ];
+            ]);
+            break;
+          }
+          const targetedMatches = actionVars
+            ? matches.filter(m => areVariantsEqual(m.variants, actionVars))
+            : matches;
+          if (targetedMatches.length === 0) {
+            setMessages(prev => [
+              ...prev,
+              { role: 'bot', text: `I couldn't find that variant option for ${matches[0].name} in your cart, so nothing was removed.` }
+            ]);
+            break;
+          }
+          const toQueue = [targetedMatches[0]];
+          setActionQueue(prev => {
+            const additions: any[] = [];
+            toQueue.forEach((matching, idx) => {
+              const dup = prev.some(
+                p =>
+                  p.type === 'REMOVE_ITEM' &&
+                  p.menu_item_id === action.menu_item_id &&
+                  areVariantsEqual(p.selectedVariants, matching.variants || [])
+              );
+              if (!dup) {
+                const varLabel = (matching.variants || []).length > 0
+                  ? ` (${matching.variants.map(v => v.name).join(', ')})`
+                  : '';
+                additions.push({
+                  id: `rm_${action.menu_item_id}_${idx}_${Date.now()}`,
+                  type: 'REMOVE_ITEM',
+                  menu_item_id: action.menu_item_id,
+                  name: `${matching.name}${varLabel}`,
+                  price: matching.price,
+                  qty: matching.quantity,
+                  selectedVariants: matching.variants || [],
+                });
+              }
+            });
+            return [...prev, ...additions];
           });
           break;
         }
@@ -410,7 +493,9 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
       };
       addToCart(item);
       const latestCart = getCart();
-      const verified = latestCart.find(c => c.menu_item_id === pending.menu_item_id);
+      const verified = latestCart.find(
+        c => c.menu_item_id === pending.menu_item_id && areVariantsEqual(c.variants, pending.selectedVariants)
+      );
       if (verified) {
         playSuccessChime();
         addToast(`Added ${pending.qty}x ${pending.name} to cart`, 'success');
@@ -430,19 +515,33 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
     } else if (pending.type === 'SET_QTY' && pending.menu_item_id) {
       updateItemQuantity(pending.menu_item_id, pending.selectedVariants, pending.qty);
       const latestCart = getCart();
-      addToast(`Updated ${pending.name} quantity to ${pending.qty}`, 'info');
-      setMessages(prev => [
-        ...prev,
-        { role: 'bot', text: `Updated ${pending.name} quantity to ${pending.qty}. Subtotal is now PKR ${getCartSubtotal(latestCart)}.` }
-      ]);
+      const updated = latestCart.find(
+        c => c.menu_item_id === pending.menu_item_id && areVariantsEqual(c.variants, pending.selectedVariants)
+      );
+      if (updated && updated.quantity === pending.qty) {
+        addToast(`Updated ${pending.name} quantity to ${pending.qty}`, 'info');
+        setMessages(prev => [
+          ...prev,
+          { role: 'bot', text: `Updated ${pending.name} quantity to ${pending.qty}. Subtotal is now PKR ${getCartSubtotal(latestCart)}.` }
+        ]);
+      } else {
+        addToast(`Could not update ${pending.name} quantity in cart.`, 'error');
+      }
     } else if (pending.type === 'REMOVE_ITEM' && pending.menu_item_id) {
       removeItem(pending.menu_item_id, pending.selectedVariants);
       const latestCart = getCart();
-      addToast(`Removed ${pending.name} from cart`, 'info');
-      setMessages(prev => [
-        ...prev,
-        { role: 'bot', text: `Removed ${pending.name} from your cart. Subtotal is now PKR ${getCartSubtotal(latestCart)}.` }
-      ]);
+      const stillPresent = latestCart.some(
+        c => c.menu_item_id === pending.menu_item_id && areVariantsEqual(c.variants, pending.selectedVariants)
+      );
+      if (!stillPresent) {
+        addToast(`Removed ${pending.name} from cart`, 'info');
+        setMessages(prev => [
+          ...prev,
+          { role: 'bot', text: `Removed ${pending.name} from your cart. Subtotal is now PKR ${getCartSubtotal(latestCart)}.` }
+        ]);
+      } else {
+        addToast(`Could not remove ${pending.name} from cart.`, 'error');
+      }
     } else if (pending.type === 'CLEAR_CART') {
       clearCart();
       addToast('Cart cleared', 'info');
@@ -570,14 +669,15 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
     setStep(6);
 
     try {
-      const res = await submitOrder(draft, cartItems);
+      const res = await submitOrder(draft, cartItems, { expectedSubtotal: subtotal });
 
       if (!res.success || !res.orderId) {
         throw new Error(res.error || 'Failed to place order. Please try again.');
       }
 
-      playSuccessChime();
       const orderId = res.orderId;
+      const trackingToken = res.trackingToken || '';
+      const trackingPath = `/orders/${orderId}${trackingToken ? `?t=${trackingToken}` : ''}`;
       const shortCode = orderId.slice(0, 8).toUpperCase();
       setSuccessOrderId(orderId);
       setSuccessShortCode(shortCode);
@@ -589,15 +689,19 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
         {
           role: 'bot',
           text: isOnline
-            ? `Order #${shortCode} Placed Successfully!\n\nYour online transfer payment is pending admin review. Our team will verify your transaction and accept the order once confirmed.\n\nPermanent tracking link: /orders/${orderId}`
-            : `Order #${shortCode} Placed Successfully!\n\nYour Cash on Delivery order has been sent to our kitchen. Estimated delivery is 30–40 minutes, depending on distance and order volume.\n\nPermanent tracking link: /orders/${orderId}`,
+            ? `Order #${shortCode} Placed Successfully!\n\nYour online transfer payment is pending admin review. Our team will verify your transaction and accept the order once confirmed.\n\nPermanent tracking link: ${trackingPath}`
+            : `Order #${shortCode} Placed Successfully!\n\nYour Cash on Delivery order has been sent to our kitchen. Estimated delivery is 30–40 minutes, depending on distance and order volume.\n\nPermanent tracking link: ${trackingPath}`,
           chips: [
             {
               label: 'Track Live Order',
               primary: true,
               action: () => {
                 onClose();
-                navigate({ to: '/orders/$orderId', params: { orderId } });
+                navigate({
+                  to: '/orders/$orderId',
+                  params: { orderId },
+                  search: trackingToken ? { t: trackingToken } : {},
+                });
               }
             },
             {
@@ -608,8 +712,6 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
         }
       ]);
 
-      clearCart();
-      clearDraft();
       stopOrdering();
     } catch (err: any) {
       setStep(5);
@@ -638,17 +740,37 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
     try {
       const lower = txt.toLowerCase();
 
-      // 0. If there is a pending cart confirmation awaiting user permission, handle explicit yes/no replies
-      if (actionQueue.length === 1) {
+      // 0. If there are pending cart confirmations awaiting user permission, process head of queue sequentially
+      if (actionQueue.length >= 1) {
         const isConfirmReply = ['yes', 'y', 'confirm', 'add it', 'haan', 'han', 'ok', 'sure', 'jee', 'do it'].includes(lower);
         const isDeclineReply = ['no', 'n', 'cancel', 'nahi', 'nah', 'dont', "don't", 'skip', 'nope'].includes(lower);
         if (isConfirmReply) {
           confirmPendingAction(actionQueue[0].id);
+          if (actionQueue.length > 1) {
+            const nextPending = actionQueue[1];
+            setMessages(prev => [
+              ...prev,
+              {
+                role: 'bot',
+                text: `Next item in your request: confirm ${nextPending.type === 'REMOVE_ITEM' ? 'removing' : nextPending.type === 'SET_QTY' ? 'updating' : 'adding'} ${nextPending.qty}x ${nextPending.name}? (${actionQueue.length - 1} remaining — reply "yes" / "no" or tap the card below.)`,
+              }
+            ]);
+          }
           setIsTyping(false);
           return;
         }
         if (isDeclineReply) {
           declinePendingAction(actionQueue[0].id);
+          if (actionQueue.length > 1) {
+            const nextPending = actionQueue[1];
+            setMessages(prev => [
+              ...prev,
+              {
+                role: 'bot',
+                text: `Next item in your request: confirm ${nextPending.type === 'REMOVE_ITEM' ? 'removing' : nextPending.type === 'SET_QTY' ? 'updating' : 'adding'} ${nextPending.qty}x ${nextPending.name}? (${actionQueue.length - 1} remaining — reply "yes" / "no" or tap the card below.)`,
+              }
+            ]);
+          }
           setIsTyping(false);
           return;
         }
@@ -850,9 +972,15 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
 
       // Normal Chat via Groq LLM
       const cart = getCart();
-      const cartSummary = cart.length > 0 
-        ? cart.map(i => `${i.quantity}x ${i.name} (PKR ${lineTotal(i)})`).join(', ') + ` | Subtotal: PKR ${getCartSubtotal(cart)}`
+      const cartSummary = cart.length > 0
+        ? cart.map(i => `${i.quantity}x ${i.name}${i.variants?.length ? ` [${i.variants.map(v => v.name).join(', ')}]` : ''} (PKR ${lineTotal(i)})`).join(', ') + ` | Subtotal: PKR ${getCartSubtotal(cart)}`
         : 'Empty';
+      const cartItemsPayload = cart.map(i => ({
+        menu_item_id: i.menu_item_id,
+        name: i.name,
+        variants: (i.variants || []).map(v => v.name),
+        quantity: i.quantity,
+      }));
 
       const history = messages
         .filter(m => m.role === 'user' || m.role === 'bot')
@@ -876,11 +1004,18 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
         shopOpen: shopStatus.open,
       };
 
+      const activeOrders = getActiveOrders();
+      const latestActiveOrderId = activeOrders[0]?.id || successOrderId || undefined;
+      const latestActiveTrackingToken = latestActiveOrderId ? (getTrackingToken(latestActiveOrderId) || undefined) : undefined;
+
       const res = await chatWithAmirBot({
         data: {
           text: txt,
           history,
           cartSummary,
+          cartItems: cartItemsPayload,
+          activeOrderId: latestActiveOrderId,
+          activeOrderTrackingToken: latestActiveTrackingToken,
           flowContext,
         }
       });

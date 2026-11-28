@@ -3,9 +3,12 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { useLiveOrder } from '../../hooks/useLiveOrder';
 import { usePushSetup } from '../../hooks/usePushSetup';
 import { OrderStatusView } from '../../components/orders/OrderStatusView';
-import { ChevronLeft, RefreshCw, XCircle } from 'lucide-react';
+import { ChevronLeft, RefreshCw, WifiOff, XCircle } from 'lucide-react';
 
 export const Route = createFileRoute('/orders/$orderId')({
+  validateSearch: (search: Record<string, unknown>): { t?: string } => ({
+    t: typeof search.t === 'string' && search.t.trim() ? search.t.trim() : undefined,
+  }),
   component: OrderPage,
   head: () => ({
     meta: [
@@ -16,7 +19,8 @@ export const Route = createFileRoute('/orders/$orderId')({
 
 function OrderPage() {
   const { orderId } = Route.useParams();
-  const { order, loading, error } = useLiveOrder(orderId);
+  const { t } = Route.useSearch();
+  const { order, loading, error, isReconnecting, retryNow } = useLiveOrder(orderId, undefined, t);
   const { enableOrderNotifications } = usePushSetup();
 
   if (loading && !order) {
@@ -28,6 +32,31 @@ function OrderPage() {
     );
   }
 
+  if (isReconnecting && !order) {
+    return (
+      <div className="container mx-auto px-4 pt-24 pb-32 max-w-2xl text-center">
+        <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <WifiOff className="w-10 h-10 text-amber-600" />
+        </div>
+        <h1 className="text-2xl font-bold mb-2">Connection Interrupted</h1>
+        <p className="text-muted-foreground mb-6">
+          We couldn&apos;t reach the server right now. Retrying automatically as soon as connection recovers...
+        </p>
+        <div className="flex items-center justify-center gap-4">
+          <button
+            type="button"
+            onClick={() => retryNow()}
+            className="inline-flex items-center gap-2 bg-primary text-primary-foreground font-bold px-5 py-2.5 rounded-xl hover:bg-primary/90 transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Retry Now
+          </button>
+          <Link to="/" className="text-primary font-bold hover:underline">Return Home</Link>
+        </div>
+      </div>
+    );
+  }
+
   if (error || !order) {
     return (
       <div className="container mx-auto px-4 pt-24 pb-32 max-w-2xl text-center">
@@ -35,7 +64,7 @@ function OrderPage() {
           <XCircle className="w-10 h-10 text-red-500" />
         </div>
         <h1 className="text-2xl font-bold mb-2">Order Not Found</h1>
-        <p className="text-muted-foreground mb-8">We couldn't find an order with this ID. It may be invalid or very old.</p>
+        <p className="text-muted-foreground mb-8">We couldn&apos;t find an order with this ID. It may be invalid or very old.</p>
         <Link to="/" className="text-primary font-bold hover:underline">Return Home</Link>
       </div>
     );
@@ -43,11 +72,18 @@ function OrderPage() {
 
   return (
     <div className="container mx-auto max-w-2xl min-h-[100dvh] flex flex-col bg-slate-50 relative pb-[env(safe-area-inset-bottom)]">
-      <div className="bg-white px-4 py-3 flex items-center gap-3 border-b border-slate-200">
-        <Link to="/" className="p-2 -ml-2 rounded-full hover:bg-slate-100 text-slate-600 transition-colors">
-          <ChevronLeft size={24} />
-        </Link>
-        <h1 className="font-bold text-lg text-slate-900">Track Order</h1>
+      <div className="bg-white px-4 py-3 flex items-center justify-between gap-3 border-b border-slate-200">
+        <div className="flex items-center gap-3">
+          <Link to="/" className="p-2 -ml-2 rounded-full hover:bg-slate-100 text-slate-600 transition-colors">
+            <ChevronLeft size={24} />
+          </Link>
+          <h1 className="font-bold text-lg text-slate-900">Track Order</h1>
+        </div>
+        {isReconnecting && (
+          <span role="status" className="text-xs font-semibold text-amber-700 bg-amber-100 px-2.5 py-1 rounded-full">
+            Reconnecting...
+          </span>
+        )}
       </div>
 
       <div className="flex-1 overflow-hidden">

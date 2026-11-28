@@ -29,6 +29,11 @@ function AdminHistoryPage() {
   const isDark = theme === 'dark';
   const [orders, setOrders] = useState<any[]>([]);
   const [totalCount, setTotalCount] = useState(0);
+  const [summary, setSummary] = useState<{ totalCount: number; deliveredCount: number; deliveredRevenue: number }>({
+    totalCount: 0,
+    deliveredCount: 0,
+    deliveredRevenue: 0,
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFilter, setDateFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -42,6 +47,9 @@ function AdminHistoryPage() {
       const res = await adminCall(getCompletedOrdersFn, { date: dateFilter, search: searchQuery, status: statusFilter, page, pageSize: 25 });
       setOrders(res.orders || []);
       setTotalCount(res.totalCount || 0);
+      if ((res as any).summary) {
+        setSummary((res as any).summary);
+      }
       setRefreshError(false);
     } catch {
       setRefreshError(true);
@@ -134,12 +142,14 @@ function AdminHistoryPage() {
         </div>
       )}
 
-      <div className={`border-b px-6 py-3 flex justify-between items-center text-sm transition-colors ${
+      <div className={`border-b px-6 py-3 flex flex-wrap gap-2 justify-between items-center text-sm transition-colors ${
         isDark ? 'bg-slate-800/80 border-slate-700' : 'bg-white border-slate-200'
       }`}>
-        <span className={`font-bold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>Daily Summary (Page {page})</span>
+        <span className={`font-bold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
+          Filtered Summary ({summary.deliveredCount} delivered / {totalCount} matching orders · Page {page})
+        </span>
         <span className="bg-green-100 text-green-800 font-bold px-3 py-1 rounded-full">
-          Revenue: PKR {orders.filter(o => o.status === 'delivered').reduce((sum, o) => sum + Number(o.total_amount) + Number(o.delivery_fee), 0)}
+          Total Delivered Revenue: PKR {summary.deliveredRevenue.toLocaleString()}
         </span>
       </div>
 

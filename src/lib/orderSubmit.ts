@@ -1,9 +1,9 @@
 import { createOrder } from '../server/order';
 import { playSuccessChime } from './sound';
 import { clearCart, getCartSubtotal } from './cart';
-import { clearDraft, OrderDraft } from './orderDraft';
+import { clearDraft, getOrCreateDraftIdempotencyKey, rotateDraftIdempotencyKey, OrderDraft } from './orderDraft';
 import { addActiveOrder, markJustOrdered } from './activeOrders';
-import { validateName, validatePhone, validateAddress, validateTid, normalizeTid } from './orderValidation';
+import { validateName, validatePhone, validateAddress, validateTid } from './orderValidation';
 import { friendlyMessage, ErrorCode } from './errors';
 import type { CartItem } from '../types';
 
@@ -11,12 +11,18 @@ export interface SubmitOrderResult {
   success: boolean;
   orderId?: string;
   cancellationToken?: string;
+  trackingToken?: string;
   paymentMethod?: 'cod' | 'online_transfer';
   code?: ErrorCode;
   error?: string;
+  currentSubtotal?: number;
 }
 
-export async function submitOrder(draft: OrderDraft, cart: CartItem[]): Promise<SubmitOrderResult> {
+export async function submitOrder(
+  draft: OrderDraft,
+  cart: CartItem[],
+  options?: { expectedSubtotal?: number }
+): Promise<SubmitOrderResult> {
   if (!cart || cart.length === 0) {
     return { success: false, code: 'validation', error: 'Your cart is empty.' };
   }
@@ -55,9 +61,10 @@ export async function submitOrder(draft: OrderDraft, cart: CartItem[]): Promise<
     : '') || '';
 
   const subtotal = getCartSubtotal(cart);
+  const expectedSubtotal = options?.expectedSubtotal ?? subtotal;
 
-  // Generate or reuse client-side idempotency key for this draft attempt
-  const idempotencyKey = (draft as any).idempotencyKey || `ord_idemp_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  // Persist and reuse client-side idempotency key across retries / double-clicks
+  const idempotencyKey = draft.idempotencyKey || getOrCreateDraftIdempotencyKey();
 
   try {
     const res = await createOrder({
@@ -72,17 +79,22 @@ export async function submitOrder(draft: OrderDraft, cart: CartItem[]): Promise<
         paymentMethod: draft.payment.method,
         paymentTrxId: finalTid,
         idempotencyKey,
+        expectedSubtotal,
         items: cart,
         subtotal
       }
     });
 
     if (!res.success) {
-      const code = (res as any).code || 'validation';
+      const code = ((res as any).code || 'validation') as ErrorCode;
+      if (code === 'idempotency_conflict') {
+        rotateDraftIdempotencyKey();
+      }
       return {
         success: false,
         paymentMethod: draft.payment.method,
         code,
+        currentSubtotal: (res as any).currentSubtotal,
         error: friendlyMessage(res.error)
       };
     }
@@ -107,7 +119,7 @@ export async function submitOrder(draft: OrderDraft, cart: CartItem[]): Promise<
       } catch {}
 
       if (newOrderId) {
-        addActiveOrder(newOrderId, res.cancellationToken);
+        addActiveOrder(newOrderId, res.cancellationToken, (res as any).trackingToken);
         markJustOrdered(newOrderId);
       }
       window.dispatchEvent(new Event('cartUpdated'));
@@ -121,6 +133,7 @@ export async function submitOrder(draft: OrderDraft, cart: CartItem[]): Promise<
       success: true,
       orderId: newOrderId,
       cancellationToken: res.cancellationToken,
+      trackingToken: (res as any).trackingToken,
       paymentMethod: draft.payment.method
     };
   } catch (err: any) {

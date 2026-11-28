@@ -2,7 +2,7 @@ import { friendlyMessage } from '../../lib/errors';
 import { createFileRoute } from '@tanstack/react-router';
 import { seo } from '../../lib/seo';
 import React, { useEffect, useState, useRef } from 'react';
-import { updateOrderStatus, getKitchenOrders, verifyPaymentFn, approvePaymentFn, rejectPaymentFn } from '../../server/order';
+import { updateOrderStatus, getKitchenOrders, approvePaymentFn, rejectPaymentFn } from '../../server/order';
 import { playKitchenDing, initAudio } from '../../lib/sound';
 import { PinGate } from '../../components/admin/PinGate';
 import { AdminNav } from '../../components/admin/AdminNav';
@@ -300,7 +300,7 @@ function KitchenKDS() {
     }
   }, [orders, soundEnabled]);
 
-  const handleStatusUpdate = async (orderId: string, status: any, reason?: string, riderN?: string, riderP?: string, expectedFrom?: any) => {
+  const handleStatusUpdate = async (orderId: string, status: any, reason?: string, riderN?: string, riderP?: string, expectedFrom?: any): Promise<boolean> => {
     try {
       await adminCall(updateOrderStatus, { 
         orderId, 
@@ -311,9 +311,11 @@ function KitchenKDS() {
         expectedFrom
       });
       runPoll();
+      return true;
     } catch (e: any) {
       showToast(friendlyMessage(e, 'Failed to update order'), 'error');
       runPoll();
+      return false;
     }
   };
 
@@ -390,10 +392,10 @@ function KitchenKDS() {
     const printWindow = window.open('', '_blank', 'width=400,height=600');
     if (!printWindow) return;
     
-    let itemsHtml = order.order_items.map((i:any) => `
+    let itemsHtml = (order.order_items || []).map((i: any) => `
       <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-        <div><b>${i.quantity}x</b> ${i.menu_items?.name || 'Item'}
-          ${i.selected_variants?.length > 0 ? `<br><small>${i.selected_variants.map((v:any) => v.name).join(', ')}</small>` : ''}
+        <div><b>${esc(i.quantity)}x</b> ${esc(i.menu_items?.name || 'Item')}
+          ${i.selected_variants?.length > 0 ? `<br><small>${i.selected_variants.map((v: any) => esc(v.name)).join(', ')}</small>` : ''}
         </div>
       </div>
     `).join('');
@@ -411,18 +413,18 @@ function KitchenKDS() {
       <body>
         <div class="header">
           <h2>AMR Fast Food</h2>
-          <p>Order #${order.id.slice(0,8).toUpperCase()}</p>
-          <p>${new Date(order.created_at).toLocaleString()}</p>
+          <p>Order #${esc(String(order.id || '').slice(0, 8).toUpperCase())}</p>
+          <p>${esc(new Date(order.created_at).toLocaleString())}</p>
         </div>
         <p><b>Customer:</b> ${esc(order.customer_name)}</p>
         <p><b>Phone:</b> ${esc(order.customer_phone)}</p>
         <p><b>Address:</b> ${esc(order.delivery_address)}</p>
-        ${order.distance_km ? `<p><b>Distance:</b> ${order.distance_km.toFixed(1)} km</p>` : ''}
+        ${order.distance_km ? `<p><b>Distance:</b> ${esc(Number(order.distance_km).toFixed(1))} km</p>` : ''}
         <br/>
         ${itemsHtml}
         <div class="footer">
-          <p>Total: PKR ${Number(order.total_amount) + Number(order.delivery_fee)}</p>
-          <p><b>Payment:</b> ${order.payment_method === 'cod' ? 'COD' : (order.payment_verified_at ? 'ONLINE (verified)' : 'ONLINE (verify TID)')}</p>
+          <p>Total: PKR ${esc(Number(order.total_amount) + Number(order.delivery_fee))}</p>
+          <p><b>Payment:</b> ${esc(order.payment_method === 'cod' ? 'COD' : (order.payment_verified_at ? 'ONLINE (verified)' : 'ONLINE (verify TID)'))}</p>
         </div>
         <script>
           window.onload = () => { window.print(); setTimeout(() => window.close(), 500); }
@@ -591,7 +593,17 @@ function KitchenKDS() {
   };
 
   const isApproved = (o: any) => o.payment_review_status === 'approved' || Boolean(o.payment_verified_at);
-  const isOnlinePending = (o: any) => o.payment_method === 'online_transfer' && !isApproved(o) && o.status !== 'canceled';
+  const isOnlinePending = (o: any) =>
+    o.payment_method === 'online_transfer' &&
+    o.status === 'received' &&
+    !isApproved(o) &&
+    o.payment_review_status !== 'rejected';
+  const legacyInconsistentOnline = orders.filter(
+    (o: any) =>
+      o.payment_method === 'online_transfer' &&
+      (o.status === 'preparing' || o.status === 'out_for_delivery') &&
+      !isApproved(o)
+  );
 
   const pendingPayments = orders.filter(isOnlinePending);
   const received = orders.filter(o => o.status === 'received' && (o.payment_method === 'cod' || isApproved(o)));
@@ -656,6 +668,14 @@ function KitchenKDS() {
       {dbMigrationNeeded && (
         <div role="alert" className="bg-red-600 text-white font-bold p-3 text-center text-sm shadow">
           Database update needed for payment verification (ask the developer)
+        </div>
+      )}
+      {legacyInconsistentOnline.length > 0 && (
+        <div role="alert" className="bg-amber-600 text-slate-950 font-bold px-4 py-2 text-center text-xs shadow flex items-center justify-center gap-2">
+          <AlertTriangle size={14} />
+          <span>
+            {legacyInconsistentOnline.length} legacy online order(s) entered kitchen before payment verification (#{legacyInconsistentOnline.map((o: any) => String(o.id).slice(0, 8).toUpperCase()).join(', #')}). Please verify TID before delivery.
+          </span>
         </div>
       )}
       {connStatus === 'offline' && (
@@ -910,11 +930,18 @@ function KitchenKDS() {
              <div className="flex gap-3">
                <button onClick={() => { setDispatchModalOpen(null); setRiderName(''); setRiderPhone(''); }} className={`flex-1 font-bold py-2 rounded-xl ${isDark ? 'bg-slate-700 text-white' : 'bg-slate-200 text-slate-800'}`}>Back</button>
                <button 
-                 onClick={() => {
-                   // Rider name optional
-                   handleStatusUpdate(dispatchModalOpen.id, 'out_for_delivery', undefined, riderName, riderPhone, dispatchModalOpen.expected);
-                   setDispatchModalOpen(null);
-                   setRiderName(''); setRiderPhone('');
+                 onClick={async () => {
+                   const cleanRiderPhone = riderPhone.trim();
+                   if (cleanRiderPhone && cleanRiderPhone.length < 7) {
+                     showToast('Enter a valid rider phone number or leave it blank.', 'error');
+                     return;
+                   }
+                   const ok = await handleStatusUpdate(dispatchModalOpen.id, 'out_for_delivery', undefined, riderName.trim(), cleanRiderPhone, dispatchModalOpen.expected);
+                   if (ok) {
+                     setDispatchModalOpen(null);
+                     setRiderName('');
+                     setRiderPhone('');
+                   }
                  }} 
                  className="flex-[2] bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-xl"
                >

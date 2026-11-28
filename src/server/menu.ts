@@ -6,10 +6,10 @@ import { requireAdmin } from './auth';
 import { getSupabaseServer } from '../lib/supabase';
 import { toSafeError, UserFacingError } from './errors';
 import { invalidateAmirBotMenuCache } from './chat';
+import { detectImageExtension, MAX_IMAGE_BYTES } from './imageValidation';
 import type { Category, HighlightItem, ItemVariant, MenuItem } from '../types';
 
 const MENU_IMAGE_BUCKET = 'menu-images';
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
 
 const DEFAULT_CATEGORY_IMAGES: Record<string, string> = {
   cat_deals: 'https://images.unsplash.com/photo-1594968973184-9040a5a79963?auto=format&fit=crop&w=300&q=80',
@@ -130,18 +130,26 @@ async function assertSafePublicHttpsUrl(rawUrl: string): Promise<URL> {
 }
 
 async function verifyExternalImageUrlServer(rawUrl: string): Promise<{ valid: true; url: string; contentType: string } | { valid: false; error: string }> {
+  const deadline = Date.now() + 9000;
+  const remainingMs = () => Math.max(1000, deadline - Date.now());
   try {
     let currentUrl = rawUrl.trim();
     for (let hops = 0; hops <= 3; hops++) {
+      if (Date.now() >= deadline) {
+        return { valid: false, error: 'Image URL verification timed out. Please try a faster direct link or upload from your device.' };
+      }
       const parsed = await assertSafePublicHttpsUrl(currentUrl);
       let res = await fetch(parsed.toString(), {
         method: 'HEAD',
         redirect: 'manual',
         headers: { 'User-Agent': 'AmirFastFood-ImageValidator/1.0', 'Accept': 'image/*' },
-        signal: AbortSignal.timeout(6000),
+        signal: AbortSignal.timeout(Math.min(4500, remainingMs())),
       });
 
       if (res.status === 405 || res.status === 501) {
+        if (Date.now() >= deadline) {
+          return { valid: false, error: 'Image URL verification timed out. Please try another direct image link or upload from your device.' };
+        }
         res = await fetch(parsed.toString(), {
           method: 'GET',
           redirect: 'manual',
@@ -150,7 +158,7 @@ async function verifyExternalImageUrlServer(rawUrl: string): Promise<{ valid: tr
             'Accept': 'image/*',
             'Range': 'bytes=0-64',
           },
-          signal: AbortSignal.timeout(6000),
+          signal: AbortSignal.timeout(Math.min(4500, remainingMs())),
         });
       }
 
@@ -206,21 +214,6 @@ async function normalizeAndValidateImageInput(rawUrl: string, allowEmptyPlacehol
   return check.url;
 }
 
-function detectImageExtension(buffer: Buffer, mimeType: string): 'jpg' | 'png' | 'webp' {
-  const mime = mimeType.toLowerCase().trim();
-  const isJpegBytes = buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
-  const isPngBytes = buffer.length >= 4 && buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47;
-  const isWebpBytes =
-    buffer.length >= 12 &&
-    buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
-    buffer.subarray(8, 12).toString('ascii') === 'WEBP';
-
-  if ((mime === 'image/jpeg' || mime === 'image/jpg') && isJpegBytes) return 'jpg';
-  if (mime === 'image/png' && isPngBytes) return 'png';
-  if (mime === 'image/webp' && isWebpBytes) return 'webp';
-  throw new UserFacingError('Invalid or corrupted image file. Only genuine JPG, PNG, and WebP images are supported.', 'validation');
-}
-
 async function ensureMenuImagesBucket(supabase: any) {
   const { data: bucket } = await supabase.storage.getBucket(MENU_IMAGE_BUCKET);
   if (bucket) return;
@@ -263,7 +256,7 @@ async function writeKnowledgeJson(title: string, data: unknown) {
 
 async function saveKnowledgeJson(title: string, data: Record<string, string>, pinOrToken?: string) {
   try {
-    requireAdmin(pinOrToken);
+    await requireAdmin(pinOrToken);
     await writeKnowledgeJson(title, data);
     return { success: true };
   } catch (err: any) {
@@ -380,6 +373,42 @@ export const searchMenuItems = createServerFn({ method: 'GET' })
     }
   });
 
+export const refreshCartPricesFn = createServerFn({ method: 'POST' })
+  .validator((d: { itemIds: string[] }) => d)
+  .handler(async ({ data }) => {
+    try {
+      const ids = Array.from(new Set((data.itemIds || []).map(id => String(id).trim()).filter(Boolean)));
+      if (ids.length === 0) return { items: [] as Array<{ id: string; name: string; price: number; is_available: boolean; variants: ItemVariant[] }> };
+
+      const supabase = getSupabaseServer();
+      const [{ data: rows, error }, archivedIds] = await Promise.all([
+        supabase
+          .from('menu_items')
+          .select('id, name, price, is_available, variants')
+          .in('id', ids),
+        getArchivedMenuItemIds(),
+      ]);
+
+      if (error) {
+        console.error('[refreshCartPricesFn] DB error:', error);
+        return { error: 'Unable to verify current menu prices.', items: [] };
+      }
+
+      const items = (rows || []).map((row: any) => ({
+        id: String(row.id),
+        name: String(row.name || ''),
+        price: Math.round(Number(row.price) || 0),
+        is_available: row.is_available !== false && !archivedIds.has(String(row.id)),
+        variants: Array.isArray(row.variants) ? (row.variants as ItemVariant[]) : [],
+      }));
+
+      return { items };
+    } catch (err) {
+      console.error('[refreshCartPricesFn] Error:', err);
+      return { error: 'Unable to verify current menu prices.', items: [] };
+    }
+  });
+
 export const getCategoryImagesFn = createServerFn({ method: 'GET' }).handler(async () => {
   const images = await getKnowledgeJson('category_images', DEFAULT_CATEGORY_IMAGES);
   const sanitized: Record<string, string> = {};
@@ -447,7 +476,7 @@ export const uploadAdminImageFn = createServerFn({ method: 'POST' })
   }) => d)
   .handler(async ({ data }) => {
     try {
-      requireAdmin(data.token || data.pin);
+      await requireAdmin(data.token || data.pin);
       const { folder, mimeType, base64Data } = data;
       if (!['items', 'categories', 'highlights'].includes(folder)) {
         throw new UserFacingError('Invalid upload folder.', 'validation');
@@ -500,7 +529,7 @@ export const validateExternalImageUrlFn = createServerFn({ method: 'POST' })
   .validator((d: { url: string; pin?: string; token?: string }) => d)
   .handler(async ({ data }) => {
     try {
-      requireAdmin(data.token || data.pin);
+      await requireAdmin(data.token || data.pin);
       return await verifyExternalImageUrlServer(data.url);
     } catch (err: any) {
       return { valid: false as const, error: toSafeError(err) };
@@ -514,7 +543,7 @@ export const validateExternalImageUrlFn = createServerFn({ method: 'POST' })
 export const getAdminMenuDataFn = createServerFn({ method: 'POST' })
   .validator((d: { pin?: string; token?: string }) => d)
   .handler(async ({ data }) => {
-    requireAdmin(data.token || data.pin);
+    await requireAdmin(data.token || data.pin);
     const supabase = getSupabaseServer();
     const [itemsRes, categoriesRes, categoryImages, highlights, archivedIds] = await Promise.all([
       supabase.from('menu_items').select('*'),
@@ -565,7 +594,7 @@ export const createMenuItemFn = createServerFn({ method: 'POST' })
   }) => d)
   .handler(async ({ data }) => {
     try {
-      requireAdmin(data.token || data.pin);
+      await requireAdmin(data.token || data.pin);
       const name = String(data.name || '').trim().slice(0, 120);
       if (name.length < 2) throw new UserFacingError('Product name must be at least 2 characters.', 'validation');
 
@@ -630,7 +659,7 @@ export const updateMenuItemFn = createServerFn({ method: 'POST' })
   }) => d)
   .handler(async ({ data }) => {
     try {
-      requireAdmin(data.token || data.pin);
+      await requireAdmin(data.token || data.pin);
       const id = String(data.id || '').trim();
       if (!id) throw new UserFacingError('Missing menu item ID.', 'validation');
 
@@ -693,7 +722,7 @@ export const deleteMenuItemFn = createServerFn({ method: 'POST' })
   .validator((d: { id: string; pin?: string; token?: string }) => d)
   .handler(async ({ data }) => {
     try {
-      requireAdmin(data.token || data.pin);
+      await requireAdmin(data.token || data.pin);
       const id = String(data.id || '').trim();
       if (!id) throw new UserFacingError('Missing menu item ID.', 'validation');
 
@@ -754,7 +783,7 @@ export const createCategoryFn = createServerFn({ method: 'POST' })
   .validator((d: { name: string; slug?: string; sort_order?: number; image_url: string; pin?: string; token?: string }) => d)
   .handler(async ({ data }) => {
     try {
-      requireAdmin(data.token || data.pin);
+      await requireAdmin(data.token || data.pin);
       const name = String(data.name || '').trim().slice(0, 60);
       if (name.length < 2) throw new UserFacingError('Category name must be at least 2 characters.', 'validation');
 
@@ -806,7 +835,7 @@ export const updateCategoryFn = createServerFn({ method: 'POST' })
   .validator((d: { id: string; name: string; slug?: string; sort_order?: number; image_url: string; pin?: string; token?: string }) => d)
   .handler(async ({ data }) => {
     try {
-      requireAdmin(data.token || data.pin);
+      await requireAdmin(data.token || data.pin);
       const id = String(data.id || '').trim();
       const name = String(data.name || '').trim().slice(0, 60);
       if (!id || name.length < 2) throw new UserFacingError('Valid category ID and name are required.', 'validation');
@@ -849,7 +878,7 @@ export const reassignCategoryItemsFn = createServerFn({ method: 'POST' })
   .validator((d: { fromCategoryId: string; toCategoryId: string; pin?: string; token?: string }) => d)
   .handler(async ({ data }) => {
     try {
-      requireAdmin(data.token || data.pin);
+      await requireAdmin(data.token || data.pin);
       const fromId = String(data.fromCategoryId || '').trim();
       const toId = String(data.toCategoryId || '').trim();
       if (!fromId || !toId || fromId === toId) {
@@ -900,7 +929,7 @@ export const deleteCategoryFn = createServerFn({ method: 'POST' })
   .validator((d: { id: string; pin?: string; token?: string }) => d)
   .handler(async ({ data }) => {
     try {
-      requireAdmin(data.token || data.pin);
+      await requireAdmin(data.token || data.pin);
       const id = String(data.id || '').trim();
       if (!id) throw new UserFacingError('Missing category ID.', 'validation');
 
@@ -974,7 +1003,7 @@ export const createHighlightFn = createServerFn({ method: 'POST' })
   }) => d)
   .handler(async ({ data }) => {
     try {
-      requireAdmin(data.token || data.pin);
+      await requireAdmin(data.token || data.pin);
       const title = String(data.title || '').trim().slice(0, 80);
       const description = String(data.description || '').trim().slice(0, 240);
       if (title.length < 2) throw new UserFacingError('Highlight title must be at least 2 characters.', 'validation');
@@ -1017,7 +1046,7 @@ export const updateHighlightFn = createServerFn({ method: 'POST' })
   }) => d)
   .handler(async ({ data }) => {
     try {
-      requireAdmin(data.token || data.pin);
+      await requireAdmin(data.token || data.pin);
       const id = String(data.id || '').trim();
       const title = String(data.title || '').trim().slice(0, 80);
       const description = String(data.description || '').trim().slice(0, 240);
@@ -1066,7 +1095,7 @@ export const deleteHighlightFn = createServerFn({ method: 'POST' })
   .validator((d: { id: string; pin?: string; token?: string }) => d)
   .handler(async ({ data }) => {
     try {
-      requireAdmin(data.token || data.pin);
+      await requireAdmin(data.token || data.pin);
       const id = String(data.id || '').trim();
       if (!id) throw new UserFacingError('Missing highlight ID.', 'validation');
 

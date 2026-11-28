@@ -266,7 +266,7 @@ export const getAdminFeedbackListFn = createServerFn({ method: 'POST' })
   .validator((d: AdminFeedbackQuery) => d)
   .handler(async ({ data }): Promise<AdminFeedbackResponse> => {
     try {
-      requireAdmin(data.token || data.pin);
+      await requireAdmin(data.token || data.pin);
 
       const supabase = getSupabaseServer();
 
