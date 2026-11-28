@@ -1,8 +1,13 @@
 import { createServerFn } from '@tanstack/react-start';
-import { getShopStatus, ShopStatus } from '../lib/shop';
+import { getShopStatus, MAX_ORDERS_PER_DEVICE_PER_DAY, ShopStatus } from '../lib/shop';
+import { getDeviceDailyUsage } from './deviceLimit';
 
 export interface ShopStatusResponse extends ShopStatus {
   serverNow: string;
+  deviceDailyLimit?: number;
+  deviceDailyUsed?: number;
+  deviceDailyRemaining?: number;
+  deviceResetLabel?: string;
 }
 
 export const getShopStatusFn = createServerFn({ method: 'GET' })
@@ -12,8 +17,25 @@ export const getShopStatusFn = createServerFn({ method: 'GET' })
       now = new Date(process.env.SHOP_NOW_OVERRIDE);
     }
     const status = getShopStatus(now);
+
+    let quota = {
+      limit: MAX_ORDERS_PER_DEVICE_PER_DAY,
+      used: 0,
+      remaining: MAX_ORDERS_PER_DEVICE_PER_DAY,
+      resetLabel: '',
+    };
+    try {
+      quota = await getDeviceDailyUsage(now);
+    } catch (err) {
+      console.warn('[getShopStatusFn] device usage check skipped:', err);
+    }
+
     return {
       ...status,
-      serverNow: now.toISOString()
+      serverNow: now.toISOString(),
+      deviceDailyLimit: quota.limit,
+      deviceDailyUsed: quota.used,
+      deviceDailyRemaining: quota.remaining,
+      deviceResetLabel: quota.resetLabel,
     };
   });

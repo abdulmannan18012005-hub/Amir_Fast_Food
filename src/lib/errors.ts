@@ -1,6 +1,7 @@
 export type ErrorCode =
   | 'auth'
   | 'rate_limited'
+  | 'device_limit_reached'
   | 'shop_closed'
   | 'tid_duplicate'
   | 'payment_unverified'

@@ -162,9 +162,48 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
     selectedVariants: ItemVariant[];
   };
   const [actionQueue, setActionQueue] = useState<PendingCartAction[]>([]);
+  const [mobileViewport, setMobileViewport] = useState<{ height: number; top: number } | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const toastIdRef = useRef(0);
+
+  // Adapt mobile drawer height & scroll offset smoothly when software keyboard opens
+  useEffect(() => {
+    if (!isOpen || typeof window === 'undefined') {
+      setMobileViewport(null);
+      return;
+    }
+
+    const syncViewport = () => {
+      if (window.innerWidth >= 640) {
+        setMobileViewport(null);
+        return;
+      }
+      const vv = window.visualViewport;
+      if (vv && vv.height > 0) {
+        setMobileViewport({
+          height: Math.round(vv.height),
+          top: Math.max(0, Math.round(vv.offsetTop)),
+        });
+      } else {
+        setMobileViewport({
+          height: window.innerHeight,
+          top: 0,
+        });
+      }
+    };
+
+    syncViewport();
+    const vv = window.visualViewport;
+    window.addEventListener('resize', syncViewport);
+    vv?.addEventListener('resize', syncViewport);
+    vv?.addEventListener('scroll', syncViewport);
+    return () => {
+      window.removeEventListener('resize', syncViewport);
+      vv?.removeEventListener('resize', syncViewport);
+      vv?.removeEventListener('scroll', syncViewport);
+    };
+  }, [isOpen]);
 
   // Sync cart from storage / events
   useEffect(() => {
@@ -195,12 +234,12 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
     }
   }, [messages]);
 
-  // Scroll to bottom when messages update
+  // Scroll to bottom when messages or keyboard viewport update
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, isTyping, actionQueue]);
+  }, [messages, isTyping, actionQueue, isOpen, mobileViewport?.height]);
 
   // Recalculate delivery quote when address or cart changes
   useEffect(() => {
@@ -1055,7 +1094,8 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
         role="dialog" 
         aria-modal="true" 
         aria-label="AmirBot Ordering Assistant"
-        className="fixed bottom-0 right-0 w-full sm:w-[440px] md:w-[460px] h-[100dvh] max-h-[100dvh] bg-card text-card-foreground sm:rounded-l-3xl rounded-t-3xl shadow-2xl z-50 flex flex-col transform transition-transform duration-300 border-l border-border"
+        style={mobileViewport ? { height: `${mobileViewport.height}px`, top: `${mobileViewport.top}px`, bottom: 'auto' } : undefined}
+        className="fixed bottom-0 right-0 w-full sm:w-[440px] md:w-[460px] h-[100dvh] max-h-[100dvh] bg-card text-card-foreground rounded-none sm:rounded-l-3xl shadow-2xl z-50 flex flex-col overflow-hidden sm:border-l border-border"
       >
         {/* Floating Toasts */}
         <div className="absolute top-2 left-0 right-0 flex flex-col items-center gap-1.5 pointer-events-none z-50 px-4">
@@ -1074,25 +1114,25 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
         </div>
 
         {/* Top Header */}
-        <div className="p-3.5 bg-primary text-primary-foreground flex justify-between items-center sm:rounded-tl-3xl rounded-t-3xl shadow-md shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center shrink-0">
-              <Bot size={22} className="text-white" />
+        <header className="px-3 py-2.5 sm:p-3.5 bg-primary text-primary-foreground flex justify-between items-center gap-2 rounded-none sm:rounded-tl-3xl shadow-md shrink-0 min-h-[56px]">
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 bg-white/20 rounded-full flex items-center justify-center shrink-0">
+              <Bot size={20} className="text-white" aria-hidden="true" />
             </div>
-            <div>
-              <h2 className="font-bold text-base leading-tight flex items-center gap-1.5">
-                AmirBot
-                <span className="text-[10px] bg-white/25 px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wider">
+            <div className="min-w-0 flex-1">
+              <h2 className="font-bold text-sm sm:text-base leading-tight flex items-center gap-1.5 min-w-0">
+                <span className="truncate">AmirBot</span>
+                <span className="hidden min-[380px]:inline-flex text-[10px] bg-white/25 px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wider whitespace-nowrap shrink-0">
                   AI Assistant
                 </span>
               </h2>
-              <p className="text-[11px] text-primary-foreground/80 leading-none mt-0.5">
+              <p className="text-[11px] text-primary-foreground/85 leading-tight mt-0.5 truncate">
                 Conversational Ordering · Lahore
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
             <button 
               type="button"
               onClick={() => {
@@ -1103,33 +1143,33 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
                 }
               }} 
               aria-label="Clear Chat (keeps cart and draft)" 
-              className="px-2.5 py-1.5 bg-white/15 hover:bg-white/25 rounded-full transition-colors text-white text-[11px] font-semibold flex items-center gap-1"
+              className="min-w-[36px] min-h-[36px] sm:min-w-0 sm:min-h-0 px-2 sm:px-2.5 py-1.5 bg-white/15 hover:bg-white/25 rounded-full transition-colors text-white text-[11px] font-semibold inline-flex items-center justify-center gap-1 shrink-0"
               title="Clear Chat — removes messages only, keeps your cart & draft"
             >
-              <Trash2 size={14} aria-hidden="true" />
-              <span>Clear Chat</span>
+              <Trash2 size={15} aria-hidden="true" />
+              <span className="hidden sm:inline whitespace-nowrap">Clear Chat</span>
             </button>
             <button 
               type="button"
               onClick={() => setConfirmReset(true)} 
               aria-label="Start Over (resets session, draft, and cart)" 
-              className="px-2.5 py-1.5 bg-white/15 hover:bg-white/25 rounded-full transition-colors text-white text-[11px] font-semibold flex items-center gap-1"
+              className="min-w-[36px] min-h-[36px] sm:min-w-0 sm:min-h-0 px-2 sm:px-2.5 py-1.5 bg-white/15 hover:bg-white/25 rounded-full transition-colors text-white text-[11px] font-semibold inline-flex items-center justify-center gap-1 shrink-0"
               title="Start Over — clears chat, order draft, and empties your cart"
             >
-              <RotateCcw size={14} aria-hidden="true" />
-              <span>Start Over</span>
+              <RotateCcw size={15} aria-hidden="true" />
+              <span className="hidden sm:inline whitespace-nowrap">Start Over</span>
             </button>
             <button 
               type="button"
               onClick={onClose} 
-              className="p-1.5 hover:bg-white/20 rounded-full transition-colors text-white" 
+              className="w-9 h-9 inline-flex items-center justify-center hover:bg-white/20 rounded-full transition-colors text-white shrink-0" 
               aria-label="Close AmirBot assistant"
               title="Close AmirBot"
             >
               <X size={18} aria-hidden="true" />
             </button>
           </div>
-        </div>
+        </header>
 
         {/* Strictly 6-Step Progress Bar (Shown ONLY during active ordering) */}
         {isOrderingActive && (
@@ -1229,7 +1269,7 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
         )}
 
         {/* Chat History View (Pure Conversational) */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-3.5 space-y-3.5 bg-slate-50/50 dark:bg-slate-950/40">
+        <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3.5 pb-4 space-y-3.5 bg-slate-50/50 dark:bg-slate-950/40">
           {/* Closed Banner */}
           {!shopStatus.open && (
             <div role="alert" className="p-3 bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 rounded-xl text-xs font-medium leading-relaxed">
@@ -1619,7 +1659,7 @@ export function AmirBotDrawer({ isOpen, onClose }: Props) {
         </div>
 
         {/* Bottom Input Area */}
-        <div className="p-3 bg-card border-t border-border shrink-0">
+        <div className="p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-card border-t border-border shrink-0">
           <form 
             onSubmit={e => { e.preventDefault(); handleSend(); }} 
             className="flex items-center gap-2"

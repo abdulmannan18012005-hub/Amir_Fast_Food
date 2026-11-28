@@ -9,6 +9,8 @@ import { isValidTransition, OrderStatus, ORDER_STATUSES } from '../lib/orderStat
 import { sendOrderPush, sendAdminOrderPush } from './push';
 import { getShopStatus } from '../lib/shop';
 import { normalizeName, normalizePhone, normalizeAddress, normalizeTid, validateTid } from '../lib/orderValidation';
+import { sanitizeAdminSearchTerm, findOrderIdsByHexFragment, buildSafeOrderOrClause } from './adminSearch';
+import { consumeDeviceDailyOrder, releaseDeviceDailyOrder, type DeviceOrderQuotaHandle } from './deviceLimit';
 import crypto from 'crypto';
 
 function verifyTokenHash(rawToken: string | undefined, storedHash: string | null | undefined): boolean {
@@ -56,7 +58,8 @@ export const createOrder = createServerFn({ method: "POST" })
     currentSubtotal?: number;
     error?: string;
   }> => {
-  try {
+    let deviceQuotaHandle: DeviceOrderQuotaHandle | null = null;
+    try {
     const ip = getClientIp();
     
     // 0. Opening hours check (server authoritative)
@@ -104,15 +107,15 @@ export const createOrder = createServerFn({ method: "POST" })
       throw new UserFacingError("Delivery address must be between 10 and 300 characters.", "validation");
     }
 
-    // Balanced NAT-friendly rate limits (3 per phone per 10min, 12 per shared-NAT IP per 10min, 4 per hashed address per 10min)
+    // Burst flood protection (well above the 20/day per-device limit so multi-device households and NAT IPs are never falsely blocked)
     const addrHash = crypto.createHash('sha256').update(addrStr.toLowerCase()).digest('hex').slice(0, 24);
-    if (!(await checkRateLimit(phoneNormal, 'order_phone', 3, 600000))) {
+    if (!(await checkRateLimit(phoneNormal, 'order_phone', 60, 600000))) {
       throw new UserFacingError("Too many orders from this phone number. Please try again later.", "rate_limited");
     }
-    if (!(await checkRateLimit(ip, 'order_ip', 12, 600000))) {
+    if (!(await checkRateLimit(ip, 'order_ip', 150, 600000))) {
       throw new UserFacingError("Too many orders from this network. Please try again in a few minutes.", "rate_limited");
     }
-    if (!(await checkRateLimit(addrHash, 'order_addr', 4, 600000))) {
+    if (!(await checkRateLimit(addrHash, 'order_addr', 60, 600000))) {
       throw new UserFacingError("Too many orders for this address. Please try again later.", "rate_limited");
     }
 
@@ -260,6 +263,40 @@ export const createOrder = createServerFn({ method: "POST" })
       : crypto.randomBytes(32).toString('hex');
     const trackingTokenHash = crypto.createHash('sha256').update(rawTrackingToken).digest('hex');
 
+    // 3c. Check existing idempotent order BEFORE consuming a daily device quota slot so retries never fail or double-count
+    if (idempotencyKey) {
+      const { data: priorOrd } = await supabase
+        .from('orders')
+        .select('id, tracking_token_hash, cancellation_token_hash, request_fingerprint')
+        .eq('idempotency_key', idempotencyKey)
+        .maybeSingle();
+
+      if (priorOrd) {
+        if (!timingSafeCompare(requestFingerprint, String(priorOrd.request_fingerprint || ''))) {
+          throw new UserFacingError(
+            "Your order details changed since the previous submission attempt. Please review and confirm your order again.",
+            "idempotency_conflict"
+          );
+        }
+        if (
+          supportsDeterministicRecovery &&
+          verifyTokenHash(rawTrackingToken, priorOrd.tracking_token_hash) &&
+          verifyTokenHash(rawCancellationToken, priorOrd.cancellation_token_hash)
+        ) {
+          return {
+            success: true,
+            orderId: String(priorOrd.id),
+            cancellationToken: rawCancellationToken,
+            trackingToken: rawTrackingToken,
+          };
+        }
+        return { success: true, orderId: String(priorOrd.id) };
+      }
+    }
+
+    // 3d. Enforce 20 orders/device/day (PKT calendar day) after all validation & idempotency pre-checks pass
+    deviceQuotaHandle = await consumeDeviceDailyOrder(checkNow);
+
     // 4. Atomic all-or-nothing order creation via process_order_v2
     const p_email = payload.customerEmail?.trim() || '';
     const paymentReviewStatus = payload.paymentMethod === 'online_transfer' ? 'pending' : 'not_required';
@@ -376,6 +413,9 @@ export const createOrder = createServerFn({ method: "POST" })
       trackingToken: rawTrackingToken
     };
   } catch (err: any) {
+    if (deviceQuotaHandle && !(err instanceof UserFacingError && err.code === 'device_limit_reached')) {
+      await releaseDeviceDailyOrder(deviceQuotaHandle).catch(() => {});
+    }
     const code = err instanceof UserFacingError ? err.code : 'validation';
     return { success: false, code, error: toSafeError(err) };
   }
@@ -652,9 +692,12 @@ export const getCompletedOrdersFn = createServerFn({ method: "POST" })
       query = query.gte('created_at', startIso).lt('created_at', endIso);
     }
 
-    const searchStr = data.search ? data.search.trim().replace(/[,()%\*'\\"]/g, '').slice(0, 50) : '';
+    const searchStr = sanitizeAdminSearchTerm(data.search, 50);
+    let searchOrClause = '';
     if (searchStr) {
-      query = query.or(`id.ilike.%${searchStr}%,customer_name.ilike.%${searchStr}%,customer_phone.ilike.%${searchStr}%`);
+      const matchedIds = await findOrderIdsByHexFragment(supabase, searchStr);
+      searchOrClause = buildSafeOrderOrClause(['customer_name', 'customer_phone'], searchStr, matchedIds);
+      query = query.or(searchOrClause);
     }
 
     const page = data.page || 1;
@@ -664,13 +707,14 @@ export const getCompletedOrdersFn = createServerFn({ method: "POST" })
 
     query = query.order('created_at', { ascending: false }).range(start, end);
 
+    const cleanRpcSearch = searchStr ? searchStr.replace(/^#+/, '').trim() : '';
     const [{ data: orders, count, error }, rpcSummaryRes] = await Promise.all([
       query,
       supabase.rpc('get_orders_summary_metrics', {
         p_status: statusFilter,
         p_start: startIso,
         p_end: endIso,
-        p_search: searchStr || null,
+        p_search: cleanRpcSearch || null,
       }),
     ]);
 
@@ -694,8 +738,8 @@ export const getCompletedOrdersFn = createServerFn({ method: "POST" })
         if (startIso && endIso) {
           aggQuery = aggQuery.gte('created_at', startIso).lt('created_at', endIso);
         }
-        if (searchStr) {
-          aggQuery = aggQuery.or(`id.ilike.%${searchStr}%,customer_name.ilike.%${searchStr}%,customer_phone.ilike.%${searchStr}%`);
+        if (searchOrClause) {
+          aggQuery = aggQuery.or(searchOrClause);
         }
         const { data: aggRows } = await aggQuery.limit(5000);
         if (Array.isArray(aggRows)) {

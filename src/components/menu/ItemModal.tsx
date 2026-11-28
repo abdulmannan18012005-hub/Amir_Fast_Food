@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Check } from 'lucide-react';
 import type { MenuItem, CartItem, ItemVariant } from '../../types';
+import { getValidCompareAtPrice, getSavingsPercent } from '../../lib/cart';
 
 interface Props {
   item: MenuItem | null;
@@ -41,21 +42,25 @@ export function ItemModal({ item, isOpen, onClose, onAddToCart }: Props) {
     );
   };
 
+  const basePrice = Number(item.price) || 0;
+  const baseCompareAt = getValidCompareAtPrice(basePrice, item.original_price);
+  const savingsPercent = getSavingsPercent(basePrice, baseCompareAt);
+  const variantTotal = selectedVariants.reduce((s, u) => s + (Number(u.price) || 0), 0);
+  const total = basePrice + variantTotal;
+  const compareAtTotal = baseCompareAt ? baseCompareAt + variantTotal : null;
+
   const handleComplete = () => {
     onAddToCart({
       menu_item_id: item.id,
       name: item.name,
-      price: Number(item.price) || 0,
+      price: basePrice,
+      original_price: baseCompareAt,
       quantity: 1,
       image_url: item.image_url || '/placeholder.webp',
       variants: selectedVariants,
     });
     onClose();
   };
-
-  const basePrice = Number(item.price) || 0;
-  const variantTotal = selectedVariants.reduce((s, u) => s + (Number(u.price) || 0), 0);
-  const total = basePrice + variantTotal;
 
   return (
     <div
@@ -79,7 +84,17 @@ export function ItemModal({ item, isOpen, onClose, onAddToCart }: Props) {
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-5">
             <div>
               <h2 id="modal-item-title" className="text-xl sm:text-2xl font-bold text-white">{item.name}</h2>
-              <p className="text-xs sm:text-sm text-white/85 font-semibold mt-0.5">Base price: PKR {basePrice.toLocaleString()}</p>
+              <div className="flex items-center flex-wrap gap-2 mt-0.5">
+                <p className="text-xs sm:text-sm text-white/90 font-semibold">Base price: PKR {basePrice.toLocaleString()}</p>
+                {baseCompareAt && (
+                  <span className="text-xs text-white/65 line-through">PKR {baseCompareAt.toLocaleString()}</span>
+                )}
+                {savingsPercent > 0 && (
+                  <span className="bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    Save {savingsPercent}%
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           <button
@@ -149,7 +164,10 @@ export function ItemModal({ item, isOpen, onClose, onAddToCart }: Props) {
               className="w-2/3 bg-emerald-700 text-white font-bold py-3 rounded-xl hover:bg-emerald-600 shadow-md transition-colors text-sm flex items-center justify-center gap-1.5"
             >
               <Check size={16} />
-              <span>Add to Cart - PKR {total.toLocaleString()}</span>
+              <span>
+                Add to Cart - PKR {total.toLocaleString()}
+                {compareAtTotal ? ` (was ${compareAtTotal.toLocaleString()})` : ''}
+              </span>
             </button>
           </div>
         </div>

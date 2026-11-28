@@ -6,6 +6,7 @@ import { UserFacingError, toSafeError } from './errors';
 import { sendOrderPush, sendAdminOrderPush } from './push';
 import { SHOP_PHONE_LOCAL } from '../lib/shop';
 import { detectImageExtension, MAX_IMAGE_BYTES } from './imageValidation';
+import { sanitizeAdminSearchTerm, findOrderIdsByHexFragment, buildSafeOrderOrClause } from './adminSearch';
 
 const BUCKET_NAME = 'payment-proofs';
 
@@ -310,12 +311,12 @@ export const listCancellationsAdminFn = createServerFn({ method: "POST" })
       query = query.eq('refund_status', 'rejected');
     }
 
-    // Search filter (name, phone, orderId, TID) — strip PostgREST operator/wildcard chars
-    if (data.search && data.search.trim()) {
-      const q = data.search.trim().replace(/[,()%\*'\\"]/g, '').slice(0, 60);
-      if (q) {
-        query = query.or(`customer_name.ilike.%${q}%,customer_phone.ilike.%${q}%,id.ilike.%${q}%,payment_trx_id.ilike.%${q}%`);
-      }
+    // Search filter (name, phone, orderId/#shortCode, TID) — UUID-safe without id.ilike
+    const q = sanitizeAdminSearchTerm(data.search, 60);
+    if (q) {
+      const matchedIds = await findOrderIdsByHexFragment(supabase, q);
+      const orClause = buildSafeOrderOrClause(['customer_name', 'customer_phone', 'payment_trx_id'], q, matchedIds);
+      query = query.or(orClause);
     }
 
     query = query.range(offset, offset + pageSize - 1);

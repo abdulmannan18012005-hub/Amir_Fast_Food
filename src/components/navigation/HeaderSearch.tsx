@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Search, X } from 'lucide-react';
 import { searchMenuItems } from '../../server/menu';
+import { getValidCompareAtPrice } from '../../lib/cart';
 import type { MenuItem } from '../../types';
 
 export function HeaderSearch() {
@@ -97,7 +98,9 @@ export function HeaderSearch() {
               <Search size={18} className="text-muted-foreground shrink-0" aria-hidden="true" />
               <input
                 ref={inputRef}
-                type="search"
+                type="text"
+                inputMode="search"
+                enterKeyHint="search"
                 aria-label="Search menu items"
                 placeholder="Search burgers, shawarma, deals..."
                 value={query}
@@ -154,9 +157,21 @@ export function HeaderSearch() {
                           <p className="text-xs text-muted-foreground truncate">{item.description}</p>
                         )}
                       </div>
-                      <span className="text-xs sm:text-sm text-primary font-bold whitespace-nowrap shrink-0">
-                        PKR {item.price.toLocaleString()}
-                      </span>
+                      {(() => {
+                        const compareAt = getValidCompareAtPrice(item.price, item.original_price);
+                        return (
+                          <div className="text-right whitespace-nowrap shrink-0">
+                            {compareAt && (
+                              <span className="block text-[11px] text-muted-foreground line-through leading-none">
+                                PKR {compareAt.toLocaleString()}
+                              </span>
+                            )}
+                            <span className="text-xs sm:text-sm text-primary font-bold">
+                              PKR {item.price.toLocaleString()}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </button>
                   ))}
                   <button

@@ -17,6 +17,31 @@ export const SHOP_ESTIMATED_DELIVERY_TIME = 'Estimated delivery 30–40 minutes,
 export const SHOP_CANCELLATION_POLICY = 'You can cancel an order online on the tracking page only while its status is "Order Received" (before kitchen preparation begins). Once preparation starts, online cancellation closes — please call 0301 4265785 for assistance.';
 export const SHOP_PAYMENT_METHODS = 'Cash on Delivery (COD), EasyPaisa, and JazzCash manual transfer';
 export const SHOP_PAYMENT_VERIFICATION_NOTE = "Online-transfer orders start preparation after we verify the Transaction ID in our EasyPaisa/JazzCash app.";
+export const MAX_ORDERS_PER_DEVICE_PER_DAY = 20;
+
+export interface PktDayWindow {
+  dayKey: string;
+  secondsUntilMidnight: number;
+  resetLabel: string;
+}
+
+export function getPktDayWindow(now: Date = new Date()): PktDayWindow {
+  // Pakistan Standard Time is fixed UTC+5 (no DST)
+  const pktMs = now.getTime() + 5 * 60 * 60 * 1000;
+  const pktDate = new Date(pktMs);
+  const dayKey = pktDate.toISOString().slice(0, 10);
+  const elapsedSeconds =
+    pktDate.getUTCHours() * 3600 +
+    pktDate.getUTCMinutes() * 60 +
+    pktDate.getUTCSeconds();
+  const secondsUntilMidnight = Math.max(1, 86400 - elapsedSeconds);
+  const hoursLeft = Math.floor(secondsUntilMidnight / 3600);
+  const minsLeft = Math.max(1, Math.ceil((secondsUntilMidnight % 3600) / 60));
+  const resetLabel = hoursLeft > 0
+    ? `${hoursLeft}h ${minsLeft === 60 ? 0 : minsLeft}m (12:00 AM PKT)`
+    : `${minsLeft} minute${minsLeft === 1 ? '' : 's'} (12:00 AM PKT)`;
+  return { dayKey, secondsUntilMidnight, resetLabel };
+}
 
 export interface ShopStatus {
   open: boolean;

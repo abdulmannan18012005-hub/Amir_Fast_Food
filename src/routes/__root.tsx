@@ -9,6 +9,9 @@ import { ThemeSwitcher } from '../components/ThemeSwitcher';
 const HeaderSearch = React.lazy(() => import('../components/navigation/HeaderSearch').then(m => ({ default: m.HeaderSearch })));
 import { CustomerInstallPrompt } from '../components/pwa/CustomerInstallPrompt';
 import { getCartSubtotal, updateItemQuantity, removeItem, clearCart, areVariantsEqual } from '../lib/cart';
+import { getPublishedLayoutFn } from '../server/layoutApi';
+import { PublishedLayoutProvider } from '../lib/layoutContext';
+import { mergeWithLayoutDefaults, sanitizeLinkHref } from '../lib/layoutContent';
 import type { ItemVariant } from '../types';
 import '../index.css';
 
@@ -62,10 +65,18 @@ class AmirBotErrorBoundary extends React.Component<
 }
 
 export const Route = createRootRoute({
+  staleTime: 0,
+  gcTime: 0,
+  loader: async () => {
+    const layout = await getPublishedLayoutFn();
+    return { layout };
+  },
   component: RootComponent
 });
 
 function RootComponent() {
+  const loaderData = Route.useLoaderData();
+  const layout = React.useMemo(() => mergeWithLayoutDefaults(loaderData?.layout), [loaderData?.layout]);
   const location = useLocation();
   const isAdmin = location.pathname.startsWith('/admin');
 
@@ -231,9 +242,11 @@ function RootComponent() {
         )}
 
         {/* Main Content */}
+        <PublishedLayoutProvider value={layout}>
         <main id="main-content" className={`flex-grow flex flex-col w-full min-w-0 ${isAdmin ? '' : 'pb-[calc(4rem+var(--tracker-h,0px))] md:pb-[var(--tracker-h,0px)]'}`}>
           <Outlet />
         </main>
+        </PublishedLayoutProvider>
 
         {/* Footer: hidden on admin routes */}
         {!isAdmin && (
@@ -250,10 +263,10 @@ function RootComponent() {
                       <span className="text-xs font-semibold uppercase tracking-[0.2em] text-primary block leading-none">Fast Food</span>
                     </div>
                   </div>
-                  <p className="text-sm text-muted-foreground mt-4">Shawarma, smash burgers, and combo deals in Lahore.</p>
+                  <p className="text-sm text-muted-foreground mt-4">{layout.site.brandTagline}</p>
                 </div>
                 <div className="space-y-3">
-                  <p className="font-display font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-4">Links</p>
+                  <p className="font-display font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-4">{layout.site.footerLinksTitle}</p>
                   <div className="flex flex-col gap-3 text-sm">
                     <Link to="/menu" preload="intent" className="text-muted-foreground hover:text-foreground transition-colors">Menu</Link>
                     <Link to="/locations" preload="intent" className="text-muted-foreground hover:text-foreground transition-colors">Locations</Link>
@@ -263,9 +276,9 @@ function RootComponent() {
                   </div>
                 </div>
                 <div className="space-y-3">
-                  <p className="font-display font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-4">Social</p>
+                  <p className="font-display font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-4">{layout.site.footerSocialTitle}</p>
                   <div className="flex gap-3">
-                    <a href="https://www.facebook.com/Amirfastfoodofficial/" target="_blank" rel="noopener noreferrer" aria-label="Amir Fast Food on Facebook" className="h-10 w-10 rounded-xl bg-muted flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all">
+                    <a href={sanitizeLinkHref(layout.site.facebookUrl, 'https://www.facebook.com/Amirfastfoodofficial/')} target="_blank" rel="noopener noreferrer" aria-label="Amir Fast Food on Facebook" className="h-10 w-10 rounded-xl bg-muted flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all">
                       <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z"></path></svg>
                     </a>
                     <a href={`https://wa.me/${SHOP_WHATSAPP}`} target="_blank" rel="noopener noreferrer" aria-label="Chat with Amir Fast Food on WhatsApp" className="h-10 w-10 rounded-xl bg-muted flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all">
@@ -274,7 +287,7 @@ function RootComponent() {
                   </div>
                 </div>
                 <div className="space-y-3">
-                  <p className="font-display font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-4">Contact</p>
+                  <p className="font-display font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-4">{layout.site.footerContactTitle}</p>
                   <div className="flex flex-col gap-3 text-sm text-muted-foreground">
                     <div className="flex items-center gap-2">
                       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-primary/80"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
@@ -288,7 +301,7 @@ function RootComponent() {
                 </div>
               </div>
               <div className="mt-8 pt-8 border-t border-border/20 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <p className="text-xs text-muted-foreground">&copy; 2026 Amir Fast Food. All rights reserved.</p>
+                <p className="text-xs text-muted-foreground">{layout.site.copyrightText}</p>
                 <div className="flex gap-6 text-xs text-muted-foreground">
                   <Link to="/terms" preload="intent" className="hover:text-primary transition-colors">Terms of Use</Link>
                   <Link to="/privacy" preload="intent" className="hover:text-primary transition-colors">Privacy Policy</Link>

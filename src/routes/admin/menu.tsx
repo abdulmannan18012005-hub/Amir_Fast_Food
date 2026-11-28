@@ -7,23 +7,27 @@ import {
   createMenuItemFn,
   updateMenuItemFn,
   deleteMenuItemFn,
+  reorderMenuItemsFn,
   createCategoryFn,
   updateCategoryFn,
+  reorderCategoriesFn,
   reassignCategoryItemsFn,
   deleteCategoryFn,
   createHighlightFn,
   updateHighlightFn,
+  reorderHighlightsFn,
   deleteHighlightFn,
 } from '../../server/menu';
 import {
   ChefHat, Pencil, Trash2, Plus, X, Check, Image as ImageIcon,
-  AlertTriangle, Search, Sparkles, ArrowRight, Loader2, Tag
+  AlertTriangle, Search, Sparkles, ArrowRight, ArrowUp, ArrowDown, Loader2, Tag
 } from 'lucide-react';
 import { PinGate } from '../../components/admin/PinGate';
 import { AdminNav } from '../../components/admin/AdminNav';
 import { AdminProvider, useAdminContext } from '../../components/admin/AdminContext';
 import { AdminImagePicker } from '../../components/admin/AdminImagePicker';
 import { adminCall } from '../../lib/adminSession';
+import { getValidCompareAtPrice, getSavingsPercent } from '../../lib/cart';
 import type { Category, HighlightItem, ItemVariant, MenuItem } from '../../types';
 
 export const Route = createFileRoute('/admin/menu')({
@@ -52,6 +56,8 @@ type ItemFormState = {
   category_id: string;
   sub_category: string;
   price: string;
+  original_price: string;
+  sort_order: string;
   image_url: string;
   original_image_url?: string;
   is_available: boolean;
@@ -161,6 +167,8 @@ function AdminMenuEditor() {
         category_id: activeAdminCategory !== 'all' ? activeAdminCategory : (categories[0]?.id || ''),
         sub_category: 'General',
         price: '',
+        original_price: '',
+        sort_order: String(items.length + 1),
         image_url: '',
         is_available: true,
         variants: [],
@@ -183,6 +191,8 @@ function AdminMenuEditor() {
         category_id: item.category_id,
         sub_category: item.sub_category || 'General',
         price: String(item.price),
+        original_price: item.original_price && item.original_price > item.price ? String(item.original_price) : '',
+        sort_order: String(item.sort_order && item.sort_order > 0 ? item.sort_order : ''),
         image_url: item.image_url || '',
         original_image_url: item.image_url || '',
         is_available: item.is_available,
@@ -195,7 +205,25 @@ function AdminMenuEditor() {
     if (form.name.trim().length < 2) return 'Product name must be at least 2 characters.';
     if (!form.category_id) return 'Please select a category.';
     const p = Number(form.price);
-    if (!form.price || isNaN(p) || p < 0) return 'Please enter a valid non-negative price.';
+    if (!form.price || !Number.isFinite(p) || !Number.isInteger(p) || p < 0 || p > 500000) {
+      return 'Please enter a valid whole non-negative selling price.';
+    }
+    const compRaw = form.original_price.trim();
+    if (compRaw !== '') {
+      const comp = Number(compRaw);
+      if (!Number.isFinite(comp) || !Number.isInteger(comp) || comp <= 0 || comp > 500000) {
+        return 'Compare-at price must be a valid whole number between 1 and 500,000.';
+      }
+      if (comp <= p) {
+        return `Compare-at price (PKR ${comp}) must be higher than selling price (PKR ${p}), or leave it blank.`;
+      }
+    }
+    if (form.sort_order.trim() !== '') {
+      const so = Number(form.sort_order);
+      if (!Number.isFinite(so) || !Number.isInteger(so) || so < 1 || so > 99999) {
+        return 'Sort order must be a positive whole number.';
+      }
+    }
     if (!form.image_url.trim()) return 'Please upload an image or verify an HTTPS image URL.';
     if (imageError) return 'Please fix or verify the image before continuing.';
     return null;
@@ -210,6 +238,8 @@ function AdminMenuEditor() {
     setModalError('');
     try {
       const f = itemModal.form;
+      const compareAtVal = f.original_price.trim() === '' ? null : Number(f.original_price.trim());
+      const sortOrderVal = f.sort_order.trim() === '' ? undefined : Number(f.sort_order.trim());
       if (itemModal.mode === 'add') {
         const res = await adminCall(createMenuItemFn, {
           name: f.name.trim(),
@@ -217,6 +247,8 @@ function AdminMenuEditor() {
           category_id: f.category_id,
           sub_category: f.sub_category.trim() || 'General',
           price: Number(f.price),
+          original_price: compareAtVal,
+          sort_order: sortOrderVal,
           image_url: f.image_url.trim(),
           is_available: f.is_available,
           variants: f.variants,
@@ -232,6 +264,8 @@ function AdminMenuEditor() {
           category_id: f.category_id,
           sub_category: f.sub_category.trim() || 'General',
           price: Number(f.price),
+          original_price: compareAtVal,
+          sort_order: sortOrderVal,
           image_url: f.image_url.trim(),
           is_available: f.is_available,
           variants: f.variants,
@@ -484,6 +518,72 @@ function AdminMenuEditor() {
     }
   };
 
+  const [reordering, setReordering] = useState(false);
+
+  const handleMoveItem = async (itemId: string, dir: -1 | 1) => {
+    if (reordering) return;
+    const visibleIdx = filteredItems.findIndex(i => i.id === itemId);
+    const swapIdx = visibleIdx + dir;
+    if (visibleIdx < 0 || swapIdx < 0 || swapIdx >= filteredItems.length) return;
+    const targetId = filteredItems[swapIdx].id;
+    const globalList = [...items];
+    const idxA = globalList.findIndex(i => i.id === itemId);
+    const idxB = globalList.findIndex(i => i.id === targetId);
+    if (idxA < 0 || idxB < 0) return;
+    [globalList[idxA], globalList[idxB]] = [globalList[idxB], globalList[idxA]];
+
+    setReordering(true);
+    try {
+      await adminCall(reorderMenuItemsFn, { orderedIds: globalList.map(i => i.id) });
+      await loadAll();
+      showToast('Product order updated.');
+    } catch (e: any) {
+      showToast(friendlyMessage(e, 'Failed to reorder products.'), 'error');
+    } finally {
+      setReordering(false);
+    }
+  };
+
+  const handleMoveCategory = async (catId: string, dir: -1 | 1) => {
+    if (reordering) return;
+    const idx = categories.findIndex(c => c.id === catId);
+    const swapIdx = idx + dir;
+    if (idx < 0 || swapIdx < 0 || swapIdx >= categories.length) return;
+    const next = [...categories];
+    [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
+
+    setReordering(true);
+    try {
+      await adminCall(reorderCategoriesFn, { orderedIds: next.map(c => c.id) });
+      await loadAll();
+      showToast('Category order updated.');
+    } catch (e: any) {
+      showToast(friendlyMessage(e, 'Failed to reorder categories.'), 'error');
+    } finally {
+      setReordering(false);
+    }
+  };
+
+  const handleMoveHighlight = async (hlId: string, dir: -1 | 1) => {
+    if (reordering) return;
+    const idx = highlights.findIndex(h => h.id === hlId);
+    const swapIdx = idx + dir;
+    if (idx < 0 || swapIdx < 0 || swapIdx >= highlights.length) return;
+    const next = [...highlights];
+    [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
+
+    setReordering(true);
+    try {
+      await adminCall(reorderHighlightsFn, { orderedIds: next.map(h => h.id) });
+      await loadAll();
+      showToast('Highlight order updated.');
+    } catch (e: any) {
+      showToast(friendlyMessage(e, 'Failed to reorder highlights.'), 'error');
+    } finally {
+      setReordering(false);
+    }
+  };
+
   const filteredItems = items.filter((item) => {
     const matchCat = activeAdminCategory === 'all' || item.category_id === activeAdminCategory;
     const q = itemSearch.trim().toLowerCase();
@@ -613,7 +713,10 @@ function AdminMenuEditor() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                    {filteredItems.map(item => (
+                    {filteredItems.map((item, idx) => {
+                      const validCompareAt = getValidCompareAtPrice(item.price, item.original_price);
+                      const savePct = getSavingsPercent(item.price, validCompareAt);
+                      return (
                       <div
                         key={item.id}
                         className={`h-full rounded-2xl shadow-sm border overflow-hidden flex flex-col transition-colors ${
@@ -634,6 +737,14 @@ function AdminMenuEditor() {
                               <span className="text-xs font-medium">No Image</span>
                             </div>
                           )}
+                          {validCompareAt && savePct > 0 && (
+                            <div className="absolute top-2.5 left-2.5 bg-emerald-700 text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full shadow">
+                              Save {savePct}%
+                            </div>
+                          )}
+                          <div className="absolute top-2.5 right-2.5 bg-black/70 text-white text-[10px] font-mono font-bold px-2 py-0.5 rounded-full">
+                            #{item.sort_order && item.sort_order > 0 ? item.sort_order : idx + 1}
+                          </div>
                           {!item.is_available && (
                             <div className="absolute inset-0 bg-black/55 flex items-center justify-center">
                               <span className="bg-rose-600 text-white px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider">Out of Stock</span>
@@ -651,11 +762,18 @@ function AdminMenuEditor() {
                                 {item.name}
                               </h3>
                             </div>
-                            <span className={`font-black text-sm px-2.5 py-1 rounded-lg whitespace-nowrap shrink-0 ${
-                              isDark ? 'text-white bg-slate-700' : 'text-slate-900 bg-slate-100'
-                            }`}>
-                              PKR {item.price}
-                            </span>
+                            <div className="text-right shrink-0">
+                              {validCompareAt && (
+                                <span className="block text-[11px] text-muted-foreground line-through leading-none mb-0.5 whitespace-nowrap">
+                                  PKR {validCompareAt.toLocaleString()}
+                                </span>
+                              )}
+                              <span className={`font-black text-sm px-2.5 py-1 rounded-lg whitespace-nowrap inline-block ${
+                                isDark ? 'text-white bg-slate-700' : 'text-slate-900 bg-slate-100'
+                              }`}>
+                                PKR {item.price}
+                              </span>
+                            </div>
                           </div>
 
                           <p className={`text-xs line-clamp-2 min-h-[2rem] mb-3 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -677,7 +795,27 @@ function AdminMenuEditor() {
                             )}
                           </div>
 
-                          <div className={`mt-auto pt-3 border-t flex gap-2 ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
+                          <div className={`mt-auto pt-3 border-t flex gap-1.5 flex-wrap ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
+                            <button
+                              type="button"
+                              disabled={reordering || idx === 0}
+                              onClick={() => handleMoveItem(item.id, -1)}
+                              aria-label={`Move ${item.name} up`}
+                              title="Move earlier"
+                              className={`p-2 rounded-xl border text-xs disabled:opacity-35 transition-colors ${isDark ? 'border-slate-700 hover:border-primary' : 'border-slate-200 hover:border-primary'}`}
+                            >
+                              <ArrowUp size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={reordering || idx === filteredItems.length - 1}
+                              onClick={() => handleMoveItem(item.id, 1)}
+                              aria-label={`Move ${item.name} down`}
+                              title="Move later"
+                              className={`p-2 rounded-xl border text-xs disabled:opacity-35 transition-colors ${isDark ? 'border-slate-700 hover:border-primary' : 'border-slate-200 hover:border-primary'}`}
+                            >
+                              <ArrowDown size={14} />
+                            </button>
                             <button
                               type="button"
                               onClick={() => openEditItem(item)}
@@ -701,7 +839,8 @@ function AdminMenuEditor() {
                           </div>
                         </div>
                       </div>
-                    ))}
+                    );
+                    })}
                   </div>
                 )}
               </div>
@@ -725,7 +864,7 @@ function AdminMenuEditor() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {categories.map(cat => {
+                  {categories.map((cat, idx) => {
                     const prodCount = items.filter(i => i.category_id === cat.id).length;
                     return (
                       <div
@@ -754,7 +893,27 @@ function AdminMenuEditor() {
                             slug: {cat.slug} · order: {cat.sort_order}
                           </p>
 
-                          <div className={`mt-auto pt-3 border-t flex gap-2 ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
+                          <div className={`mt-auto pt-3 border-t flex gap-1.5 flex-wrap ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
+                            <button
+                              type="button"
+                              disabled={reordering || idx === 0}
+                              onClick={() => handleMoveCategory(cat.id, -1)}
+                              aria-label={`Move category ${cat.name} up`}
+                              title="Move earlier"
+                              className={`p-2 rounded-xl border text-xs disabled:opacity-35 transition-colors ${isDark ? 'border-slate-700 hover:border-primary' : 'border-slate-200 hover:border-primary'}`}
+                            >
+                              <ArrowUp size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={reordering || idx === categories.length - 1}
+                              onClick={() => handleMoveCategory(cat.id, 1)}
+                              aria-label={`Move category ${cat.name} down`}
+                              title="Move later"
+                              className={`p-2 rounded-xl border text-xs disabled:opacity-35 transition-colors ${isDark ? 'border-slate-700 hover:border-primary' : 'border-slate-200 hover:border-primary'}`}
+                            >
+                              <ArrowDown size={14} />
+                            </button>
                             <button
                               type="button"
                               onClick={() => openEditCategory(cat)}
@@ -807,7 +966,7 @@ function AdminMenuEditor() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                    {highlights.map(hl => (
+                    {highlights.map((hl, idx) => (
                       <div
                         key={hl.id}
                         className={`h-full rounded-2xl shadow-sm border overflow-hidden flex flex-col transition-colors ${
@@ -829,7 +988,7 @@ function AdminMenuEditor() {
                           <div className={`absolute top-2.5 right-2.5 text-[11px] font-bold px-2.5 py-1 rounded-full ${
                             hl.is_available !== false ? 'bg-emerald-700 text-white' : 'bg-slate-700 text-slate-200'
                           }`}>
-                            {hl.is_available !== false ? 'Active' : 'Hidden'}
+                            #{hl.sort_order} · {hl.is_available !== false ? 'Active' : 'Hidden'}
                           </div>
                         </div>
 
@@ -841,7 +1000,27 @@ function AdminMenuEditor() {
                             {hl.description}
                           </p>
 
-                          <div className={`mt-auto pt-3 border-t flex gap-2 ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
+                          <div className={`mt-auto pt-3 border-t flex gap-1.5 flex-wrap ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
+                            <button
+                              type="button"
+                              disabled={reordering || idx === 0}
+                              onClick={() => handleMoveHighlight(hl.id, -1)}
+                              aria-label={`Move highlight ${hl.title} up`}
+                              title="Move earlier"
+                              className={`p-2 rounded-xl border text-xs disabled:opacity-35 transition-colors ${isDark ? 'border-slate-700 hover:border-primary' : 'border-slate-200 hover:border-primary'}`}
+                            >
+                              <ArrowUp size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={reordering || idx === highlights.length - 1}
+                              onClick={() => handleMoveHighlight(hl.id, 1)}
+                              aria-label={`Move highlight ${hl.title} down`}
+                              title="Move later"
+                              className={`p-2 rounded-xl border text-xs disabled:opacity-35 transition-colors ${isDark ? 'border-slate-700 hover:border-primary' : 'border-slate-200 hover:border-primary'}`}
+                            >
+                              <ArrowDown size={14} />
+                            </button>
                             <button
                               type="button"
                               onClick={() => openEditHighlight(hl)}
@@ -911,22 +1090,23 @@ function AdminMenuEditor() {
                     />
                   </div>
 
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Category *</label>
+                    <select
+                      value={itemModal.form.category_id}
+                      onChange={e => setItemModal({ ...itemModal, form: { ...itemModal.form, category_id: e.target.value } })}
+                      className={inputClass}
+                    >
+                      <option value="">Select category...</option>
+                      {categories.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Category *</label>
-                      <select
-                        value={itemModal.form.category_id}
-                        onChange={e => setItemModal({ ...itemModal, form: { ...itemModal.form, category_id: e.target.value } })}
-                        className={inputClass}
-                      >
-                        <option value="">Select category...</option>
-                        {categories.map(c => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Price (PKR) *</label>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Selling Price (PKR) *</label>
                       <input
                         type="number"
                         min={0}
@@ -936,9 +1116,20 @@ function AdminMenuEditor() {
                         className={inputClass}
                       />
                     </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Compare-at Price (Optional PKR)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={itemModal.form.original_price}
+                        onChange={e => setItemModal({ ...itemModal, form: { ...itemModal.form, original_price: e.target.value } })}
+                        placeholder="Higher original price, e.g. 550"
+                        className={inputClass}
+                      />
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                       <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Sub-category</label>
                       <input
@@ -946,6 +1137,17 @@ function AdminMenuEditor() {
                         value={itemModal.form.sub_category}
                         onChange={e => setItemModal({ ...itemModal, form: { ...itemModal.form, sub_category: e.target.value } })}
                         placeholder="e.g. Classic / Special"
+                        className={inputClass}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Sort Order</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={itemModal.form.sort_order}
+                        onChange={e => setItemModal({ ...itemModal, form: { ...itemModal.form, sort_order: e.target.value } })}
+                        placeholder="e.g. 1"
                         className={inputClass}
                       />
                     </div>
@@ -1049,7 +1251,11 @@ function AdminMenuEditor() {
                   <div className={`rounded-2xl p-4 border space-y-2 text-xs ${isDark ? 'bg-slate-900/60 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
                     <div className="flex justify-between"><span className="text-muted-foreground">Name:</span><span className="font-bold">{itemModal.form.name}</span></div>
                     <div className="flex justify-between"><span className="text-muted-foreground">Category:</span><span className="font-bold">{categoryNameMap.get(itemModal.form.category_id)}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">Price:</span><span className="font-bold text-primary">PKR {itemModal.form.price}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Selling Price:</span><span className="font-bold text-primary">PKR {itemModal.form.price}</span></div>
+                    {itemModal.form.original_price.trim() && (
+                      <div className="flex justify-between"><span className="text-muted-foreground">Compare-at Price:</span><span className="font-bold line-through text-muted-foreground">PKR {itemModal.form.original_price}</span></div>
+                    )}
+                    <div className="flex justify-between"><span className="text-muted-foreground">Sort Order:</span><span className="font-bold">{itemModal.form.sort_order || 'Auto'}</span></div>
                     <div className="flex justify-between"><span className="text-muted-foreground">Availability:</span><span className="font-bold">{itemModal.form.is_available ? 'In Stock' : 'Out of Stock'}</span></div>
                     <div className="flex justify-between"><span className="text-muted-foreground">Options:</span><span className="font-bold">{itemModal.form.variants.length > 0 ? itemModal.form.variants.map(v => `${v.name} (+${v.price})`).join(', ') : 'None'}</span></div>
                     {itemModal.form.description && (

@@ -194,7 +194,7 @@ async function verifyExternalImageUrlServer(rawUrl: string): Promise<{ valid: tr
   }
 }
 
-async function normalizeAndValidateImageInput(rawUrl: string, allowEmptyPlaceholder = false): Promise<string> {
+export async function normalizeAndValidateImageInput(rawUrl: string, allowEmptyPlaceholder = false): Promise<string> {
   const trimmed = String(rawUrl || '').trim();
   if (!trimmed) {
     if (allowEmptyPlaceholder) return '/placeholder.webp';
@@ -228,7 +228,7 @@ async function ensureMenuImagesBucket(supabase: any) {
   }
 }
 
-async function getKnowledgeJson<T>(title: string, fallback: T): Promise<T> {
+export async function getKnowledgeJson<T>(title: string, fallback: T): Promise<T> {
   try {
     const supabase = getSupabaseServer();
     const { data } = await supabase.from('restaurant_knowledge').select('content').eq('title', title).maybeSingle();
@@ -241,7 +241,7 @@ async function getKnowledgeJson<T>(title: string, fallback: T): Promise<T> {
   return fallback;
 }
 
-async function writeKnowledgeJson(title: string, data: unknown) {
+export async function writeKnowledgeJson(title: string, data: unknown) {
   const supabase = getSupabaseServer();
   const payloadStr = JSON.stringify(data);
   const { data: existing } = await supabase.from('restaurant_knowledge').select('id').eq('title', title).maybeSingle();
@@ -262,6 +262,88 @@ async function saveKnowledgeJson(title: string, data: Record<string, string>, pi
   } catch (err: any) {
     throw new Error(toSafeError(err));
   }
+}
+
+async function getMenuItemMetaMap(): Promise<Record<string, { original_price?: number | null; sort_order?: number }>> {
+  const raw = await getKnowledgeJson<Record<string, { original_price?: number | null; sort_order?: number }>>('menu_item_meta', {});
+  return raw && typeof raw === 'object' ? raw : {};
+}
+
+async function upsertMenuItemMeta(patch: Record<string, { original_price?: number | null; sort_order?: number }>) {
+  const existing = await getMenuItemMetaMap();
+  const next = { ...existing };
+  for (const [id, entry] of Object.entries(patch)) {
+    next[id] = { ...(next[id] || {}), ...entry };
+  }
+  await writeKnowledgeJson('menu_item_meta', next);
+}
+
+function validateCompareAtPrice(raw: unknown, sellingPrice: number): number | null {
+  if (raw === undefined || raw === null || raw === '') return null;
+  const num = Number(raw);
+  if (!Number.isFinite(num) || !Number.isInteger(num) || num < 0 || num > 500000) {
+    throw new UserFacingError('Compare-at price must be a valid whole number between 0 and 500,000.', 'validation');
+  }
+  if (num === 0) {
+    throw new UserFacingError('Compare-at price must be higher than the selling price, or leave it blank.', 'validation');
+  }
+  if (num <= sellingPrice) {
+    throw new UserFacingError(`Compare-at price (PKR ${num}) must be higher than the selling price (PKR ${sellingPrice}), or leave it blank.`, 'validation');
+  }
+  return num;
+}
+
+function isMissingColumnError(err: any): boolean {
+  const code = String(err?.code || '');
+  const msg = String(err?.message || '').toLowerCase();
+  return code === '42703' || msg.includes('column') && msg.includes('does not exist');
+}
+
+function sortCategoriesDeterministic(cats: Category[]): Category[] {
+  return [...cats].sort((a, b) => {
+    const ao = Number.isFinite(Number(a.sort_order)) && Number(a.sort_order) > 0 ? Number(a.sort_order) : 999999;
+    const bo = Number.isFinite(Number(b.sort_order)) && Number(b.sort_order) > 0 ? Number(b.sort_order) : 999999;
+    if (ao !== bo) return ao - bo;
+    const byName = String(a.name || '').localeCompare(String(b.name || ''));
+    return byName !== 0 ? byName : String(a.id || '').localeCompare(String(b.id || ''));
+  });
+}
+
+function hydrateAndSortMenuItems(
+  rows: any[],
+  metaMap: Record<string, { original_price?: number | null; sort_order?: number }>,
+  archivedIds: Set<string>
+): MenuItem[] {
+  return (rows || [])
+    .filter((i: any) => !archivedIds.has(String(i.id)))
+    .map((i: any) => {
+      const meta = metaMap[String(i.id)] || {};
+      const price = Math.round(Number(i.price) || 0);
+      const rawComp = i.original_price !== undefined ? i.original_price : meta.original_price;
+      const compNum = rawComp !== null && rawComp !== undefined ? Number(rawComp) : null;
+      const validComp = compNum !== null && Number.isFinite(compNum) && compNum > price ? Math.round(compNum) : null;
+      const rawSort = i.sort_order !== undefined && i.sort_order !== null && Number(i.sort_order) > 0
+        ? Number(i.sort_order)
+        : (meta.sort_order !== undefined && Number(meta.sort_order) > 0 ? Number(meta.sort_order) : 0);
+      return {
+        ...i,
+        price,
+        original_price: validComp,
+        sort_order: rawSort,
+      } as MenuItem;
+    })
+    .sort((a, b) => {
+      const ao = a.sort_order && a.sort_order > 0 ? a.sort_order : 999999;
+      const bo = b.sort_order && b.sort_order > 0 ? b.sort_order : 999999;
+      if (ao !== bo) return ao - bo;
+      if (a.category_id === 'cat_deals' && b.category_id === 'cat_deals') {
+        const numA = parseInt(String((a.name.match(/\d+/) || [0])[0]), 10);
+        const numB = parseInt(String((b.name.match(/\d+/) || [0])[0]), 10);
+        if (numA !== numB) return numA - numB;
+      }
+      const byName = a.name.localeCompare(b.name);
+      return byName !== 0 ? byName : String(a.id).localeCompare(String(b.id));
+    });
 }
 
 async function getArchivedMenuItemIds(): Promise<Set<string>> {
@@ -310,7 +392,7 @@ export const getCategories = createServerFn({ method: 'GET' }).handler(async ():
       console.error('Error fetching categories:', error);
       return [];
     }
-    return (data || []) as Category[];
+    return sortCategoriesDeterministic((data || []) as Category[]);
   } catch (err) {
     console.error('getCategories error:', err);
     return [];
@@ -324,19 +406,23 @@ export const getMenuItems = createServerFn({ method: 'GET' })
       const supabase = getSupabaseServer();
       let query = supabase
         .from('menu_items')
-        .select('id, category_id, sub_category, name, description, price, image_url, variants, is_available, created_at')
+        .select('*')
         .eq('is_available', true);
 
       if (categoryId && categoryId !== 'all') {
         query = query.eq('category_id', categoryId);
       }
 
-      const [{ data, error }, archivedIds] = await Promise.all([query, getArchivedMenuItemIds()]);
+      const [{ data, error }, archivedIds, metaMap] = await Promise.all([
+        query,
+        getArchivedMenuItemIds(),
+        getMenuItemMetaMap(),
+      ]);
       if (error) {
         console.error('Error fetching menu items:', error);
         return [];
       }
-      return ((data || []) as MenuItem[]).filter(i => !archivedIds.has(i.id));
+      return hydrateAndSortMenuItems(data || [], metaMap, archivedIds);
     } catch (err) {
       console.error('getMenuItems error:', err);
       return [];
@@ -353,20 +439,21 @@ export const searchMenuItems = createServerFn({ method: 'GET' })
 
     try {
       const supabase = getSupabaseServer();
-      const [{ data, error }, archivedIds] = await Promise.all([
+      const [{ data, error }, archivedIds, metaMap] = await Promise.all([
         supabase
           .from('menu_items')
           .select('*')
           .eq('is_available', true)
           .or(`name.ilike.%${cleanQuery}%,description.ilike.%${cleanQuery}%,sub_category.ilike.%${cleanQuery}%`),
         getArchivedMenuItemIds(),
+        getMenuItemMetaMap(),
       ]);
 
       if (error) {
         console.error('Error searching menu items:', error);
         return [];
       }
-      return ((data || []) as MenuItem[]).filter(i => !archivedIds.has(i.id));
+      return hydrateAndSortMenuItems(data || [], metaMap, archivedIds);
     } catch (err) {
       console.error('searchMenuItems error:', err);
       return [];
@@ -378,15 +465,16 @@ export const refreshCartPricesFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     try {
       const ids = Array.from(new Set((data.itemIds || []).map(id => String(id).trim()).filter(Boolean)));
-      if (ids.length === 0) return { items: [] as Array<{ id: string; name: string; price: number; is_available: boolean; variants: ItemVariant[] }> };
+      if (ids.length === 0) return { items: [] as Array<{ id: string; name: string; price: number; original_price: number | null; is_available: boolean; variants: ItemVariant[] }> };
 
       const supabase = getSupabaseServer();
-      const [{ data: rows, error }, archivedIds] = await Promise.all([
+      const [{ data: rows, error }, archivedIds, metaMap] = await Promise.all([
         supabase
           .from('menu_items')
-          .select('id, name, price, is_available, variants')
+          .select('*')
           .in('id', ids),
         getArchivedMenuItemIds(),
+        getMenuItemMetaMap(),
       ]);
 
       if (error) {
@@ -394,10 +482,12 @@ export const refreshCartPricesFn = createServerFn({ method: 'POST' })
         return { error: 'Unable to verify current menu prices.', items: [] };
       }
 
-      const items = (rows || []).map((row: any) => ({
+      const hydrated = hydrateAndSortMenuItems(rows || [], metaMap, new Set());
+      const items = hydrated.map((row: MenuItem) => ({
         id: String(row.id),
         name: String(row.name || ''),
         price: Math.round(Number(row.price) || 0),
+        original_price: row.original_price ?? null,
         is_available: row.is_available !== false && !archivedIds.has(String(row.id)),
         variants: Array.isArray(row.variants) ? (row.variants as ItemVariant[]) : [],
       }));
@@ -467,7 +557,7 @@ export const getHighlightsFn = createServerFn({ method: 'GET' }).handler(async (
 
 export const uploadAdminImageFn = createServerFn({ method: 'POST' })
   .validator((d: {
-    folder: 'items' | 'categories' | 'highlights';
+    folder: 'items' | 'categories' | 'highlights' | 'layout';
     fileName: string;
     mimeType: string;
     base64Data: string;
@@ -478,7 +568,7 @@ export const uploadAdminImageFn = createServerFn({ method: 'POST' })
     try {
       await requireAdmin(data.token || data.pin);
       const { folder, mimeType, base64Data } = data;
-      if (!['items', 'categories', 'highlights'].includes(folder)) {
+      if (!['items', 'categories', 'highlights', 'layout'].includes(folder)) {
         throw new UserFacingError('Invalid upload folder.', 'validation');
       }
       if (!base64Data || !mimeType) {
@@ -545,29 +635,21 @@ export const getAdminMenuDataFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     await requireAdmin(data.token || data.pin);
     const supabase = getSupabaseServer();
-    const [itemsRes, categoriesRes, categoryImages, highlights, archivedIds] = await Promise.all([
+    const [itemsRes, categoriesRes, categoryImages, highlights, archivedIds, metaMap] = await Promise.all([
       supabase.from('menu_items').select('*'),
       supabase.from('categories').select('*').order('sort_order', { ascending: true }),
       getCategoryImagesFn(),
       getHighlightsFn(),
       getArchivedMenuItemIds(),
+      getMenuItemMetaMap(),
     ]);
 
     if (itemsRes.error) throw new UserFacingError('Failed to load menu items.');
     if (categoriesRes.error) throw new UserFacingError('Failed to load categories.');
 
-    const items = ((itemsRes.data || []) as MenuItem[])
-      .filter(i => !archivedIds.has(i.id))
-      .sort((a, b) => {
-        if (a.category_id === 'cat_deals' && b.category_id === 'cat_deals') {
-          const numA = parseInt(String((a.name.match(/\d+/) || [0])[0]), 10);
-          const numB = parseInt(String((b.name.match(/\d+/) || [0])[0]), 10);
-          return numA - numB;
-        }
-        return a.name.localeCompare(b.name);
-      });
+    const items = hydrateAndSortMenuItems(itemsRes.data || [], metaMap, archivedIds);
 
-    const categories: Category[] = ((categoriesRes.data || []) as Category[]).map(c => ({
+    const categories: Category[] = sortCategoriesDeterministic((categoriesRes.data || []) as Category[]).map(c => ({
       ...c,
       image_url: sanitizeImageUrl(categoryImages[c.id]),
     }));
@@ -586,6 +668,8 @@ export const createMenuItemFn = createServerFn({ method: 'POST' })
     category_id: string;
     sub_category?: string;
     price: number;
+    original_price?: number | null;
+    sort_order?: number;
     image_url: string;
     is_available?: boolean;
     variants?: ItemVariant[];
@@ -599,9 +683,11 @@ export const createMenuItemFn = createServerFn({ method: 'POST' })
       if (name.length < 2) throw new UserFacingError('Product name must be at least 2 characters.', 'validation');
 
       const price = Number(data.price);
-      if (isNaN(price) || price < 0 || price > 500000) {
-        throw new UserFacingError('Price must be a valid non-negative number.', 'validation');
+      if (!Number.isFinite(price) || !Number.isInteger(price) || price < 0 || price > 500000) {
+        throw new UserFacingError('Price must be a valid non-negative whole number.', 'validation');
       }
+
+      const compareAtPrice = validateCompareAtPrice(data.original_price, price);
 
       const categoryId = String(data.category_id || '').trim();
       if (!categoryId) throw new UserFacingError('Please select a category.', 'validation');
@@ -615,28 +701,70 @@ export const createMenuItemFn = createServerFn({ method: 'POST' })
       const description = String(data.description || '').trim().slice(0, 500);
       const subCategory = String(data.sub_category || '').trim().slice(0, 80) || 'General';
 
-      const { data: created, error } = await supabase
+      const [existingMeta, existingRowsRes] = await Promise.all([
+        getMenuItemMetaMap(),
+        supabase.from('menu_items').select('id'),
+      ]);
+      const existingCount = Array.isArray(existingRowsRes.data) ? existingRowsRes.data.length : 0;
+      const maxMetaSort = Object.values(existingMeta).reduce((m, e) => Math.max(m, Number(e.sort_order) || 0), 0);
+      const requestedSort = Number(data.sort_order);
+      const sortOrder = Number.isFinite(requestedSort) && requestedSort > 0
+        ? Math.round(requestedSort)
+        : Math.max(existingCount, maxMetaSort) + 1;
+
+      const baseInsert = {
+        name,
+        description,
+        category_id: categoryId,
+        sub_category: subCategory,
+        price: Math.round(price),
+        image_url: imageUrl,
+        is_available: data.is_available !== false,
+        variants: cleanVariants,
+      };
+
+      let { data: created, error } = await supabase
         .from('menu_items')
         .insert({
-          name,
-          description,
-          category_id: categoryId,
-          sub_category: subCategory,
-          price: Math.round(price),
-          image_url: imageUrl,
-          is_available: data.is_available !== false,
-          variants: cleanVariants,
+          ...baseInsert,
+          original_price: compareAtPrice,
+          sort_order: sortOrder,
         })
         .select('*')
         .single();
+
+      let usedMetaFallback = false;
+      if (error && isMissingColumnError(error)) {
+        usedMetaFallback = true;
+        const retry = await supabase
+          .from('menu_items')
+          .insert(baseInsert)
+          .select('*')
+          .single();
+        created = retry.data;
+        error = retry.error;
+      }
 
       if (error || !created) {
         console.error('[createMenuItemFn] Insert error:', error);
         throw new UserFacingError('Failed to create menu item in database.', 'validation');
       }
 
+      if (usedMetaFallback) {
+        await upsertMenuItemMeta({
+          [String(created.id)]: { original_price: compareAtPrice, sort_order: sortOrder },
+        });
+      }
+
       invalidateAmirBotMenuCache();
-      return { success: true, item: created as MenuItem };
+      return {
+        success: true,
+        item: {
+          ...(created as MenuItem),
+          original_price: compareAtPrice,
+          sort_order: sortOrder,
+        },
+      };
     } catch (err: any) {
       if (err instanceof UserFacingError) throw err;
       throw new UserFacingError(toSafeError(err), 'validation');
@@ -651,6 +779,8 @@ export const updateMenuItemFn = createServerFn({ method: 'POST' })
     category_id?: string;
     sub_category?: string;
     price: number;
+    original_price?: number | null;
+    sort_order?: number;
     image_url: string;
     is_available?: boolean;
     variants?: ItemVariant[];
@@ -664,8 +794,8 @@ export const updateMenuItemFn = createServerFn({ method: 'POST' })
       if (!id) throw new UserFacingError('Missing menu item ID.', 'validation');
 
       const price = Number(data.price);
-      if (isNaN(price) || price < 0 || price > 500000) {
-        throw new UserFacingError('Price must be a valid non-negative number.', 'validation');
+      if (!Number.isFinite(price) || !Number.isInteger(price) || price < 0 || price > 500000) {
+        throw new UserFacingError('Price must be a valid non-negative whole number.', 'validation');
       }
 
       const supabase = getSupabaseServer();
@@ -681,37 +811,85 @@ export const updateMenuItemFn = createServerFn({ method: 'POST' })
         if (!catExists) throw new UserFacingError('Selected category does not exist.', 'validation');
       }
 
-      // Do not re-validate/re-upload if the image URL was not changed
       let nextImageUrl = existing.image_url || '/placeholder.webp';
       if (data.image_url !== undefined && data.image_url.trim() !== (existing.image_url || '').trim()) {
         nextImageUrl = await normalizeAndValidateImageInput(data.image_url, true);
       }
 
-      const updateData: Record<string, any> = {
+      const existingMetaMap = await getMenuItemMetaMap();
+      const existingMeta = existingMetaMap[data.id] || {};
+      const existingComp = existing.original_price ?? existingMeta.original_price;
+      const nextCompareAt = data.original_price !== undefined
+        ? validateCompareAtPrice(data.original_price, price)
+        : (typeof existingComp === 'number' && Number.isFinite(existingComp) && existingComp > price ? Math.round(existingComp) : null);
+
+      const parsedSort = Number(data.sort_order);
+      const nextSortOrder = data.sort_order !== undefined && Number.isFinite(parsedSort) && parsedSort > 0
+        ? Math.round(parsedSort)
+        : (existing.sort_order ?? existingMeta.sort_order ?? undefined);
+
+      const coreUpdate: Record<string, any> = {
         name: nextName,
         category_id: nextCategoryId,
         price: Math.round(price),
         image_url: nextImageUrl,
       };
-      if (data.description !== undefined) updateData.description = String(data.description).trim().slice(0, 500);
-      if (data.sub_category !== undefined) updateData.sub_category = String(data.sub_category).trim().slice(0, 80) || 'General';
-      if (data.is_available !== undefined) updateData.is_available = Boolean(data.is_available);
-      if (data.variants !== undefined) updateData.variants = sanitizeVariants(data.variants);
+      if (data.description !== undefined) coreUpdate.description = String(data.description).trim().slice(0, 500);
+      if (data.sub_category !== undefined) coreUpdate.sub_category = String(data.sub_category).trim().slice(0, 80) || 'General';
+      if (data.is_available !== undefined) coreUpdate.is_available = Boolean(data.is_available);
+      if (data.variants !== undefined) coreUpdate.variants = sanitizeVariants(data.variants);
 
-      const { data: updated, error } = await supabase
+      const fullUpdate: Record<string, any> = {
+        ...coreUpdate,
+        original_price: nextCompareAt,
+      };
+      if (nextSortOrder !== undefined) {
+        fullUpdate.sort_order = nextSortOrder;
+      }
+
+      let { data: updated, error } = await supabase
         .from('menu_items')
-        .update(updateData)
+        .update(fullUpdate)
         .eq('id', id)
         .select('*')
         .single();
+
+      let usedMetaFallback = false;
+      if (error && isMissingColumnError(error)) {
+        usedMetaFallback = true;
+        const retry = await supabase
+          .from('menu_items')
+          .update(coreUpdate)
+          .eq('id', id)
+          .select('*')
+          .single();
+        updated = retry.data;
+        error = retry.error;
+      }
 
       if (error || !updated) {
         console.error('[updateMenuItemFn] DB error:', error);
         throw new UserFacingError('Failed to update menu item.', 'validation');
       }
 
+      if (usedMetaFallback) {
+        await upsertMenuItemMeta({
+          [id]: {
+            original_price: nextCompareAt,
+            ...(nextSortOrder !== undefined ? { sort_order: nextSortOrder } : {}),
+          },
+        });
+      }
+
       invalidateAmirBotMenuCache();
-      return { success: true, item: updated as MenuItem };
+      return {
+        success: true,
+        item: {
+          ...(updated as MenuItem),
+          original_price: nextCompareAt,
+          sort_order: nextSortOrder ?? updated.sort_order ?? 0,
+        },
+      };
     } catch (err: any) {
       if (err instanceof UserFacingError) throw err;
       throw new UserFacingError(toSafeError(err), 'validation');
@@ -1124,4 +1302,97 @@ export const updateHighlightImagesFn = createServerFn({ method: 'POST' })
   .validator((d: { data: Record<string, string>; pin?: string; token?: string }) => d)
   .handler(async ({ data: payload }) => {
     return saveKnowledgeJson('highlight_images', payload.data, payload.token || payload.pin);
+  });
+
+// =========================================================================
+// REORDER ENDPOINTS (Categories, Menu Items, Highlights)
+// =========================================================================
+
+export const reorderCategoriesFn = createServerFn({ method: 'POST' })
+  .validator((d: { orderedIds: string[]; pin?: string; token?: string }) => d)
+  .handler(async ({ data }) => {
+    try {
+      await requireAdmin(data.token || data.pin);
+      const ids = Array.from(new Set((data.orderedIds || []).map(x => String(x || '').trim()).filter(Boolean)));
+      if (ids.length === 0) throw new UserFacingError('No category IDs supplied for reordering.', 'validation');
+
+      const supabase = getSupabaseServer();
+      await Promise.all(
+        ids.map((id, idx) =>
+          supabase.from('categories').update({ sort_order: idx + 1 }).eq('id', id)
+        )
+      );
+      return { success: true };
+    } catch (err: any) {
+      if (err instanceof UserFacingError) throw err;
+      throw new UserFacingError(toSafeError(err), 'validation');
+    }
+  });
+
+export const reorderMenuItemsFn = createServerFn({ method: 'POST' })
+  .validator((d: { orderedIds: string[]; pin?: string; token?: string }) => d)
+  .handler(async ({ data }) => {
+    try {
+      await requireAdmin(data.token || data.pin);
+      const ids = Array.from(new Set((data.orderedIds || []).map(x => String(x || '').trim()).filter(Boolean)));
+      if (ids.length === 0) throw new UserFacingError('No menu item IDs supplied for reordering.', 'validation');
+
+      const supabase = getSupabaseServer();
+      let useMetaFallback = false;
+      for (let idx = 0; idx < ids.length; idx++) {
+        const { error } = await supabase.from('menu_items').update({ sort_order: idx + 1 }).eq('id', ids[idx]);
+        if (error && isMissingColumnError(error)) {
+          useMetaFallback = true;
+          break;
+        }
+        if (error) {
+          console.error('[reorderMenuItemsFn] Error:', error);
+          throw new UserFacingError('Failed to save product order.', 'validation');
+        }
+      }
+
+      if (useMetaFallback) {
+        const metaPatch: Record<string, { sort_order: number }> = {};
+        ids.forEach((id, idx) => {
+          metaPatch[id] = { sort_order: idx + 1 };
+        });
+        await upsertMenuItemMeta(metaPatch);
+      }
+
+      invalidateAmirBotMenuCache();
+      return { success: true };
+    } catch (err: any) {
+      if (err instanceof UserFacingError) throw err;
+      throw new UserFacingError(toSafeError(err), 'validation');
+    }
+  });
+
+export const reorderHighlightsFn = createServerFn({ method: 'POST' })
+  .validator((d: { orderedIds: string[]; pin?: string; token?: string }) => d)
+  .handler(async ({ data }) => {
+    try {
+      await requireAdmin(data.token || data.pin);
+      const ids = Array.from(new Set((data.orderedIds || []).map(x => String(x || '').trim()).filter(Boolean)));
+      if (ids.length === 0) throw new UserFacingError('No highlight IDs supplied for reordering.', 'validation');
+
+      const current = await getHighlightsFn();
+      const map = new Map(current.map(h => [h.id, h]));
+      const reordered: HighlightItem[] = [];
+      let order = 1;
+      for (const id of ids) {
+        const item = map.get(id);
+        if (item) {
+          reordered.push({ ...item, sort_order: order++ });
+          map.delete(id);
+        }
+      }
+      for (const leftover of map.values()) {
+        reordered.push({ ...leftover, sort_order: order++ });
+      }
+      await writeKnowledgeJson('highlights', reordered);
+      return { success: true };
+    } catch (err: any) {
+      if (err instanceof UserFacingError) throw err;
+      throw new UserFacingError(toSafeError(err), 'validation');
+    }
   });

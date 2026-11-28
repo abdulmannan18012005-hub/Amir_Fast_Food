@@ -37,7 +37,12 @@ function getMsUntilNextPktBoundary(now: Date = new Date()): number {
 
 export function useShopStatus() {
   // Deterministic initial value prevents SSR vs browser clock hydration mismatch (#418)
-  const [status, setStatus] = useState<ShopStatus>(DETERMINISTIC_INITIAL_STATUS);
+  const [status, setStatus] = useState<ShopStatus & {
+    deviceDailyLimit?: number;
+    deviceDailyUsed?: number;
+    deviceDailyRemaining?: number;
+    deviceResetLabel?: string;
+  }>(DETERMINISTIC_INITIAL_STATUS);
 
   useEffect(() => {
     let mounted = true;
@@ -54,6 +59,10 @@ export function useShopStatus() {
             open: res.open,
             opensAtLabel: res.opensAtLabel,
             closesAtLabel: res.closesAtLabel,
+            deviceDailyLimit: res.deviceDailyLimit,
+            deviceDailyUsed: res.deviceDailyUsed,
+            deviceDailyRemaining: res.deviceDailyRemaining,
+            deviceResetLabel: res.deviceResetLabel,
           });
         }
       } catch {

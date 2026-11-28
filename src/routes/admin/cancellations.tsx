@@ -102,8 +102,11 @@ function AdminCancellationsPage() {
   };
 
   useEffect(() => {
-    fetchCancellations();
-  }, [activeTab, page]);
+    const t = window.setTimeout(() => {
+      fetchCancellations();
+    }, search ? 300 : 0);
+    return () => window.clearTimeout(t);
+  }, [activeTab, page, search]);
 
   // Polling every 15s on visible tab
   useEffect(() => {
@@ -289,18 +292,28 @@ function AdminCancellationsPage() {
             <input
               type="text"
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={e => { setSearch(e.target.value); setPage(1); }}
               onKeyDown={e => { if (e.key === 'Enter') fetchCancellations(); }}
               placeholder="Search by customer name, phone, order ID or transaction ID..."
-              className={`w-full pl-10 pr-4 py-2.5 rounded-xl text-sm border focus:outline-none focus:ring-2 focus:ring-primary ${
+              className={`w-full pl-10 pr-9 py-2.5 rounded-xl text-sm border focus:outline-none focus:ring-2 focus:ring-primary ${
                 isDark 
                   ? 'bg-slate-900 border-slate-800 text-white placeholder-slate-500' 
                   : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400'
               }`}
             />
+            {search && (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => { setSearch(''); setPage(1); }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary"
+              >
+                <XCircle size={16} />
+              </button>
+            )}
           </div>
           <button
-            onClick={fetchCancellations}
+            onClick={() => { setPage(1); fetchCancellations(); }}
             className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-sm shadow-sm hover:bg-primary/90 transition-all"
           >
             Search

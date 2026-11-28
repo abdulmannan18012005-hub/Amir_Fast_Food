@@ -2,9 +2,33 @@ import React, { useState, useEffect } from 'react';
 import { MenuItem, ItemVariant, CartItem } from '../types';
 import { safeJson } from './storage';
 
+/**
+ * Returns a valid compare-at price only when strictly higher than the selling price.
+ */
+export function getValidCompareAtPrice(sellingPrice: unknown, compareAtPrice: unknown): number | null {
+  const sell = Number(sellingPrice);
+  const comp = Number(compareAtPrice);
+  if (!Number.isFinite(sell) || !Number.isFinite(comp) || sell < 0 || comp <= sell) {
+    return null;
+  }
+  return Math.round(comp);
+}
+
+/**
+ * Computes integer savings percentage (>= 1) for a valid compare-at price.
+ */
+export function getSavingsPercent(sellingPrice: unknown, compareAtPrice: unknown): number {
+  const sell = Number(sellingPrice);
+  const comp = getValidCompareAtPrice(sell, compareAtPrice);
+  if (!comp || comp <= 0) return 0;
+  const pct = Math.round(((comp - sell) / comp) * 100);
+  return pct >= 1 ? pct : 0;
+}
+
 // Build a standardized cart item ensuring it always has name and image_url
 export function buildCartItem(menuItem: MenuItem, selectedVariants: ItemVariant[], quantity: number = 1): CartItem {
   const basePrice = menuItem.price;
+  const validOriginal = getValidCompareAtPrice(basePrice, menuItem.original_price);
   
   return {
     menu_item_id: menuItem.id,
@@ -12,6 +36,7 @@ export function buildCartItem(menuItem: MenuItem, selectedVariants: ItemVariant[
     image_url: menuItem.image_url || '/placeholder.png',
     quantity: Math.max(1, quantity),
     price: basePrice,
+    original_price: validOriginal,
     variants: normalizeVariants(selectedVariants),
   };
 }
@@ -54,10 +79,12 @@ export function getCartLineId(menuItemId: string, variants?: ItemVariant[] | nul
 
 export function addToCart(newItem: CartItem) {
   const cart = getCart();
+  const basePrice = Number(newItem.price) || 0;
   const normalizedItem: CartItem = {
     ...newItem,
     quantity: Math.min(Math.max(1, Number(newItem.quantity) || 1), 20),
-    price: Number(newItem.price) || 0,
+    price: basePrice,
+    original_price: getValidCompareAtPrice(basePrice, newItem.original_price),
     variants: normalizeVariants(newItem.variants),
   };
   

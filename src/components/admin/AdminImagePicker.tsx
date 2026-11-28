@@ -5,7 +5,7 @@ import { uploadAdminImageFn, validateExternalImageUrlFn } from '../../server/men
 import { useAdminContext } from './AdminContext';
 
 interface AdminImagePickerProps {
-  folder: 'items' | 'categories' | 'highlights';
+  folder: 'items' | 'categories' | 'highlights' | 'layout';
   value: string;
   originalValue?: string;
   onChange: (nextUrl: string) => void;

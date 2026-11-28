@@ -61,6 +61,7 @@ export function AdminNav() {
         <Link to="/admin/history" className={`[&.active]:text-primary hover:text-primary transition-colors ${!isDark ? 'text-slate-600' : 'text-slate-300'}`}>History</Link>
         <Link to="/admin/cancellations" className={`[&.active]:text-primary hover:text-primary transition-colors ${!isDark ? 'text-slate-600' : 'text-slate-300'}`}>Cancellations</Link>
         <Link to="/admin/feedback" className={`[&.active]:text-primary hover:text-primary transition-colors ${!isDark ? 'text-slate-600' : 'text-slate-300'}`}>Feedback</Link>
+        <Link to="/admin/layout" className={`[&.active]:text-primary hover:text-primary transition-colors ${!isDark ? 'text-slate-600' : 'text-slate-300'}`}>Layout</Link>
       </div>
       
       <div className="flex items-center gap-2 sm:gap-3">

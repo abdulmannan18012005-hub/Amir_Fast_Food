@@ -3,6 +3,7 @@ import { getSupabaseServer } from '../lib/supabase';
 import { requireAdmin, getClientIp } from './auth';
 import { checkRateLimit } from './rateLimit';
 import { toSafeError, UserFacingError } from './errors';
+import { sanitizeAdminSearchTerm, findOrderIdsByHexFragment, buildSafeOrderOrClause } from './adminSearch';
 
 export const PREDEFINED_FEEDBACK_CHIPS = [
   'The food was fresh and delicious.',
@@ -232,6 +233,45 @@ export interface AdminFeedbackItem {
   orderTotal: number;
   orderShortCode: string;
   orderCreatedAt: string;
+  orderStatus: string | null;
+  paymentMethod: string | null;
+  orderMissing: boolean;
+}
+
+export interface AdminFeedbackOrderItemDetail {
+  id: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  variants: { name: string; price: number }[];
+}
+
+export interface AdminFeedbackOrderDetails {
+  orderMissing: boolean;
+  feedback: AdminFeedbackItem;
+  order: {
+    id: string;
+    shortCode: string;
+    status: string;
+    createdAt: string;
+    canceledAt: string | null;
+    cancelReason: string | null;
+    customerName: string;
+    customerPhone: string;
+    customerEmail: string;
+    deliveryAddress: string;
+    paymentMethod: string;
+    paymentReviewStatus: string | null;
+    paymentTrxIdMasked: string | null;
+    subtotal: number;
+    deliveryFee: number;
+    distanceFee: number;
+    codFee: number;
+    total: number;
+    riderName: string | null;
+    riderPhone: string | null;
+    items: AdminFeedbackOrderItemDetail[];
+  } | null;
 }
 
 export interface AdminFeedbackStats {
@@ -326,20 +366,22 @@ export const getAdminFeedbackListFn = createServerFn({ method: 'POST' })
         query = query.gte('created_at', startIso).lte('created_at', endIso);
       }
 
-      // Search filter across comments, order IDs, or customer names
-      if (data.search && data.search.trim()) {
-        const term = data.search.trim().replace(/[,()%*\\]/g, '').slice(0, 50);
+      // Search filter across comments, order IDs, customer names, and phone numbers
+      const term = sanitizeAdminSearchTerm(data.search, 50);
+      if (term) {
+        const hexMatchedIds = await findOrderIdsByHexFragment(supabase, term);
+        const orderOr = buildSafeOrderOrClause(['customer_name', 'customer_phone'], term, hexMatchedIds, 'id');
         const { data: matchedOrders } = await supabase
           .from('orders')
           .select('id')
-          .or(`customer_name.ilike.%${term}%,id.ilike.%${term}%`)
-          .limit(100);
+          .or(orderOr)
+          .limit(200);
 
-        const orderIds = (matchedOrders || []).map(o => o.id);
+        const orderIds = Array.from(new Set([...hexMatchedIds, ...(matchedOrders || []).map((o: any) => String(o.id))]));
         if (orderIds.length > 0) {
-          query = query.or(`comment.ilike.%${term}%,order_id.in.(${orderIds.join(',')})`);
+          query = query.or(`comment.ilike.%${term}%,order_id.in.(${orderIds.slice(0, 120).join(',')})`);
         } else {
-          query = query.or(`comment.ilike.%${term}%,order_id.ilike.%${term}%`);
+          query = query.ilike('comment', `%${term}%`);
         }
       }
 
@@ -361,22 +403,28 @@ export const getAdminFeedbackListFn = createServerFn({ method: 'POST' })
         throw new UserFacingError('Failed to load feedback entries.', 'validation');
       }
 
-      // 3. Fetch linked order information for enriched display
+      // 3. Fetch linked order information for enriched display using actual orders schema columns
       const uniqueOrderIds = Array.from(new Set((rows || []).map(r => r.order_id).filter(Boolean)));
       const orderMap = new Map<string, any>();
 
       if (uniqueOrderIds.length > 0) {
-        const { data: orders } = await supabase
+        const { data: orders, error: ordersErr } = await supabase
           .from('orders')
-          .select('id, customer_name, customer_phone, total, created_at')
+          .select('id, customer_name, customer_phone, total_amount, delivery_fee, status, payment_method, created_at')
           .in('id', uniqueOrderIds);
 
+        if (ordersErr) {
+          console.error('[AdminFeedback] orders lookup error:', ordersErr);
+        }
         (orders || []).forEach(o => orderMap.set(o.id, o));
       }
 
       // 4. Transform into final DTOs with masked phones
       const items: AdminFeedbackItem[] = (rows || []).map(row => {
         const order = orderMap.get(row.order_id);
+        const computedTotal = order
+          ? Math.round(Number(order.total_amount || 0) + Number(order.delivery_fee || 0))
+          : 0;
         return {
           id: row.id,
           orderId: row.order_id,
@@ -384,11 +432,14 @@ export const getAdminFeedbackListFn = createServerFn({ method: 'POST' })
           chips: Array.isArray(row.chips) ? row.chips : [],
           comment: row.comment || null,
           createdAt: row.created_at,
-          customerName: order?.customer_name || 'Customer',
+          customerName: order?.customer_name || 'Unavailable Customer',
           customerPhoneMasked: maskPhone(order?.customer_phone),
-          orderTotal: order?.total || 0,
+          orderTotal: computedTotal,
           orderShortCode: (row.order_id || '').slice(0, 8).toUpperCase(),
           orderCreatedAt: order?.created_at || row.created_at,
+          orderStatus: order?.status || null,
+          paymentMethod: order?.payment_method || null,
+          orderMissing: !order,
         };
       });
 
@@ -422,5 +473,107 @@ export const getAdminFeedbackListFn = createServerFn({ method: 'POST' })
         pendingMigration: false,
         error: toSafeError(err),
       };
+    }
+  });
+
+function maskTrxId(trx?: string | null): string | null {
+  if (!trx) return null;
+  const s = String(trx).trim();
+  if (s.length <= 4) return '****';
+  return `${s.slice(0, 2)}***${s.slice(-4)}`;
+}
+
+export const getAdminFeedbackDetailsFn = createServerFn({ method: 'POST' })
+  .validator((d: { feedbackId: string; pin?: string; token?: string }) => d)
+  .handler(async ({ data }): Promise<{ success: boolean; details?: AdminFeedbackOrderDetails; error?: string }> => {
+    try {
+      await requireAdmin(data.token || data.pin);
+      const feedbackId = String(data.feedbackId || '').trim();
+      if (!UUID_REGEX.test(feedbackId)) {
+        throw new UserFacingError('Invalid feedback ID.', 'validation');
+      }
+
+      const supabase = getSupabaseServer();
+      const { data: fbRow, error: fbErr } = await supabase
+        .from('customer_feedback')
+        .select('id, order_id, rating, chips, comment, created_at')
+        .eq('id', feedbackId)
+        .maybeSingle();
+
+      if (fbErr || !fbRow) {
+        throw new UserFacingError('Feedback entry not found.', 'validation');
+      }
+
+      const { data: order } = fbRow.order_id
+        ? await supabase
+            .from('orders')
+            .select('*, order_items(*, menu_items(name))')
+            .eq('id', fbRow.order_id)
+            .maybeSingle()
+        : { data: null };
+
+      const subtotal = order ? Math.round(Number(order.total_amount || 0)) : 0;
+      const deliveryFee = order ? Math.round(Number(order.delivery_fee || 0)) : 0;
+      const total = subtotal + deliveryFee;
+
+      const feedbackItem: AdminFeedbackItem = {
+        id: fbRow.id,
+        orderId: fbRow.order_id,
+        rating: fbRow.rating,
+        chips: Array.isArray(fbRow.chips) ? fbRow.chips : [],
+        comment: fbRow.comment || null,
+        createdAt: fbRow.created_at,
+        customerName: order?.customer_name || 'Unavailable Customer',
+        customerPhoneMasked: maskPhone(order?.customer_phone),
+        orderTotal: total,
+        orderShortCode: (fbRow.order_id || '').slice(0, 8).toUpperCase(),
+        orderCreatedAt: order?.created_at || fbRow.created_at,
+        orderStatus: order?.status || null,
+        paymentMethod: order?.payment_method || null,
+        orderMissing: !order,
+      };
+
+      return {
+        success: true,
+        details: {
+          orderMissing: !order,
+          feedback: feedbackItem,
+          order: order
+            ? {
+                id: order.id,
+                shortCode: String(order.id || '').slice(0, 8).toUpperCase(),
+                status: order.status || 'unknown',
+                createdAt: order.created_at,
+                canceledAt: order.canceled_at || null,
+                cancelReason: order.cancel_reason || null,
+                customerName: order.customer_name || '—',
+                customerPhone: order.customer_phone || '—',
+                customerEmail: order.customer_email || '',
+                deliveryAddress: order.delivery_address || '—',
+                paymentMethod: order.payment_method || 'cod',
+                paymentReviewStatus: order.payment_review_status || null,
+                paymentTrxIdMasked: maskTrxId(order.payment_trx_id),
+                subtotal,
+                deliveryFee,
+                distanceFee: Math.round(Number(order.distance_fee || 0)),
+                codFee: Math.round(Number(order.cod_fee || 0)),
+                total,
+                riderName: order.rider_name || null,
+                riderPhone: order.rider_phone || null,
+                items: Array.isArray(order.order_items)
+                  ? order.order_items.map((oi: any) => ({
+                      id: String(oi.id || ''),
+                      name: oi.menu_items?.name || 'Menu Item',
+                      quantity: Number(oi.quantity || 1),
+                      unitPrice: Math.round(Number(oi.unit_price || 0)),
+                      variants: Array.isArray(oi.selected_variants) ? oi.selected_variants : [],
+                    }))
+                  : [],
+              }
+            : null,
+        },
+      };
+    } catch (err: any) {
+      return { success: false, error: toSafeError(err) };
     }
   });

@@ -54,6 +54,7 @@ export interface MenuItem {
   description: string | null;
   price: number;
   original_price?: number | null;
+  sort_order?: number;
   image_url: string;
   is_available: boolean;
   variants: ItemVariant[];
@@ -106,5 +107,6 @@ export interface CartItem {
   image_url: string;
   quantity: number;
   price: number;
+  original_price?: number | null;
   variants: ItemVariant[];
 }

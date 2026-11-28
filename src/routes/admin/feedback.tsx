@@ -12,10 +12,12 @@ import { AdminNav } from '../../components/admin/AdminNav';
 import { AdminProvider, useAdminContext } from '../../components/admin/AdminContext';
 import { adminCall } from '../../lib/adminSession';
 import { 
-  getAdminFeedbackListFn, 
+  getAdminFeedbackListFn,
+  getAdminFeedbackDetailsFn,
   type AdminFeedbackItem, 
   type AdminFeedbackStats,
-  type AdminFeedbackResponse 
+  type AdminFeedbackResponse,
+  type AdminFeedbackOrderDetails,
 } from '../../server/feedbackApi';
 
 export const Route = createFileRoute('/admin/feedback')({
@@ -84,7 +86,29 @@ function AdminFeedbackPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [pendingMigration, setPendingMigration] = useState(false);
   const [activeModalItem, setActiveModalItem] = useState<AdminFeedbackItem | null>(null);
+  const [activeDetails, setActiveDetails] = useState<AdminFeedbackOrderDetails | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsError, setDetailsError] = useState('');
   const [copiedSql, setCopiedSql] = useState(false);
+
+  const openFeedbackDetails = async (item: AdminFeedbackItem) => {
+    setActiveModalItem(item);
+    setActiveDetails(null);
+    setDetailsError('');
+    setDetailsLoading(true);
+    try {
+      const res = await adminCall(getAdminFeedbackDetailsFn, { feedbackId: item.id });
+      if (res.success && res.details) {
+        setActiveDetails(res.details);
+      } else {
+        setDetailsError(res.error || 'Could not load order details.');
+      }
+    } catch (err: any) {
+      setDetailsError(err?.message || 'Error loading full feedback details.');
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
 
   const fetchFeedback = async (showRefreshIndicator = false) => {
     if (showRefreshIndicator) {
@@ -124,6 +148,17 @@ function AdminFeedbackPage() {
   useEffect(() => {
     fetchFeedback();
   }, [appliedSearch, ratingFilter, dateFilter, sortOrder, page]);
+
+  // Debounced live search sync so typing or clearing restores results reliably
+  useEffect(() => {
+    const trimmed = searchQuery.trim();
+    if (trimmed === appliedSearch) return;
+    const t = setTimeout(() => {
+      setPage(1);
+      setAppliedSearch(trimmed);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [searchQuery, appliedSearch]);
 
   // Periodic background sync when tab is active
   useEffect(() => {
@@ -348,20 +383,35 @@ function AdminFeedbackPage() {
         }`}>
           <div className="flex flex-col lg:flex-row gap-3">
             {/* Search Input */}
-            <form onSubmit={handleSearchSubmit} className="relative flex-1">
-              <Search className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} size={18} />
-              <input
-                type="text"
-                placeholder="Search by customer name, order ID, or comment..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className={`w-full pl-10 pr-20 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all ${
-                  isDark ? 'bg-slate-900 border-slate-700 text-white placeholder-slate-400' : 'bg-slate-50 border-slate-200 text-slate-900'
-                }`}
-              />
+            <form onSubmit={handleSearchSubmit} className="relative flex-1 flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} size={18} />
+                <input
+                  type="text"
+                  placeholder="Search name, phone, order ID (#), or comment..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className={`w-full pl-10 pr-16 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all ${
+                    isDark ? 'bg-slate-900 border-slate-700 text-white placeholder-slate-400' : 'bg-slate-50 border-slate-200 text-slate-900'
+                  }`}
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setPage(1);
+                      setAppliedSearch('');
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-primary px-2 py-1 rounded"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
               <button
                 type="submit"
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-primary text-primary-foreground font-semibold rounded-lg text-xs hover:bg-primary/90 transition-colors"
+                className="px-4 py-2.5 bg-primary text-primary-foreground font-semibold rounded-xl text-xs sm:text-sm hover:bg-primary/90 transition-colors shrink-0"
               >
                 Search
               </button>
@@ -564,7 +614,7 @@ function AdminFeedbackPage() {
                         {/* Actions */}
                         <td className="py-4 px-5 align-top text-right whitespace-nowrap">
                           <button
-                            onClick={() => setActiveModalItem(item)}
+                            onClick={() => openFeedbackDetails(item)}
                             className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
                               isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-200 border-slate-600' : 'bg-slate-100 hover:bg-primary hover:text-white text-slate-700 border-slate-200'
                             }`}
@@ -637,7 +687,7 @@ function AdminFeedbackPage() {
 
                     <div className="pt-1 flex justify-end">
                       <button
-                        onClick={() => setActiveModalItem(item)}
+                        onClick={() => openFeedbackDetails(item)}
                         className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
                       >
                         View Full Details
@@ -684,20 +734,22 @@ function AdminFeedbackPage() {
       {/* DETAIL MODAL */}
       {activeModalItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className={`border rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-5 animate-in zoom-in-95 transition-colors ${
+          <div role="dialog" aria-modal="true" aria-label="Feedback and Order Details" className={`border rounded-3xl max-w-2xl w-full max-h-[92dvh] flex flex-col overflow-hidden shadow-2xl animate-in zoom-in-95 transition-colors ${
             isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'
           }`}>
-            <div className={`flex items-center justify-between border-b pb-4 ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>
+            <div className={`flex items-center justify-between border-b px-6 py-4 shrink-0 ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>
               <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
                   <MessageSquareHeart className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className={`font-bold text-lg ${isDark ? 'text-white' : 'text-slate-900'}`}>Feedback Details</h3>
+                  <h3 className={`font-bold text-lg ${isDark ? 'text-white' : 'text-slate-900'}`}>Feedback &amp; Order Details</h3>
                   <p className="text-xs text-slate-400">Order #{activeModalItem.orderShortCode}</p>
                 </div>
               </div>
               <button
+                type="button"
+                aria-label="Close details modal"
                 onClick={() => setActiveModalItem(null)}
                 className={`p-1.5 rounded-full transition-colors ${isDark ? 'hover:bg-slate-700 text-slate-400 hover:text-white' : 'hover:bg-slate-100 text-slate-400 hover:text-slate-600'}`}
               >
@@ -705,103 +757,195 @@ function AdminFeedbackPage() {
               </button>
             </div>
 
-            {/* Rating */}
-            <div className={`border rounded-2xl p-4 flex items-center justify-between ${
-              isDark ? 'bg-slate-900/60 border-slate-700' : 'bg-slate-50 border-slate-100'
-            }`}>
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                  Customer Rating
-                </span>
-                <div className="flex items-center gap-1">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Star
-                      key={star}
-                      className={`w-6 h-6 ${
-                        star <= activeModalItem.rating
-                          ? 'text-amber-500 fill-amber-500'
-                          : isDark ? 'text-slate-700' : 'text-slate-200'
-                      }`}
-                    />
-                  ))}
+            <div className="p-6 overflow-y-auto space-y-5 flex-1">
+              {/* Rating */}
+              <div className={`border rounded-2xl p-4 flex items-center justify-between ${
+                isDark ? 'bg-slate-900/60 border-slate-700' : 'bg-slate-50 border-slate-100'
+              }`}>
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                    Customer Rating
+                  </span>
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star
+                        key={star}
+                        className={`w-6 h-6 ${
+                          star <= activeModalItem.rating
+                            ? 'text-amber-500 fill-amber-500'
+                            : isDark ? 'text-slate-700' : 'text-slate-200'
+                        }`}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
-              <span className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{activeModalItem.rating}/5</span>
-            </div>
-
-            {/* Customer & Order info */}
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className={`p-3 rounded-xl border space-y-1 ${
-                isDark ? 'bg-slate-900/60 border-slate-700' : 'bg-slate-50 border-slate-100'
-              }`}>
-                <span className="text-slate-400 font-semibold uppercase tracking-wider text-[10px] block">Customer</span>
-                <p className={`font-bold text-sm truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>{activeModalItem.customerName}</p>
-                <p className="text-slate-400 font-mono">{activeModalItem.customerPhoneMasked}</p>
+                <span className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{activeModalItem.rating}/5</span>
               </div>
 
-              <div className={`p-3 rounded-xl border space-y-1 ${
-                isDark ? 'bg-slate-900/60 border-slate-700' : 'bg-slate-50 border-slate-100'
-              }`}>
-                <span className="text-slate-400 font-semibold uppercase tracking-wider text-[10px] block">Order Info</span>
-                <p className={`font-bold text-sm ${isDark ? 'text-white' : 'text-slate-900'}`}>Rs {activeModalItem.orderTotal}</p>
-                <Link
-                  to="/orders/$orderId"
-                  params={{ orderId: activeModalItem.orderId }}
-                  target="_blank"
-                  className="inline-flex items-center gap-1 text-primary hover:underline text-xs"
-                >
-                  <span>Track View</span>
-                  <ExternalLink size={12} />
-                </Link>
-              </div>
-            </div>
+              {/* Selected Chips & Comment */}
+              {activeModalItem.chips && activeModalItem.chips.length > 0 && (
+                <div className="space-y-1.5">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">
+                    Preset Comments Chosen
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {activeModalItem.chips.map((chip, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full"
+                      >
+                        <Check size={12} />
+                        <span>{chip}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-            {/* Selected Chips */}
-            {activeModalItem.chips && activeModalItem.chips.length > 0 && (
               <div className="space-y-1.5">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">
-                  Preset Comments Chosen
+                  Customer Written Review
                 </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {activeModalItem.chips.map((chip, idx) => (
-                    <span
-                      key={idx}
-                      className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full"
-                    >
-                      <Check size={12} />
-                      <span>{chip}</span>
-                    </span>
-                  ))}
-                </div>
+                {activeModalItem.comment ? (
+                  <div className={`border rounded-2xl p-4 text-sm leading-relaxed italic whitespace-pre-wrap ${
+                    isDark ? 'bg-slate-900/60 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-100 text-slate-800'
+                  }`}>
+                    &ldquo;{activeModalItem.comment}&rdquo;
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400 italic">No additional written comments provided.</p>
+                )}
               </div>
-            )}
 
-            {/* Written Comment */}
-            <div className="space-y-1.5">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">
-                Customer Written Review
-              </span>
-              {activeModalItem.comment ? (
-                <div className={`border rounded-2xl p-4 text-sm leading-relaxed italic whitespace-pre-wrap ${
-                  isDark ? 'bg-slate-900/60 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-100 text-slate-800'
-                }`}>
-                  &ldquo;{activeModalItem.comment}&rdquo;
+              {/* Authoritative Order Record */}
+              <div className="space-y-3 pt-2 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <ShoppingBag size={14} className="text-primary" /> Authorized Order Details
+                  </span>
+                  <Link
+                    to="/orders/$orderId"
+                    params={{ orderId: activeModalItem.orderId }}
+                    target="_blank"
+                    className="inline-flex items-center gap-1 text-primary hover:underline text-xs font-semibold"
+                  >
+                    <span>Open Track View</span>
+                    <ExternalLink size={12} />
+                  </Link>
                 </div>
-              ) : (
-                <p className="text-xs text-slate-400 italic">No additional written comments provided.</p>
-              )}
+
+                {detailsLoading ? (
+                  <div className={`rounded-2xl p-6 border text-center text-xs text-slate-400 flex items-center justify-center gap-2 ${
+                    isDark ? 'bg-slate-900/60 border-slate-700' : 'bg-slate-50 border-slate-100'
+                  }`}>
+                    <RefreshCcw size={15} className="animate-spin text-primary" />
+                    <span>Loading order items, payment &amp; delivery info...</span>
+                  </div>
+                ) : detailsError ? (
+                  <div role="alert" className="rounded-2xl p-4 border border-rose-500/30 bg-rose-500/10 text-rose-500 text-xs font-semibold flex items-center justify-between gap-2">
+                    <span>{detailsError}</span>
+                    <button type="button" onClick={() => openFeedbackDetails(activeModalItem)} className="underline font-bold">Retry</button>
+                  </div>
+                ) : !activeDetails?.order ? (
+                  <div className={`rounded-2xl p-4 border text-xs ${
+                    isDark ? 'bg-amber-950/30 border-amber-800 text-amber-200' : 'bg-amber-50 border-amber-200 text-amber-900'
+                  }`}>
+                    Linked order record (#{activeModalItem.orderShortCode}) is unavailable or was removed.
+                  </div>
+                ) : (
+                  <div className={`rounded-2xl p-4 border space-y-4 text-xs ${
+                    isDark ? 'bg-slate-900/60 border-slate-700' : 'bg-slate-50 border-slate-200'
+                  }`}>
+                    <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-border/60">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-sm">#{activeDetails.order.shortCode}</span>
+                        <span className="px-2.5 py-0.5 rounded-full font-bold capitalize bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                          {activeDetails.order.status.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                      <span className="text-slate-400">Ordered {formatDate(activeDetails.order.createdAt)}</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Customer</span>
+                        <p className={`font-bold text-sm ${isDark ? 'text-white' : 'text-slate-900'}`}>{activeDetails.order.customerName}</p>
+                        <p className="font-mono text-slate-400">{activeDetails.order.customerPhone}</p>
+                        <p className="text-slate-400 break-words">{activeDetails.order.deliveryAddress}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Payment &amp; Dispatch</span>
+                        <p className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                          {activeDetails.order.paymentMethod === 'cod' ? 'Cash on Delivery (COD)' : 'Online Transfer'}
+                          {activeDetails.order.paymentReviewStatus && activeDetails.order.paymentReviewStatus !== 'not_required'
+                            ? ` · ${activeDetails.order.paymentReviewStatus}`
+                            : ''}
+                        </p>
+                        {activeDetails.order.paymentTrxIdMasked && (
+                          <p className="font-mono text-slate-400">TID: {activeDetails.order.paymentTrxIdMasked}</p>
+                        )}
+                        {activeDetails.order.riderName && (
+                          <p className="text-slate-400">Rider: {activeDetails.order.riderName}{activeDetails.order.riderPhone ? ` (${activeDetails.order.riderPhone})` : ''}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 pt-2 border-t border-border/60">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Ordered Items</span>
+                      {activeDetails.order.items.length === 0 ? (
+                        <p className="text-slate-400 italic">No line items recorded.</p>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {activeDetails.order.items.map((oi) => (
+                            <div key={oi.id} className="flex justify-between gap-3">
+                              <div className="min-w-0">
+                                <span className="font-bold text-primary mr-1.5">{oi.quantity}x</span>
+                                <span className={isDark ? 'text-slate-200' : 'text-slate-800'}>{oi.name}</span>
+                                {oi.variants && oi.variants.length > 0 && (
+                                  <span className="block text-[11px] text-slate-400 ml-5">
+                                    {oi.variants.map((v) => v.name).join(', ')}
+                                  </span>
+                                )}
+                              </div>
+                              <span className="font-semibold whitespace-nowrap">
+                                PKR {(oi.unitPrice * oi.quantity).toLocaleString()}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-1 pt-2 border-t border-border/60">
+                      <div className="flex justify-between text-slate-400">
+                        <span>Subtotal</span>
+                        <span>PKR {activeDetails.order.subtotal.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-400">
+                        <span>Delivery &amp; Fees</span>
+                        <span>PKR {activeDetails.order.deliveryFee.toLocaleString()}</span>
+                      </div>
+                      <div className={`flex justify-between font-black text-sm pt-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                        <span>Order Total</span>
+                        <span className="text-primary">PKR {activeDetails.order.total.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Submission Time */}
+              <div className={`text-[11px] text-slate-400 pt-2 border-t flex items-center justify-between ${
+                isDark ? 'border-slate-700' : 'border-slate-100'
+              }`}>
+                <span>Feedback submitted on {formatDate(activeModalItem.createdAt)}</span>
+                <span className="font-mono text-[10px] text-slate-500">ID: {activeModalItem.id.slice(0, 8)}</span>
+              </div>
             </div>
 
-            {/* Submission Time */}
-            <div className={`text-[11px] text-slate-400 pt-2 border-t flex items-center justify-between ${
-              isDark ? 'border-slate-700' : 'border-slate-100'
-            }`}>
-              <span>Submitted on {formatDate(activeModalItem.createdAt)}</span>
-              <span className="font-mono text-[10px] text-slate-500">ID: {activeModalItem.id.slice(0, 8)}</span>
-            </div>
-
-            <div className="pt-2">
+            <div className="px-6 py-4 border-t border-border shrink-0">
               <button
+                type="button"
                 onClick={() => setActiveModalItem(null)}
                 className={`w-full py-2.5 px-4 font-bold rounded-xl text-sm transition-colors ${
                   isDark ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-slate-900 hover:bg-slate-800 text-white'

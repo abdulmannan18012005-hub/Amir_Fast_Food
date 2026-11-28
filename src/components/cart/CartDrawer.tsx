@@ -2,7 +2,7 @@ import { Link } from '@tanstack/react-router';
 import React from 'react';
 import { Trash2 } from 'lucide-react';
 import type { CartItem, ItemVariant } from '../../types';
-import { getCartSubtotal, lineTotal, getCartLineId } from '../../lib/cart';
+import { getCartSubtotal, lineTotal, getCartLineId, getValidCompareAtPrice } from '../../lib/cart';
 import { useShopStatus } from '../../hooks/useShopStatus';
 
 interface Props {
@@ -20,6 +20,10 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
 
   const subtotal = getCartSubtotal(items);
   const totalCount = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+  const totalSavings = items.reduce((sum, item) => {
+    const comp = getValidCompareAtPrice(item.price, item.original_price);
+    return comp ? sum + (comp - Number(item.price)) * (item.quantity || 1) : sum;
+  }, 0);
   const total = subtotal;
 
   return (
@@ -92,7 +96,20 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                           <Trash2 size={18} aria-hidden="true" />
                         </button>
                       </div>
-                      <span className="font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">PKR {itemTotal.toLocaleString()}</span>
+                      <div className="text-right shrink-0">
+                        {(() => {
+                          const comp = getValidCompareAtPrice(item.price, item.original_price);
+                          if (!comp) return null;
+                          const varTotal = (item.variants || []).reduce((s, v) => s + (Number(v.price) || 0), 0);
+                          const origTotal = (comp + varTotal) * (item.quantity || 1);
+                          return (
+                            <span className="block text-[11px] text-muted-foreground line-through leading-none mb-0.5 whitespace-nowrap">
+                              PKR {origTotal.toLocaleString()}
+                            </span>
+                          );
+                        })()}
+                        <span className="font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">PKR {itemTotal.toLocaleString()}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -110,6 +127,12 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
               <span>Subtotal</span>
               <span>PKR {subtotal.toLocaleString()}</span>
             </div>
+            {totalSavings > 0 && (
+              <div className="flex justify-between text-emerald-700 dark:text-emerald-400 text-xs font-bold">
+                <span>Menu Savings</span>
+                <span>-PKR {totalSavings.toLocaleString()}</span>
+              </div>
+            )}
             <div className="flex justify-between text-muted-foreground items-center text-sm">
               <span>Delivery &amp; fees</span>
               <span className="text-xs text-muted-foreground">Calculated at checkout</span>

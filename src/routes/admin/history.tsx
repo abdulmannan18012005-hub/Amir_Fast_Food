@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { seo } from '../../lib/seo';
 import React, { useState, useEffect } from 'react';
 import { getCompletedOrdersFn } from '../../server/order';
-import { ChefHat, Search, Calendar, RefreshCcw } from 'lucide-react';
+import { ChefHat, Search, Calendar, RefreshCcw, X } from 'lucide-react';
 import { PinGate } from '../../components/admin/PinGate';
 import { AdminNav } from '../../components/admin/AdminNav';
 import { AdminProvider, useAdminContext } from '../../components/admin/AdminContext';
@@ -59,8 +59,11 @@ function AdminHistoryPage() {
   };
 
   useEffect(() => {
-    fetchOrders();
-  }, [dateFilter, statusFilter, page]);
+    const t = window.setTimeout(() => {
+      fetchOrders();
+    }, searchQuery ? 300 : 0);
+    return () => window.clearTimeout(t);
+  }, [dateFilter, statusFilter, page, searchQuery]);
 
   useEffect(() => {
     const poll = setInterval(() => {
@@ -91,14 +94,24 @@ function AdminHistoryPage() {
             <Search className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} size={16} />
             <input 
               type="text" 
-              placeholder="Search Name or Phone..."
+              placeholder="Search #ID, Name or Phone..."
               value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
+              onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
               onKeyDown={e => e.key === 'Enter' && fetchOrders()}
-              className={`w-full pl-9 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:border-primary transition-colors ${
+              className={`w-full pl-9 pr-8 py-2 border rounded-lg text-sm focus:outline-none focus:border-primary transition-colors ${
                 isDark ? 'bg-slate-900 border-slate-700 text-white placeholder-slate-400' : 'bg-slate-100 border-slate-200 text-slate-900'
               }`}
             />
+            {searchQuery && (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => { setSearchQuery(''); setPage(1); }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
           
           <div className="relative">
@@ -106,7 +119,7 @@ function AdminHistoryPage() {
             <input 
               type="date" 
               value={dateFilter}
-              onChange={e => setDateFilter(e.target.value)}
+              onChange={e => { setDateFilter(e.target.value); setPage(1); }}
               className={`pl-9 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:border-primary transition-colors ${
                 isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-100 border-slate-200 text-slate-900'
               }`}
@@ -115,7 +128,7 @@ function AdminHistoryPage() {
 
           <select 
             value={statusFilter} 
-            onChange={e => setStatusFilter(e.target.value)}
+            onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
             className={`py-2 px-3 border rounded-lg text-sm focus:outline-none focus:border-primary transition-colors ${
               isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-100 border-slate-200 text-slate-900'
             }`}

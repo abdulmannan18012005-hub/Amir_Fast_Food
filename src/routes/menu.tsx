@@ -7,6 +7,9 @@ import { playSuccessChime } from '../lib/sound';
 import { seo } from '../lib/seo';
 import { addToCart, buildCartItem } from '../lib/cart';
 import { useShopStatus } from '../hooks/useShopStatus';
+import { getPublishedLayoutFn } from '../server/layoutApi';
+import { usePublishedLayout } from '../lib/layoutContext';
+import { DEFAULT_SITE_LAYOUT } from '../lib/layoutContent';
 import { SHOP_HOURS_DISPLAY } from '../lib/shop';
 import { Search, X } from 'lucide-react';
 import type { Category, MenuItem, CartItem } from '../types';
@@ -19,31 +22,44 @@ export const Route = createFileRoute('/menu')({
     const cat = typeof search.cat === 'string' && search.cat.trim() ? search.cat.trim() : undefined;
     return { ...(q ? { q } : {}), ...(cat ? { cat } : {}) };
   },
-  head: () => seo({
-    title: 'Menu - Amir Fast Food',
-    description: 'Explore the full Amir Fast Food menu: authentic shawarma, handcrafted smash burgers, crispy chicken, and combo deals in Lahore.',
-    path: '/menu'
-  }),
+  head: ({ loaderData }) => {
+    const m = loaderData?.layout?.menu || DEFAULT_SITE_LAYOUT.menu;
+    return seo({
+      title: m.seoTitle,
+      description: m.seoDescription,
+      path: '/menu'
+    });
+  },
   loader: async () => {
-    const categories = await getCategories();
-    const items = await getMenuItems({ data: 'all' });
-    return { categories, items };
+    const [categories, items, layout] = await Promise.all([
+      getCategories(),
+      getMenuItems({ data: 'all' }),
+      getPublishedLayoutFn(),
+    ]);
+    return { categories, items, layout };
   },
   component: MenuPage,
 });
 
 function MenuPage() {
   const { categories, items } = useLoaderData({ from: '/menu' });
+  const menuLayout = usePublishedLayout().menu;
   const search = Route.useSearch();
   const navigate = useNavigate();
   const shopStatus = useShopStatus();
   const activeQuery = (search?.q || '').trim();
 
-  // Sort categories alphabetically
-  const sortedCategories = [...categories].sort((a, b) => a.name.localeCompare(b.name));
-  const initialCategory = sortedCategories[0]?.id || '';
+  // Sort categories by admin-configured sort_order (deterministic tie-break by name & id)
+  const sortedCategories = [...categories].sort((a, b) => {
+    const ao = Number.isFinite(Number(a.sort_order)) && Number(a.sort_order) > 0 ? Number(a.sort_order) : 999999;
+    const bo = Number.isFinite(Number(b.sort_order)) && Number(b.sort_order) > 0 ? Number(b.sort_order) : 999999;
+    if (ao !== bo) return ao - bo;
+    const byName = a.name.localeCompare(b.name);
+    return byName !== 0 ? byName : String(a.id).localeCompare(String(b.id));
+  });
 
-  const [activeCategory, setActiveCategory] = useState<string>(initialCategory);
+  // Always keep "All Products" pinned first in storefront navigation
+  const [activeCategory, setActiveCategory] = useState<string>(search?.cat || 'all');
   const [modalItem, setModalItem] = useState<MenuItem | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -56,7 +72,7 @@ function MenuPage() {
   const chipsContainerRef = useRef<HTMLDivElement>(null);
   const isProgrammaticScrollRef = useRef(false);
   const scrollLockTimerRef = useRef<any>(null);
-  const activeCategoryRef = useRef<string>(initialCategory);
+  const activeCategoryRef = useRef<string>(search?.cat || 'all');
   activeCategoryRef.current = activeCategory;
   const rafIdRef = useRef<number | null>(null);
 
@@ -65,14 +81,18 @@ function MenuPage() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // Sort items: Deals numerically, others alphabetically
+  // Sort items strictly by admin-configured sort_order, with deterministic fallback
   const sortedItems = [...items].sort((a, b) => {
+    const ao = a.sort_order && a.sort_order > 0 ? a.sort_order : 999999;
+    const bo = b.sort_order && b.sort_order > 0 ? b.sort_order : 999999;
+    if (ao !== bo) return ao - bo;
     if (a.category_id === 'cat_deals' && b.category_id === 'cat_deals') {
       const numA = parseInt(String((a.name.match(/\d+/) || [0])[0]), 10);
       const numB = parseInt(String((b.name.match(/\d+/) || [0])[0]), 10);
-      return numA - numB;
+      if (numA !== numB) return numA - numB;
     }
-    return a.name.localeCompare(b.name);
+    const byName = a.name.localeCompare(b.name);
+    return byName !== 0 ? byName : String(a.id).localeCompare(String(b.id));
   });
 
   // Apply search query filter when /menu?q=... is present
@@ -150,7 +170,7 @@ function MenuPage() {
     }
   };
 
-  // Programmatic smooth scroll to a category
+  // Programmatic smooth scroll / filter switch
   const scrollToSection = (catId: string, smooth = true) => {
     const prefersReduced = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const shouldSmooth = smooth && !prefersReduced;
@@ -159,7 +179,7 @@ function MenuPage() {
     setActiveCategory(catId);
     activeCategoryRef.current = catId;
     if (!activeQuery) {
-      history.replaceState(null, '', `#${catId}`);
+      history.replaceState(null, '', catId === 'all' ? '/menu' : `#${catId}`);
     }
     centerChip(catId, shouldSmooth);
 
@@ -167,11 +187,22 @@ function MenuPage() {
     const fixedH = fixedHeaderHeightRef.current;
     const targetOffset = headerH + fixedH + 8;
 
-    const section = document.getElementById(catId);
-    if (section) {
-      const rect = section.getBoundingClientRect();
-      const targetTop = window.scrollY + rect.top - targetOffset;
-      window.scrollTo({ top: Math.max(0, targetTop), behavior: shouldSmooth ? 'smooth' : 'auto' });
+    if (catId === 'all') {
+      window.scrollTo({ top: 0, behavior: shouldSmooth ? 'smooth' : 'auto' });
+    } else {
+      const scrollEl = () => {
+        const section = document.getElementById(catId);
+        if (section) {
+          const rect = section.getBoundingClientRect();
+          const targetTop = window.scrollY + rect.top - targetOffset;
+          window.scrollTo({ top: Math.max(0, targetTop), behavior: shouldSmooth ? 'smooth' : 'auto' });
+          return true;
+        }
+        return false;
+      };
+      if (!scrollEl()) {
+        setTimeout(scrollEl, 60);
+      }
     }
 
     clearTimeout(scrollLockTimerRef.current);
@@ -183,8 +214,9 @@ function MenuPage() {
     scrollLockTimerRef.current = setTimeout(unlock, 700);
   };
 
-  // Scroll-spy: highlight chip following scroll (rAF-throttled, single subscription)
+  // Scroll-spy: highlight chip following scroll when viewing categorized sections
   useEffect(() => {
+    if (activeCategory === 'all') return;
     const handleScroll = () => {
       if (isProgrammaticScrollRef.current) return;
       if (rafIdRef.current !== null) return;
@@ -211,7 +243,7 @@ function MenuPage() {
         }
 
         const firstCat = visibleCategories[0];
-        let matchedCat = firstCat ? firstCat.id : '';
+        let matchedCat = firstCat ? firstCat.id : 'all';
         for (const cat of visibleCategories) {
           const el = document.getElementById(cat.id);
           if (el) {
@@ -240,7 +272,7 @@ function MenuPage() {
         rafIdRef.current = null;
       }
     };
-  }, [visibleCategories]);
+  }, [visibleCategories, activeCategory]);
 
   const handleAddToCart = (item: MenuItem) => {
     if (Array.isArray(item.variants) && item.variants.length > 0) {
@@ -284,19 +316,23 @@ function MenuPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-3 space-y-3">
         <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
           <div>
-            <h1 className="text-3xl sm:text-5xl font-extrabold text-foreground tracking-tight">Our Menu</h1>
-            <p className="text-muted-foreground mt-1 text-sm sm:text-base">
-              Crispy Broast, Gourmet Smash Burgers &amp; Loaded Deals.
-            </p>
+            <h1 className="text-3xl sm:text-5xl font-extrabold text-foreground tracking-tight">{menuLayout.heading}</h1>
+            {menuLayout.showSubheading && (
+              <p className="text-muted-foreground mt-1 text-sm sm:text-base">
+                {menuLayout.subheading}
+              </p>
+            )}
           </div>
-          <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border self-start sm:self-auto ${
-            shopStatus.open
-              ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30'
-              : 'bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-500/30'
-          }`}>
-            <span className={`w-2 h-2 rounded-full ${shopStatus.open ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-            <span>{shopStatus.open ? `Ordering Open (${SHOP_HOURS_DISPLAY} PKT)` : `Closed · Opens ${shopStatus.opensAtLabel} PKT`}</span>
-          </div>
+          {menuLayout.showHoursBadge && (
+            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border self-start sm:self-auto ${
+              shopStatus.open
+                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30'
+                : 'bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-500/30'
+            }`}>
+              <span className={`w-2 h-2 rounded-full ${shopStatus.open ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+              <span>{shopStatus.open ? `Ordering Open (${SHOP_HOURS_DISPLAY} PKT)` : `Closed · Opens ${shopStatus.opensAtLabel} PKT`}</span>
+            </div>
+          )}
         </header>
 
         {!shopStatus.open && (
@@ -338,6 +374,19 @@ function MenuPage() {
               className="flex items-center gap-2 overflow-x-auto overscroll-x-contain snap-x py-1"
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
+              <button
+                type="button"
+                data-chip="all"
+                aria-current={activeCategory === 'all' ? 'true' : undefined}
+                onClick={() => scrollToSection('all')}
+                className={`min-h-[42px] h-[42px] sm:min-h-[38px] sm:h-[38px] px-4 sm:px-5 flex items-center justify-center rounded-full font-bold text-sm whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shrink-0 select-none ${
+                  activeCategory === 'all'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'bg-card text-muted-foreground border border-border hover:bg-accent hover:text-foreground'
+                }`}
+              >
+                All Products
+              </button>
               {visibleCategories.map(cat => (
                 <a 
                   key={cat.id}
@@ -363,8 +412,10 @@ function MenuPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-12 sm:space-y-14 pb-12 w-full min-w-0">
         {visibleCategories.length === 0 ? (
           <div className="text-center py-16 bg-card border border-border rounded-3xl p-6 space-y-4">
-            <p className="text-lg font-bold text-foreground">No items found matching &ldquo;{activeQuery}&rdquo;</p>
-            <p className="text-sm text-muted-foreground">Try another item name or view the full menu.</p>
+            <p className="text-lg font-bold text-foreground">
+              {menuLayout.emptySearchTitle} {activeQuery ? `"${activeQuery}"` : ''}
+            </p>
+            <p className="text-sm text-muted-foreground">{menuLayout.emptySearchSubtitle}</p>
             <button
               type="button"
               onClick={clearSearch}
@@ -373,6 +424,23 @@ function MenuPage() {
               Show Full Menu
             </button>
           </div>
+        ) : activeCategory === 'all' ? (
+          <section aria-labelledby="h-all-products" className="space-y-4 sm:space-y-6 w-full min-w-0">
+            <div className="flex items-baseline gap-4">
+              <h2 id="h-all-products" className="text-xl sm:text-3xl font-bold text-foreground">All Products</h2>
+              <div className="h-px bg-border flex-1"></div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5 lg:gap-6">
+              {visibleItems.map((item, itemIdx) => (
+                <ThreeDMenuCard
+                  key={item.id}
+                  item={item}
+                  onAddToCart={handleAddToCart}
+                  priority={itemIdx < 4}
+                />
+              ))}
+            </div>
+          </section>
         ) : (
           visibleCategories.map((cat, catIdx) => {
             const catItems = visibleItems.filter(i => i.category_id === cat.id);

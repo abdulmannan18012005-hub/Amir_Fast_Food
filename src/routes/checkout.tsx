@@ -7,7 +7,7 @@ import { quoteDeliveryFn } from '../server/pricingApi';
 import { refreshCartPricesFn } from '../server/menu';
 import { safeJson } from '../lib/storage';
 import { seo } from '../lib/seo';
-import { getCartSubtotal, saveCart } from '../lib/cart';
+import { getCartSubtotal, saveCart, getValidCompareAtPrice } from '../lib/cart';
 import { useShopStatus } from '../hooks/useShopStatus';
 import { useOrderDraft } from '../lib/orderDraft';
 import { submitOrder } from '../lib/orderSubmit';
@@ -172,6 +172,7 @@ function CheckoutPage() {
             ...c,
             name: db.name,
             price: Math.round(Number(db.price)),
+            original_price: getValidCompareAtPrice(db.price, db.original_price),
             variants: nextVariants,
           });
         }
@@ -398,6 +399,11 @@ function CheckoutPage() {
                 {shopStatus.closedMessage}
               </div>
             )}
+            {shopStatus.deviceDailyRemaining === 0 && (
+              <div role="alert" className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-2xl font-medium text-sm leading-relaxed">
+                Daily order limit reached ({shopStatus.deviceDailyLimit || 20} orders per device per day). Resets {shopStatus.deviceResetLabel || 'at 12:00 AM PKT'}. Need a bulk order? Call us on {SHOP_PHONE_LOCAL}.
+              </div>
+            )}
             {error && (
               <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl font-medium text-sm border border-red-100">
                 {error}
@@ -515,6 +521,18 @@ function CheckoutPage() {
                     <span className="text-muted-foreground">Subtotal</span>
                     <span className="font-bold">PKR {subtotal}</span>
                   </div>
+                  {(() => {
+                    const itemSavings = cartItems.reduce((sum, ci) => {
+                      const comp = getValidCompareAtPrice(ci.price, ci.original_price);
+                      return comp ? sum + (comp - Number(ci.price)) * (ci.quantity || 1) : sum;
+                    }, 0);
+                    return itemSavings > 0 ? (
+                      <div className="flex justify-between text-xs font-bold text-emerald-700">
+                        <span>Compare-at Price Savings</span>
+                        <span>-PKR {itemSavings.toLocaleString()}</span>
+                      </div>
+                    ) : null;
+                  })()}
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Delivery</span>
                     <span className="font-bold">
